@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TriggerType {
+  INACTIVITY
+  EVENT
+  SEGMENT_ENTRY
+}
+
+enum ActionType {
+  SEND_TELEGRAM_MESSAGE
+}
+
+// YENİ: Kullanıcı rollerini tanımlamak için
+enum Role {
+  OWNER   // Panel Sahibi (tüm yetkiler)
+  ADMIN   // Yönetici (kullanıcı ekleyip çıkarabilir)
+  MEMBER  // Üye (sadece verileri görebilir)
+}
+
+model Customer {
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  apiKey              String               @unique
+  telegramBotToken    String?
+  events              Event[]
+  telegramConnections TelegramConnection[]
+  rules               Rule[]
+  players             Player[]
+  segments            Segment[]
+  users               User[] // YENİ: Bu müşteriye bağlı kullanıcılar
+}
+
+// YENİ: Müşteri panellerine giriş yapacak kullanıcıları saklamak için
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  name       String
+  password   String   // Her zaman hash'lenmiş olarak saklanacak
+  role       Role     @default(MEMBER)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId Int
+}
+
+model Segment {
+  id          Int      @id @default(autoincrement())
+  name        String
+  isActive    Boolean  @default(true)
+  description String?
+  criteria    Json
+  customer    Customer @relation(fields: [customerId], references: [id])
+  customerId  Int
+  players     Player[] @relation("PlayerSegments")
+}
+
+model Player {
+  id                 Int                  @id @default(autoincrement())
+  playerId           String
+  email              String?
+  customer           Customer             @relation(fields: [customerId], references: [id])
+  customerId         Int
+  telegramConnection TelegramConnection?
+  segments           Segment[]            @relation("PlayerSegments")
+  @@unique([playerId, customerId])
+}
+
+model TelegramConnection {
+  id             Int    @id @default(autoincrement())
+  telegramChatId String
+  player         Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId       Int    @unique
+  customer       Customer @relation(fields: [customerId], references: [id])
+  customerId     Int
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  apiKey      String
+  sessionId   String
+  playerId    String?
+  eventName   String
+  url         String
+  parameters  Json?
+  customer    Customer @relation(fields: [customerId], references: [id])
+  customerId  Int
+}
+
+model Rule {
+  id                  Int           @id @default(autoincrement())
+  name                String
+  isActive            Boolean       @default(true)
+  triggerType         TriggerType
+  config              Json
+  customer            Customer      @relation(fields: [customerId], references: [id])
+  customerId          Int
+  variants            RuleVariant[]
+  conversionGoalEvent String?
+}
+
+model RuleVariant {
+  id            Int        @id @default(autoincrement())
+  name          String
+  actionType    ActionType
+  actionPayload Json
+  rule          Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleId        Int
+  exposures     Int        @default(0)
+  conversions   Int        @default(0)
+}
