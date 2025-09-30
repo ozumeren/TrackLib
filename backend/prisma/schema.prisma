@@ -1,7 +1,6 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -12,9 +11,13 @@ enum TriggerType {
   EVENT
   SEGMENT_ENTRY
 }
-
 enum ActionType {
   SEND_TELEGRAM_MESSAGE
+}
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
 }
 
 model Customer {
@@ -22,10 +25,7 @@ model Customer {
   name                String
   apiKey              String               @unique
   telegramBotToken    String?
-  
-  // YENİ: Müşteriye özel DOM seçicilerini saklamak için
-  domConfig           Json?                
-
+  domConfig           Json?
   events              Event[]
   telegramConnections TelegramConnection[]
   rules               Rule[]
@@ -34,15 +34,13 @@ model Customer {
   users               User[]
 }
 
-// ... (Diğer tüm modelleriniz: User, Player, Segment, vb. aynı kalıyor) ...
-// Tam şemayı aşağıya ekliyorum ki kopyala-yapıştır yaparken sorun olmasın.
-
+// --- DÜZELTME BU MODELDE ---
 model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
   name       String
   password   String
-  role       String   @default("MEMBER") // Rolleri string olarak tutmak daha esnek olabilir
+  role       Role     @default(MEMBER) // String yerine Role enum'ı kullanıldı
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   customerId Int
 }
@@ -113,4 +111,3 @@ model RuleVariant {
   exposures     Int        @default(0)
   conversions   Int        @default(0)
 }
-

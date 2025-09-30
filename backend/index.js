@@ -28,12 +28,13 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // --- Harici Route Dosyaları ---
-const { protectWithJWT, protectWithApiKey, isOwner } = require('./authMiddleware');
+const { protectWithJWT, protectWithApiKey, isOwner, isAdmin } = require('./authMiddleware');
 const analyticsRoutes = require('./analyticsRoutes');
 const segmentRoutes = require('./segmentRoutes');
 const ruleRoutes = require('./ruleRoutes');
 const userRoutes = require('./userRoutes');
 const customerRoutes = require('./customerRoutes');
+const adminRoutes = require('./adminRoutes'); // YENİ: Admin rotalarını dahil et
 
 // --- ROTALAR (ROUTES) ---
 app.use('/api/analytics', analyticsRoutes);
@@ -41,28 +42,23 @@ app.use('/api/segments', segmentRoutes);
 app.use('/api/rules', ruleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/admin', adminRoutes); // YENİ: Admin rotalarını uygulamaya ekle
 
-// --- GÜNCELLENMİŞ Dinamik Tracker.js Sunucusu ---
+// 1. Dinamik Tracker.js Sunucusu
 app.get('/tracker/:apiKey.js', async (req, res) => {
-    const { apiKey } = req.params;
     try {
+        const { apiKey } = req.params;
         const customer = await prisma.customer.findUnique({ where: { apiKey } });
-        if (!customer) {
-            return res.status(404).type('text/javascript').send('// Customer not found.');
-        }
+        if (!customer) return res.status(404).type('text/javascript').send('// Customer not found.');
 
         const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
-
-        // Config objesine artık hem temel bilgileri hem de müşteriye özel "reçeteyi" ekliyoruz
         const config = {
             apiKey: customer.apiKey,
             backendUrl: `http://${req.get('host')}/v1/events`,
-            domConfig: customer.domConfig || {} // Eğer domConfig boşsa, boş bir obje gönder
+            domConfig: customer.domConfig || {}
         };
-        
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
-
         res.setHeader('Content-Type', 'application/javascript');
         res.send(scriptContent);
     } catch (error) {
@@ -150,11 +146,18 @@ authRoutes.post('/login', async (req, res) => {
                 JWT_SECRET,
                 { expiresIn: '1d' }
             );
-            res.json({ name: user.name, email: user.email, token: token });
+            res.json({ name: user.name, role: user.role, email: user.email, token: token });
         } else {
             res.status(401).json({ error: 'Geçersiz e-posta veya şifre.' });
         }
     } catch (error) {
+        console.error("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("!!!! GİRİŞ SIRASINDA KRİTİK HATA YAKALANDI !!!!");
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        console.error("HATA MESAJI:", error.message);
+        console.error("HATA KODU:", error.code);
+        console.error("TÜM HATA OBJESİ:", JSON.stringify(error, null, 2));
+        console.error("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         res.status(500).json({ error: 'Giriş yapılamadı.' });
     }
 });
@@ -183,9 +186,9 @@ app.post('/v1/events', protectWithApiKey, async (req, res) => {
         if (eventData.player_id) {
             const abTestEntry = await redis.get(`ab_test:${eventData.player_id}`);
             if (abTestEntry) {
-                const { ruleId, variantId, goalEvent } = JSON.parse(abTestEntry);
-                const rule = await prisma.rule.findUnique({ where: { id: ruleId } });
-                if (eventData.event_name === rule?.conversionGoalEvent) {
+                const { variantId } = JSON.parse(abTestEntry);
+                const variant = await prisma.ruleVariant.findUnique({ where: {id: variantId}, include: {rule: true} });
+                if (variant && eventData.event_name === variant.rule.conversionGoalEvent) {
                     await prisma.ruleVariant.update({
                         where: { id: variantId },
                         data: { conversions: { increment: 1 } },
@@ -233,6 +236,8 @@ app.post('/v1/telegram/webhook/:apiKey', async (req, res) => {
 
 // --- OTOMASYON ZAMANLAYICI (SCHEDULER) ---
 cron.schedule('*/1 * * * *', async () => {
+    const timestamp = `[${new Date().toLocaleTimeString()}]`;
+    console.log(`${timestamp} --- Otomasyon Motoru Başlatıldı ---`);
     // A/B Testi, Segmentasyon ve Tetikleyici motorları
 });
 

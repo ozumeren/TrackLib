@@ -24,10 +24,16 @@ function Navbar() {
                     <Button component={RouterLink} to="/" variant="outline" color="white">Dashboard</Button>
                     <Button component={RouterLink} to="/segments" variant="outline" color="white">Segmentler</Button>
                     <Button component={RouterLink} to="/rules" variant="outline" color="white">Kurallar</Button>
+
+                    {/* YENİ: Sadece Admin'lerin göreceği link */}
+                    {user.role === 'ADMIN' && (
+                        <Button component={RouterLink} to="/admin/customers" variant="light" color="yellow">
+                            Yönetici Paneli
+                        </Button>
+                    )}
                     
                     <Menu shadow="md" width={200}>
                         <Menu.Target>
-                             {/* DEĞİŞİKLİK BURADA: rightIcon prop'u yerine Group bileşeni kullanıldı */}
                             <Button variant="outline" color="white">
                                 <Group spacing="xs">
                                     <Text>Hoş geldin, {user.name}</Text>

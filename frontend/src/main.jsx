@@ -4,12 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
 import App from './App.jsx';
 import { AuthProvider } from './AuthContext';
-
-// STİLLERİN YÜKLENMESİNİ SAĞLAYAN KRİTİK SATIR
 import '@mantine/core/styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+  // StrictMode etiketlerini bu test için geçici olarak kaldırıyoruz.
+  // <React.StrictMode> 
     <BrowserRouter>
       <MantineProvider withGlobalStyles withNormalizeCSS>
         <AuthProvider>
@@ -17,6 +16,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </AuthProvider>
       </MantineProvider>
     </BrowserRouter>
-  </React.StrictMode>,
 );
 

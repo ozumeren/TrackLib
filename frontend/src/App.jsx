@@ -11,6 +11,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './AuthContext';
 import AccountPage from './pages/AccountPage';
 import SettingsPage from './pages/SettingsPage';
+// YENİ YÖNETİCİ SAYFALARI
+import AdminCustomersPage from './pages/AdminCustomersPage';
+import AdminCustomerDetailPage from './pages/AdminCustomerDetailPage';
 
 function App() {
   const { token, loading } = useAuth();
@@ -19,11 +22,8 @@ function App() {
     return <LoadingOverlay visible={true} blur={2} />;
   }
 
-  // --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
-  // AppShell yerine daha basit bir Box yapısı kullanıyoruz
   return (
     <Box>
-      {/* Navbar'ı doğrudan, token varsa gösteriyoruz */}
       {token && <Navbar />}
       
       <Box p="md">
@@ -38,14 +38,16 @@ function App() {
           <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           
+          {/* YENİ YÖNETİCİ ROTALARI */}
+          <Route path="/admin/customers" element={<ProtectedRoute adminOnly={true}><AdminCustomersPage /></ProtectedRoute>} />
+          <Route path="/admin/customer/:id" element={<ProtectedRoute adminOnly={true}><AdminCustomerDetailPage /></ProtectedRoute>} />
+
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Box>
     </Box>
   );
-  // --- DEĞİŞİKLİK BURADA BİTİYOR ---
 }
 
 export default App;
-
 

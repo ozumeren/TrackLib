@@ -8,19 +8,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('[AuthContext] useEffect çalıştı. localStorage kontrol ediliyor...');
     try {
       const storedToken = localStorage.getItem('authToken');
       const storedUser = localStorage.getItem('authUser');
+
       if (storedToken && storedUser) {
-        console.log('[AuthContext] Kayıtlı oturum bulundu. Durum geri yükleniyor.');
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } else {
-        console.log('[AuthContext] Kayıtlı oturum bulunamadı.');
+        // localStorage'dan kullanıcı bilgilerini (rol dahil) geri yükle
+        setUser(JSON.parse(storedUser)); 
       }
     } catch (error) {
-        console.error('[AuthContext] localStorage okunurken bir hata oluştu:', error);
+        console.error('Oturum geri yüklenirken hata:', error);
         localStorage.clear();
         setToken(null);
         setUser(null);
@@ -30,20 +28,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (userData) => {
-    console.log('[AuthContext] Login fonksiyonu çağrıldı. Gelen Veri:', userData);
     if (userData && userData.token) {
+        // localStorage'a kullanıcı bilgilerini (rol dahil) kaydet
+        const userToStore = { name: userData.name, email: userData.email, role: userData.role };
         localStorage.setItem('authToken', userData.token);
-        localStorage.setItem('authUser', JSON.stringify({ name: userData.name, email: userData.email }));
+        localStorage.setItem('authUser', JSON.stringify(userToStore));
         setToken(userData.token);
-        setUser({ name: userData.name, email: userData.email });
-        console.log('[AuthContext] State güncellendi. Yeni Token:', userData.token);
-    } else {
-        console.error('[AuthContext] Login fonksiyonu çağrıldı ancak gelen veri geçersiz veya token eksik.');
+        setUser(userToStore);
     }
   };
 
   const logout = () => {
-    console.log('[AuthContext] Logout fonksiyonu çağrıldı.');
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
     setToken(null);
