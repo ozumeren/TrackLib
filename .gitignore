@@ -11,7 +11,7 @@ pm2.log*
 /logs
 /.pm2/logs/
 
-# Ortam Değişkenleri - ASLA GITHUB'A GÖNDERMEYİN!
+# Ortam Değişkenleri 
 .env
 .env.*
 
