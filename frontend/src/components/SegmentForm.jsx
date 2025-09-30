@@ -3,13 +3,12 @@ import { Modal, Button, TextInput, Textarea, Group, Stack, Select, NumberInput, 
 import { useEffect } from 'react';
 import { IconTrash } from '@tabler/icons-react';
 
-// Kullanıcının seçebileceği kural türleri
+// DEĞİŞİKLİK BURADA: Yeni seçenek eklendi
 const ruleFacts = [
-  { value: 'loginCount', label: 'Giriş Sayısı' },
-  // Gelecekte eklenebilecekler: { value: 'totalDeposit', label: 'Toplam Yatırım Tutarı' }
+  { value: 'loginCount', label: 'Giriş Sayısı (Son X Gün)' },
+  { value: 'totalDeposit', label: 'Toplam Yatırım Tutarı' }
 ];
 
-// Kullanıcının seçebileceği operatörler
 const ruleOperators = [
   { value: 'greaterThanOrEqual', label: 'Büyük veya Eşit' },
   // Gelecekte eklenebilecekler: { value: 'lessThan', label: 'Küçük' }, { value: 'equals', label: 'Eşit' }
@@ -20,7 +19,7 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
     initialValues: {
       name: '',
       description: '',
-      rules: [], // Artık bir metin değil, bir kural objeleri dizisi
+      rules: [],
     },
     validate: {
       name: (value) => (value.trim().length > 0 ? null : 'Segment adı zorunludur.'),
@@ -44,7 +43,7 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
       form.setFieldValue('rules', []);
     }
   }, [segment, isOpen]);
-
+  
   const handleSubmit = (values) => {
     // Formdaki kural dizisini, backend'in beklediği JSON formatına çevir
     const payload = {
@@ -57,7 +56,6 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
     onSave(payload, segment?.id);
   };
 
-  // Formdaki kural satırlarını oluştur
   const ruleFields = form.values.rules.map((item, index) => (
     <Group key={index} mt="xs" grow>
       <Select
@@ -101,7 +99,6 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
             {...form.getInputProps('description')}
           />
 
-          {/* Dinamik Kural Oluşturucu */}
           <Stack spacing="xs">
             <Text weight={500} size="sm">Kriterler</Text>
             {ruleFields.length > 0 ? ruleFields : <Text color="dimmed" align="center" p="md">Henüz kural eklenmedi.</Text>}

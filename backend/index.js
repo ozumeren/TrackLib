@@ -234,23 +234,151 @@ app.post('/v1/telegram/webhook/:apiKey', async (req, res) => {
     res.sendStatus(200);
 });
 
-// --- OTOMASYON ZAMANLAYICI (SCHEDULER) ---
 cron.schedule('*/1 * * * *', async () => {
     const timestamp = `[${new Date().toLocaleTimeString()}]`;
     console.log(`${timestamp} --- Otomasyon Motoru Başlatıldı ---`);
-    // A/B Testi, Segmentasyon ve Tetikleyici motorları
+
+    // --- BÖLÜM 1: A/B Testi Motoru (Pasiflik) ---
+    try {
+        const inactivityRules = await prisma.rule.findMany({
+            where: { isActive: true, triggerType: 'INACTIVITY', variants: { some: {} } },
+            include: { customer: true, variants: true },
+        });
+
+        for (const rule of inactivityRules) {
+            if (rule.variants.length < 2) continue;
+            const inactivityMinutes = rule.config.minutes || 2;
+            const threshold = new Date(Date.now() - inactivityMinutes * 60 * 1000);
+            const activePlayerEvents = await prisma.event.findMany({
+                where: { customerId: rule.customerId, eventName: 'login_successful', createdAt: { gte: threshold } },
+                select: { playerId: true }, distinct: ['playerId'],
+            });
+            const activePlayerIds = activePlayerEvents.map(e => e.playerId).filter(id => id);
+            const allPlayersWithConnections = await prisma.player.findMany({
+                where: { customerId: rule.customerId, NOT: { playerId: { in: activePlayerIds } } },
+                include: { telegramConnection: true }
+            });
+
+            if (allPlayersWithConnections.length > 0 && rule.customer.telegramBotToken) {
+                const bot = new TelegramBot(rule.customer.telegramBotToken);
+                for (const player of allPlayersWithConnections) {
+                    if (player.telegramConnection) {
+                        const variantIndex = Math.floor(Math.random() * rule.variants.length);
+                        const assignedVariant = rule.variants[variantIndex];
+                        
+                        const abTestPayload = { ruleId: rule.id, variantId: assignedVariant.id };
+                        await redis.set(`ab_test:${player.playerId}`, JSON.stringify(abTestPayload), 'EX', 60 * 60 * 24 * 7);
+
+                        let message = assignedVariant.actionPayload.messageTemplate || "Seni özledik!";
+                        message = message.replace('{playerName}', player.playerId);
+                        await bot.sendMessage(player.telegramConnection.telegramChatId, message);
+                        await prisma.ruleVariant.update({
+                            where: { id: assignedVariant.id },
+                            data: { exposures: { increment: 1 } },
+                        });
+                        console.log(`--> [${rule.name}] Oyuncu ${player.playerId}, [${assignedVariant.name}] varyantına atandı.`);
+                        await prisma.player.delete({ where: { id: player.id } });
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`${timestamp} A/B Testi motoru hatası:`, error);
+    }
+
+    // --- BÖLÜM 2: SEGMENTASYON MOTORU VE TETİKLEYİCİ ---
+    try {
+        const segmentsBefore = await prisma.segment.findMany({
+            include: { players: { select: { id: true } } }
+        });
+        const segmentMapBefore = new Map(segmentsBefore.map(s => [s.id, new Set(s.players.map(p => p.id))]));
+
+        const segmentsToProcess = await prisma.segment.findMany();
+        for (const segment of segmentsToProcess) {
+            const players = await prisma.player.findMany({ where: { customerId: segment.customerId } });
+            const playersToConnect = [];
+            for (const player of players) {
+                let matchesAllCriteria = true;
+                if (!segment.criteria || !Array.isArray(segment.criteria.rules)) continue;
+                for (const criteria of segment.criteria.rules) {
+                    let playerStat = 0;
+                    if (criteria.fact === 'loginCount') {
+                       const periodInDays = criteria.periodInDays || 30;
+                       const startDate = new Date(Date.now() - periodInDays * 24 * 60 * 60 * 1000);
+                       playerStat = await prisma.event.count({
+                           where: { playerId: player.playerId, customerId: segment.customerId, eventName: 'login_successful', createdAt: { gte: startDate } }
+                       });
+                    }
+                    if (criteria.fact === 'totalDeposit') {
+                        const depositEvents = await prisma.event.findMany({
+                            where: {
+                                playerId: player.playerId, customerId: segment.customerId,
+                                eventName: 'deposit_successful',
+                                parameters: { path: ['amount'], not: 'null' }
+                            }
+                        });
+                        playerStat = depositEvents.reduce((total, event) => {
+                            if (event.parameters && typeof event.parameters.amount === 'number') {
+                                return total + event.parameters.amount;
+                            }
+                            return total;
+                        }, 0);
+                    }
+                    let match = false;
+                    if (criteria.operator === 'greaterThanOrEqual' && playerStat >= criteria.value) match = true;
+                    if (!match) {
+                        matchesAllCriteria = false;
+                        break; 
+                    }
+                }
+                if (matchesAllCriteria) {
+                    playersToConnect.push({ id: player.id });
+                }
+            }
+            await prisma.segment.update({
+                where: { id: segment.id },
+                data: { players: { set: playersToConnect } }
+            });
+        }
+        
+        const segmentsAfter = await prisma.segment.findMany({
+            where: { id: { in: [...segmentMapBefore.keys()] } },
+            include: { players: { select: { id: true, playerId: true } } }
+        });
+
+        const segmentEntryRules = await prisma.rule.findMany({
+            where: { isActive: true, triggerType: 'SEGMENT_ENTRY' },
+            include: { customer: true, variants: true }
+        });
+
+        for (const segment of segmentsAfter) {
+            const playersBefore = segmentMapBefore.get(segment.id) || new Set();
+            for (const playerAfter of segment.players) {
+                if (!playersBefore.has(playerAfter.id)) {
+                    console.log(`Oyuncu [${playerAfter.playerId}], [${segment.name}] segmentine YENİ GİRDİ.`);
+                    for (const rule of segmentEntryRules) {
+                        if (rule.config.segmentId === segment.id) {
+                            const player = await prisma.player.findUnique({ where: { id: playerAfter.id }, include: { telegramConnection: true } });
+                            if (player && player.telegramConnection && rule.customer.telegramBotToken && rule.variants.length > 0) {
+                                const bot = new TelegramBot(rule.customer.telegramBotToken);
+                                const variant = rule.variants[Math.floor(Math.random() * rule.variants.length)];
+                                let message = variant.actionPayload.messageTemplate.replace('{playerName}', player.playerId);
+                                await bot.sendMessage(player.telegramConnection.telegramChatId, message);
+                                await prisma.ruleVariant.update({
+                                    where: { id: variant.id },
+                                    data: { exposures: { increment: 1 } },
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`${timestamp} Segmentasyon/Tetikleyici motoru hatası:`, error);
+    }
 });
 
-// --- Veritabanı "Isıtma" Fonksiyonu ---
-async function connectToDatabase() {
-    try {
-        await prisma.$queryRaw`SELECT 1`;
-        console.log("Veritabanı bağlantısı başarılı.");
-    } catch (error) {
-        console.error("!!! Veritabanına bağlanılamadı. !!!");
-        process.exit(1);
-    }
-}
 
 // --- SUNUCUYU BAŞLATMA ---
 app.listen(PORT, '0.0.0.0', async () => {
