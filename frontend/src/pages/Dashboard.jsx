@@ -1,48 +1,76 @@
 import { useState, useEffect } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom'; // useNavigate'i import et
 import axios from 'axios';
-import { Stack, Title, Text, Card, SimpleGrid, Group, Loader, Alert, Anchor, Box } from '@mantine/core';
-import { useAuth } from '../AuthContext'; // 1. Adım: AuthContext'i import et
+import { Box, Stack, Title, Text, Card, SimpleGrid, Group, Loader, Alert, Anchor, TextInput, Button } from '@mantine/core';
+import { useAuth } from '../AuthContext';
+import { IconSearch } from '@tabler/icons-react'; // Arama ikonunu import et
 
 function Dashboard() {
-  const { token } = useAuth(); // 2. Adım: Giriş yapmış kullanıcının jetonunu al
+  const { token } = useAuth();
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // --- YENİ EKLENEN KISIM ---
+  const [searchId, setSearchId] = useState('');
+  const navigate = useNavigate();
+  // --- YENİ KISIM SONU ---
 
   useEffect(() => {
     const fetchSummaryData = async () => {
-      // 3. Adım: Jeton yoksa istek göndermeyi deneme
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+      if (!token) return;
       try {
-        setLoading(true);
-        // 4. Adım: Sabit API anahtarı yerine dinamik jetonu kullan
         const response = await axios.get('/api/analytics/summary', {
-          headers: {
-            'Authorization': `Bearer ${token}` // Jetonu Authorization başlığına ekle
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setSummaryData(response.data.last_24_hours);
-        setError(null);
       } catch (err) { 
         setError('Veri çekilirken bir hata oluştu.');
-        console.error(err);
       } finally { 
         setLoading(false);
       }
     };
     fetchSummaryData();
-  }, [token]); // 5. Adım: Jeton değiştiğinde (örn: giriş yapıldığında) veriyi yeniden çek
+  }, [token]);
+
+  // --- YENİ FONKSİYON ---
+  const handleSearch = () => {
+    if (searchId.trim()) {
+      navigate(`/journey/${searchId.trim()}`);
+    }
+  };
+  // --- YENİ FONKSİYON SONU ---
 
   if (loading) return <Group position="center"><Loader /></Group>;
-  if (error) return <Alert color="red" title="Hata">{error}</Alert>;
+  if (error) return <Alert color="red">{error}</Alert>;
 
   return (
     <Stack spacing="lg">
       <Title order={2}>iGaming Tracker Dashboard</Title>
+      
+      {/* --- YENİ KART: OYUNCU ARAMA --- */}
+      <Card shadow="sm" p="lg" radius="md" withBorder>
+          <Title order={4}>Oyuncu Ara</Title>
+          <Text size="sm" color="dimmed" mt={5}>
+            Detaylı hareketlerini görmek için bir oyuncu ID'si arayın.
+          </Text>
+          <Group mt="md">
+            <TextInput
+              placeholder="Örn: USR-123"
+              value={searchId}
+              onChange={(event) => setSearchId(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleSearch();
+              }}
+              style={{ flex: 1 }}
+            />
+            <Button onClick={handleSearch} leftSection={<IconSearch size={16} />}>
+              Ara
+            </Button>
+          </Group>
+      </Card>
+      {/* --- YENİ KART SONU --- */}
+
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Title order={4}>Son 24 Saat Özeti</Title>
         {summaryData ? (
@@ -54,6 +82,7 @@ function Dashboard() {
           </SimpleGrid>
         ) : (<Text>Veri bulunamadı.</Text>)}
       </Card>
+      
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Title order={4}>Son Aktif Oyuncular</Title>
         {summaryData?.uniquePlayers?.length > 0 ? (
