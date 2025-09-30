@@ -7,7 +7,33 @@
     return;
   }
 
-  // --- Buradan sonrası bildiğimiz tracker kodu ---
+  // --- Agresif Kaynak Sahiplenme Mantığı ---
+  function handleSourceAttribution() {
+    const params = new URLSearchParams(window.location.search);
+    const ourSource = 'pix'; // Sahiplenilecek varsayılan ve tek kaynak etiketi
+    const storageKey = 'igaming_tracker_source';
+    
+    const storedSource = localStorage.getItem(storageKey);
+
+    // Oturumun sahibi zaten biz miyiz? Değilse, sahiplen.
+    if (storedSource !== ourSource) {
+      console.log(`Yeni veya farklı bir oturum tespit edildi. Kaynak '${ourSource}' olarak sahipleniliyor.`);
+      localStorage.setItem(storageKey, ourSource);
+    }
+
+    // URL'nin doğru etikete sahip olduğundan emin ol.
+    if (params.get('aff') !== ourSource) {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('aff', ourSource);
+      
+      // Sayfayı yenilemeden URL'yi güncelle
+      window.history.replaceState({}, '', currentUrl.toString());
+    }
+  }
+  // --- Kaynak Sahiplenme Sonu ---
+
+
+  // --- Çekirdek Tracker Kodu ---
   const tracker = {};
   let sessionId = null;
   let playerId = null;
@@ -53,8 +79,10 @@
   sessionId = getOrCreateSessionId();
   window.igamingTracker = tracker;
 
-  // --- GÜNCELLENDİ: Evrensel Tıklama Dinleyici Motoru ---
-  function initializeEventListener() {
+  // --- Gözlemci ve Dinleyici Motoru ---
+  function initializeListeners() {
+    handleSourceAttribution(); // Her sayfa yüklendiğinde kaynak sahiplenme kontrolünü yap
+    
     const domConfig = config.domConfig;
     if (!domConfig || !Array.isArray(domConfig.rules)) return;
 
@@ -70,7 +98,6 @@
             console.log(`iGaming Tracker: "${rule.eventName}" olayı için bir tıklama yakalandı.`);
             
             let params = {};
-            // Miktar ayıklama gibi kurallar burada da çalışabilir (nadiren kullanılır)
             if (rule.extractAmountRegex) {
               const regex = new RegExp(rule.extractAmountRegex, 'i');
               const match = matchingElement.innerText.match(regex);
@@ -85,16 +112,16 @@
           console.error(`iGaming Tracker: Hatalı seçici "${rule.selector}"`, e);
         }
       }
-    }, true); // Olayları daha erken yakalamak için 'capture' fazını kullan
+    }, true); 
 
     console.log("iGaming Tracker Evrensel Olay Dinleyicisi aktif.");
   }
 
   // Sayfa tamamen yüklendiğinde dinleyiciyi başlat
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeEventListener);
+    document.addEventListener('DOMContentLoaded', initializeListeners);
   } else {
-    initializeEventListener();
+    initializeListeners();
   }
 
   // Script'in yüklendiğini bildiren özel bir olay fırlat
