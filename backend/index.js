@@ -42,20 +42,27 @@ app.use('/api/rules', ruleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
 
-// 1. Dinamik Tracker.js Sunucusu
+// --- GÜNCELLENMİŞ Dinamik Tracker.js Sunucusu ---
 app.get('/tracker/:apiKey.js', async (req, res) => {
+    const { apiKey } = req.params;
     try {
-        const { apiKey } = req.params;
         const customer = await prisma.customer.findUnique({ where: { apiKey } });
-        if (!customer) return res.status(404).type('text/javascript').send('// Customer not found.');
+        if (!customer) {
+            return res.status(404).type('text/javascript').send('// Customer not found.');
+        }
 
         const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
+
+        // Config objesine artık hem temel bilgileri hem de müşteriye özel "reçeteyi" ekliyoruz
         const config = {
             apiKey: customer.apiKey,
-            backendUrl: `http://${req.get('host')}/v1/events`
+            backendUrl: `http://${req.get('host')}/v1/events`,
+            domConfig: customer.domConfig || {} // Eğer domConfig boşsa, boş bir obje gönder
         };
+        
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
+
         res.setHeader('Content-Type', 'application/javascript');
         res.send(scriptContent);
     } catch (error) {

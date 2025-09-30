@@ -1,29 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Test Casino</title>
-    <script src="tracker.js"></script>
-    <script>
-        tracker.init('MUSTERI_XXXX_API_ANAHTARI');
-    </script>
+    <title>Test Casino - Yeni Gözlemci Yöntemi</title>
 </head>
 <body>
     <h1>Test Casino Sitesi</h1>
-    <p>Butonlara tıkladığınızda backend terminalini ve tarayıcı konsolunu kontrol edin.</p>
-    <button id="loginBtn">Giriş Yap (USR-FINAL-TEST)</button>
+    <p>Butonlara tıklandığında, gözlemci script'i olayı otomatik olarak yakalamalıdır.</p>
+
+    <button id="loginBtn">Giriş Yap (USR-123)</button>
     <button id="depositBtn">Para Yatırma Sayfasını Ziyaret Et</button>
 
-    <script>
-        tracker.track('page_view', { page_title: 'Ana Sayfa' });
-
-        document.getElementById('loginBtn').addEventListener('click', () => {
-            tracker.identify('USR-FINAL-TEST');
-            tracker.track('login_successful');
-        });
-
-        document.getElementById('depositBtn').addEventListener('click', () => {
-            tracker.track('deposit_page_view', { currency: 'TRY' });
-        });
-    </script>
+    <!-- Müşterinin ekleyeceği tek satır bu -->
+    <script src="http://37.27.72.40:3000/tracker/MUSTERI_XXXX_API_ANAHTARI.js" async defer></script>
 </body>
 </html>

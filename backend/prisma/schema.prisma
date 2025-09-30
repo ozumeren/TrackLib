@@ -17,33 +17,32 @@ enum ActionType {
   SEND_TELEGRAM_MESSAGE
 }
 
-// YENİ: Kullanıcı rollerini tanımlamak için
-enum Role {
-  OWNER   // Panel Sahibi (tüm yetkiler)
-  ADMIN   // Yönetici (kullanıcı ekleyip çıkarabilir)
-  MEMBER  // Üye (sadece verileri görebilir)
-}
-
 model Customer {
   id                  Int                  @id @default(autoincrement())
   name                String
   apiKey              String               @unique
   telegramBotToken    String?
+  
+  // YENİ: Müşteriye özel DOM seçicilerini saklamak için
+  domConfig           Json?                
+
   events              Event[]
   telegramConnections TelegramConnection[]
   rules               Rule[]
   players             Player[]
   segments            Segment[]
-  users               User[] // YENİ: Bu müşteriye bağlı kullanıcılar
+  users               User[]
 }
 
-// YENİ: Müşteri panellerine giriş yapacak kullanıcıları saklamak için
+// ... (Diğer tüm modelleriniz: User, Player, Segment, vb. aynı kalıyor) ...
+// Tam şemayı aşağıya ekliyorum ki kopyala-yapıştır yaparken sorun olmasın.
+
 model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
   name       String
-  password   String   // Her zaman hash'lenmiş olarak saklanacak
-  role       Role     @default(MEMBER)
+  password   String
+  role       String   @default("MEMBER") // Rolleri string olarak tutmak daha esnek olabilir
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   customerId Int
 }
@@ -71,10 +70,10 @@ model Player {
 }
 
 model TelegramConnection {
-  id             Int    @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   telegramChatId String
-  player         Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  playerId       Int    @unique
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId       Int      @unique
   customer       Customer @relation(fields: [customerId], references: [id])
   customerId     Int
 }
@@ -114,3 +113,4 @@ model RuleVariant {
   exposures     Int        @default(0)
   conversions   Int        @default(0)
 }
+
