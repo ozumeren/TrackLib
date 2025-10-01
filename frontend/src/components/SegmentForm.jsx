@@ -11,10 +11,13 @@ const ruleFacts = [
 
 // Kullanıcının seçebileceği operatörler
 const ruleOperators = [
-  { value: 'greaterThanOrEqual', label: 'Büyük veya Eşit' },
-  // Gelecekte eklenebilecekler: { value: 'lessThan', label: 'Küçük' }, { value: 'equals', label: 'Eşit' }
+  { value: 'greaterThanOrEqual', label: '≥ (Büyük veya Eşit)' },
+  { value: 'lessThanOrEqual',    label: '≤ (Küçük veya Eşit)' },
+  { value: 'greaterThan',        label: '> (Büyük)' },
+  { value: 'lessThan',           label: '< (Küçük)' },
+  { value: 'equals',             label: '= (Eşit)' },
+  { value: 'notEquals',          label: '≠ (Eşit Değil)' },
 ];
-
 function SegmentForm({ isOpen, onClose, onSave, segment }) {
   const form = useForm({
     initialValues: {
