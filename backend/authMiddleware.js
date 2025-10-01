@@ -40,9 +40,32 @@ const isAdmin = (req, res, next) => {
 };
 
 
-const protectWithApiKey = async (req, res, next) => {
-    // ... (Bu fonksiyon aynı kalıyor) ...
-};
+async function protectWithApiKey(req, res, next) {
+    try {
+        const apiKey = req.body.api_key || req.query.api_key || req.headers['x-api-key'];
+
+        if (!apiKey) {
+            // HATA 1: API Key hiç yoksa, yanıt gönder ve bitir.
+            return res.status(401).json({ error: 'API anahtarı gerekli.' });
+        }
+
+        const customer = await prisma.customer.findUnique({ where: { apiKey } });
+
+        if (!customer) {
+            // HATA 2: API Key geçersizse, yanıt gönder ve bitir.
+            return res.status(403).json({ error: 'Geçersiz API anahtarı.' });
+        }
+
+        // BAŞARILI: Müşteri bulundu. Bilgiyi 'req' objesine ekle ve bir sonraki adıma geç.
+        req.customer = customer;
+        next(); // <<< EN ÖNEMLİ KISIM
+
+    } catch (error) {
+        console.error('API Key Middleware Hatası:', error);
+        // HATA 3: Beklenmedik bir hata olursa, yanıt gönder ve bitir.
+        return res.status(500).json({ error: 'Sunucu hatası.' });
+    }
+}
 
 module.exports = { protectWithJWT, isOwner, isAdmin, protectWithApiKey }; // isAdmin'i export et
 

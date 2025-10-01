@@ -1,16 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Test Casino - Yeni Gözlemci Yöntemi</title>
+    <title>Test Casino - Nihai Entegrasyon</title>
 </head>
 <body>
     <h1>Test Casino Sitesi</h1>
-    <p>Butonlara tıklandığında, gözlemci script'i olayı otomatik olarak yakalamalıdır.</p>
+    <p>Bu testte, oyuncunun "giriş yapmış" olduğunu varsayıyor ve kimliğini sayfa yüklendiğinde bildiriyoruz.</p>
 
-    <button id="loginBtn">Giriş Yap (USR-123)</button>
-    <button id="depositBtn">Para Yatırma Sayfasını Ziyaret Et</button>
+    <button id="loginBtn">Olay Tetikle (login_successful)</button>
+    <button id="depositBtn">Olay Tetikle (deposit_page_view)</button>
 
-    <!-- Müşterinin ekleyeceği tek satır bu -->
+    <!-- 1. Müşterinin ekleyeceği ana script (Bu, kaynak sahiplenmeyi ve olay dinlemeyi otomatik yapar) -->
     <script src="http://37.27.72.40:3000/tracker/MUSTERI_XXXX_API_ANAHTARI.js" async defer></script>
+
+    <!-- 2. Müşterinin, oyuncu giriş yaptıktan sonra ekleyeceği kimlik bildirme script'i -->
+    <script>
+        const loggedInPlayerId = 'USR-123'; 
+
+        // Ana tracker script'imizin yüklenmesini bekleyelim
+        document.addEventListener('igamingTracker:loaded', function() {
+            console.log(`Test Sayfası: Oyuncu ${loggedInPlayerId} için kimlik bildiriliyor...`);
+            
+            if (window.igamingTracker) {
+                window.igamingTracker.identify(loggedInPlayerId);
+            }
+        });
+    </script>
 </body>
 </html>
+
+

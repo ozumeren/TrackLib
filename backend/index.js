@@ -165,7 +165,8 @@ app.use('/api/auth', authRoutes);
 
 // 4. Olay Toplama ve Telegram Webhook Rotaları
 app.post('/v1/events', protectWithApiKey, async (req, res) => {
-    const eventData = req.body;
+	console.log('--- İSTEK ŞİMDİ ULAŞTI! ---'); // Test için bir log ekleyin
+ const eventData = req.body;
     const customer = req.customer;
     try {
         if (eventData.player_id) {
