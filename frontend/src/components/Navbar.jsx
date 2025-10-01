@@ -16,7 +16,7 @@ function Navbar() {
     <Box component="nav" p="md" style={{ backgroundColor: '#228be6', color: 'white' }}>
       <Group position="apart">
         <Title order={3} component={RouterLink} to="/" style={{ color: 'white', textDecoration: 'none' }}>
-          iGaming Tracker
+          TrackLib
         </Title>
         <Group>
             {user ? (
@@ -24,7 +24,7 @@ function Navbar() {
                     <Button component={RouterLink} to="/" variant="outline" color="white">Dashboard</Button>
                     <Button component={RouterLink} to="/segments" variant="outline" color="white">Segmentler</Button>
                     <Button component={RouterLink} to="/rules" variant="outline" color="white">Kurallar</Button>
-
+		    <Button component={RouterLink} to="/abandoned-deposits" variant="outline" color="white">Terk Edilmiş Yatırımlar</Button>
                     {/* YENİ: Sadece Admin'lerin göreceği link */}
                     {user.role === 'ADMIN' && (
                         <Button component={RouterLink} to="/admin/customers" variant="light" color="yellow">

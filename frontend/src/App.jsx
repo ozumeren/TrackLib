@@ -11,7 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './AuthContext';
 import AccountPage from './pages/AccountPage';
 import SettingsPage from './pages/SettingsPage';
-// YENİ YÖNETİCİ SAYFALARI
+import AbandonedDepositsPage from './pages/AbandonedDepositsPage';
 import AdminCustomersPage from './pages/AdminCustomersPage';
 import AdminCustomerDetailPage from './pages/AdminCustomerDetailPage';
 
@@ -37,8 +37,7 @@ function App() {
           <Route path="/journey/:playerId" element={<ProtectedRoute><PlayerJourney /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          
-          {/* YENİ YÖNETİCİ ROTALARI */}
+          <Route path="/abandoned-deposits" element={<ProtectedRoute><AbandonedDepositsPage /></ProtectedRoute>} />
           <Route path="/admin/customers" element={<ProtectedRoute adminOnly={true}><AdminCustomersPage /></ProtectedRoute>} />
           <Route path="/admin/customer/:id" element={<ProtectedRoute adminOnly={true}><AdminCustomerDetailPage /></ProtectedRoute>} />
 

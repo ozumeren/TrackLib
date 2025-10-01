@@ -46,7 +46,7 @@ function Dashboard() {
 
   return (
     <Stack spacing="lg">
-      <Title order={2}>iGaming Tracker Dashboard</Title>
+      <Title order={2}>TrackLib Dashboard</Title>
       
       {/* --- YENİ KART: OYUNCU ARAMA --- */}
       <Card shadow="sm" p="lg" radius="md" withBorder>

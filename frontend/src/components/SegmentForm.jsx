@@ -3,12 +3,13 @@ import { Modal, Button, TextInput, Textarea, Group, Stack, Select, NumberInput, 
 import { useEffect } from 'react';
 import { IconTrash } from '@tabler/icons-react';
 
-// DEĞİŞİKLİK BURADA: Yeni seçenek eklendi
+// Kullanıcının seçebileceği kural türleri
 const ruleFacts = [
   { value: 'loginCount', label: 'Giriş Sayısı (Son X Gün)' },
   { value: 'totalDeposit', label: 'Toplam Yatırım Tutarı' }
 ];
 
+// Kullanıcının seçebileceği operatörler
 const ruleOperators = [
   { value: 'greaterThanOrEqual', label: 'Büyük veya Eşit' },
   // Gelecekte eklenebilecekler: { value: 'lessThan', label: 'Küçük' }, { value: 'equals', label: 'Eşit' }
@@ -19,7 +20,7 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
     initialValues: {
       name: '',
       description: '',
-      rules: [],
+      rules: [], // Artık bir metin değil, bir kural objeleri dizisi
     },
     validate: {
       name: (value) => (value.trim().length > 0 ? null : 'Segment adı zorunludur.'),
@@ -39,6 +40,7 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
         rules: segment.criteria.rules,
       });
     } else {
+      // Yeni segment modunda formu ve kuralları sıfırla
       form.reset();
       form.setFieldValue('rules', []);
     }
@@ -56,6 +58,7 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
     onSave(payload, segment?.id);
   };
 
+  // Formdaki kural satırlarını oluştur
   const ruleFields = form.values.rules.map((item, index) => (
     <Group key={index} mt="xs" grow>
       <Select
@@ -72,6 +75,13 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
         placeholder="Değer"
         {...form.getInputProps(`rules.${index}.value`)}
       />
+      {/* "Giriş Sayısı" seçildiğinde gün periyodu girişi göster */}
+      {form.values.rules[index].fact === 'loginCount' && (
+        <NumberInput
+          placeholder="Gün Periyodu"
+          {...form.getInputProps(`rules.${index}.periodInDays`)}
+        />
+      )}
       <ActionIcon color="red" onClick={() => form.removeListItem('rules', index)}>
         <IconTrash size={16} />
       </ActionIcon>
@@ -99,13 +109,14 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
             {...form.getInputProps('description')}
           />
 
+          {/* Dinamik Kural Oluşturucu */}
           <Stack spacing="xs">
             <Text weight={500} size="sm">Kriterler</Text>
             {ruleFields.length > 0 ? ruleFields : <Text color="dimmed" align="center" p="md">Henüz kural eklenmedi.</Text>}
             <Group position="left" mt="md">
               <Button 
                 variant="light" 
-                onClick={() => form.insertListItem('rules', { fact: '', operator: 'greaterThanOrEqual', value: 0 })}>
+                onClick={() => form.insertListItem('rules', { fact: '', operator: 'greaterThanOrEqual', value: 0, periodInDays: 30 })}>
                 + Kural Ekle
               </Button>
             </Group>
@@ -122,3 +133,4 @@ function SegmentForm({ isOpen, onClose, onSave, segment }) {
 }
 
 export default SegmentForm;
+

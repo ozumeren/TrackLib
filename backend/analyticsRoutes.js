@@ -79,5 +79,68 @@ router.post('/funnel', protectWithJWT, async (req, res) => {
     }
 });
 
+router.get('/abandoned-deposits', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const days = parseInt(req.query.days || '7', 10);
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    try {
+        // 1. Adım ve 2. Adım (Aynı kalıyor)
+        const viewedDepositPagePlayers = await prisma.event.findMany({
+            where: { customerId, eventName: 'deposit_page_view', createdAt: { gte: startDate }, playerId: { not: null } },
+            distinct: ['playerId'], select: { playerId: true },
+        });
+        const viewedPlayerIds = new Set(viewedDepositPagePlayers.map(p => p.playerId));
+
+        const successfulDepositPlayers = await prisma.event.findMany({
+            where: { customerId, eventName: 'deposit_successful', createdAt: { gte: startDate }, playerId: { in: Array.from(viewedPlayerIds) } },
+            distinct: ['playerId'], select: { playerId: true },
+        });
+        const successfulPlayerIds = new Set(successfulDepositPlayers.map(p => p.playerId));
+
+        // 3. Adım (Aynı kalıyor)
+        const abandonedPlayerIds = [...viewedPlayerIds].filter(id => !successfulPlayerIds.has(id));
+
+        if (abandonedPlayerIds.length === 0) {
+            return res.json({ periodInDays: days, abandonedCount: 0, players: [] });
+        }
+
+        // 4. YENİ Adım: Terk eden her oyuncunun en son denediği yatırım miktarını bul.
+        const abandonedPlayersWithAmount = await Promise.all(
+            abandonedPlayerIds.map(async (playerId) => {
+                const lastAttempt = await prisma.event.findFirst({
+                    where: {
+                        customerId,
+                        playerId,
+                        eventName: 'deposit_page_view',
+                        createdAt: { gte: startDate },
+                        // parameters alanının 'amount' anahtarına sahip olduğundan emin ol
+                        parameters: { path: ['amount'], not: 'null' }
+                    },
+                    orderBy: { createdAt: 'desc' }, // En son denemeyi bul
+                });
+
+                return {
+                    playerId: playerId,
+                    // Eğer 'amount' parametresi varsa onu, yoksa null döndür
+                    lastAttemptedAmount: lastAttempt?.parameters?.amount || null,
+                    lastAttemptDate: lastAttempt?.createdAt || null,
+                };
+            })
+        );
+
+        res.json({
+            periodInDays: days,
+            abandonedCount: abandonedPlayersWithAmount.length,
+            players: abandonedPlayersWithAmount,
+        });
+
+    } catch (error) {
+        console.error("Terk edilmiş yatırım analizi hatası:", error);
+        res.status(500).json({ error: 'Veri analizi yapılamadı.' });
+    }
+});
+
+
 module.exports = router;
 

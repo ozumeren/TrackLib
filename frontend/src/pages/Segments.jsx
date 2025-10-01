@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Title, Table, Card, Loader, Alert, Group, Text, Button, ActionIcon } from '@mantine/core';
+import { Title, Card, Loader, Alert, Group, Text, Button, ActionIcon, Table } from '@mantine/core';
 import { IconAlertCircle, IconPencil, IconTrash } from '@tabler/icons-react';
 import SegmentForm from '../components/SegmentForm';
-import { useAuth } from '../AuthContext'; // 1. Adım: AuthContext'i import et
+import { useAuth } from '../AuthContext';
 
 function Segments() {
-  const { token } = useAuth(); // 2. Adım: Giriş yapmış kullanıcının jetonunu al
+  const { token } = useAuth();
   const [segments, setSegments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,21 +14,20 @@ function Segments() {
   const [editingSegment, setEditingSegment] = useState(null);
 
   const fetchSegments = async () => {
-    // 3. Adım: Jeton yoksa istek göndermeyi deneme
     if (!token) {
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      // 4. Adım: Sabit API anahtarı yerine dinamik jetonu kullan
+      setError(null); // Hata durumunu sıfırla
       const response = await axios.get('/api/segments', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setSegments(response.data);
-      setError(null);
     } catch (err) {
-      setError('Segment verileri çekilirken bir hata oluştu.');
+      setError(err.response?.data?.error || 'Segment verileri çekilirken bir hata oluştu.');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -36,7 +35,7 @@ function Segments() {
 
   useEffect(() => {
     fetchSegments();
-  }, [token]); // 5. Adım: Jeton değiştiğinde veriyi yeniden çek
+  }, [token]);
 
   const handleSaveSegment = async (values, segmentId) => {
     try {
@@ -50,6 +49,7 @@ function Segments() {
         });
       }
       setIsModalOpen(false);
+      setEditingSegment(null);
       fetchSegments(); // Listeyi yenile
     } catch (err) {
       alert('Segment kaydedilirken bir hata oluştu.');
@@ -70,7 +70,7 @@ function Segments() {
   };
 
   if (loading) return <Group position="center"><Loader /></Group>;
-  if (error) return <Alert icon={<IconAlertCircle size="1rem" />} title="Hata!" color="red">{error}</Alert>;
+  if (error) return <Alert icon={<IconAlertCircle size={16} />} title="Hata!" color="red">{error}</Alert>;
 
   const rows = segments.map((segment) => (
     <tr key={segment.id}>
@@ -79,10 +79,10 @@ function Segments() {
       <td>{segment.playerCount}</td>
       <td>
         <Group spacing="xs">
-            <ActionIcon onClick={() => { setEditingSegment(segment); setIsModalOpen(true); }}>
+            <ActionIcon title="Düzenle" onClick={() => { setEditingSegment(segment); setIsModalOpen(true); }}>
                 <IconPencil size={16} />
             </ActionIcon>
-            <ActionIcon color="red" onClick={() => handleDeleteSegment(segment.id)}>
+            <ActionIcon color="red" title="Sil" onClick={() => handleDeleteSegment(segment.id)}>
                 <IconTrash size={16} />
             </ActionIcon>
         </Group>
@@ -94,10 +94,11 @@ function Segments() {
     <>
       <SegmentForm 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setEditingSegment(null); }}
         onSave={handleSaveSegment}
         segment={editingSegment}
       />
+
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Group position="apart" mb="lg">
           <Title order={2}>Oyuncu Segmentleri</Title>
@@ -127,3 +128,4 @@ function Segments() {
 }
 
 export default Segments;
+
