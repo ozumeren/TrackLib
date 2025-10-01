@@ -141,6 +141,53 @@ router.get('/abandoned-deposits', protectWithJWT, async (req, res) => {
     }
 });
 
+router.get('/timeseries', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const days = parseInt(req.query.days || '7', 10);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    try {
+        // Son 'days' güne ait ilgili olayları çek
+        const events = await prisma.event.findMany({
+            where: {
+                customerId,
+                createdAt: { gte: startDate },
+                eventName: { in: ['login_successful', 'registration_completed', 'deposit_successful'] }
+            },
+            select: {
+                eventName: true,
+                createdAt: true,
+            }
+        });
+
+        // Veriyi günlere göre grupla
+        const dailyData = {};
+        for (let i = 0; i < days; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const key = d.toISOString().split('T')[0]; // 'YYYY-MM-DD' formatı
+            dailyData[key] = { date: key, logins: 0, registrations: 0, deposits: 0 };
+        }
+
+        events.forEach(event => {
+            const key = event.createdAt.toISOString().split('T')[0];
+            if (dailyData[key]) {
+                if (event.eventName === 'login_successful') dailyData[key].logins++;
+                if (event.eventName === 'registration_completed') dailyData[key].registrations++;
+                if (event.eventName === 'deposit_successful') dailyData[key].deposits++;
+            }
+        });
+        
+        // Obje'yi sıralı bir diziye dönüştür
+        const sortedData = Object.values(dailyData).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        res.json(sortedData);
+    } catch (error) {
+        console.error("Zaman serisi verileri çekilirken hata:", error);
+        res.status(500).json({ error: 'Grafik verileri alınamadı.' });
+    }
+});
 
 module.exports = router;
 

@@ -1,45 +1,46 @@
 import { useState, useEffect } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom'; // useNavigate'i import et
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import axios from 'axios';
-import { Box, Stack, Title, Text, Card, SimpleGrid, Group, Loader, Alert, Anchor, TextInput, Button } from '@mantine/core';
+import { Stack, Title, Card, SimpleGrid, Group, Loader, Alert, Text, Box, Anchor, TextInput, Button } from '@mantine/core';
 import { useAuth } from '../AuthContext';
-import { IconSearch } from '@tabler/icons-react'; // Arama ikonunu import et
+import DashboardChart from '../components/DashboardChart'; // YENİ: Grafik bileşenini import et
+import { IconSearch } from '@tabler/icons-react';
 
 function Dashboard() {
   const { token } = useAuth();
   const [summaryData, setSummaryData] = useState(null);
+  const [chartData, setChartData] = useState([]); // YENİ: Grafik verisi için state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // --- YENİ EKLENEN KISIM ---
   const [searchId, setSearchId] = useState('');
   const navigate = useNavigate();
-  // --- YENİ KISIM SONU ---
 
   useEffect(() => {
-    const fetchSummaryData = async () => {
+    const fetchData = async () => {
       if (!token) return;
       try {
-        const response = await axios.get('/api/analytics/summary', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        setSummaryData(response.data.last_24_hours);
+        setLoading(true);
+        // İki API isteğini aynı anda yap
+        const [summaryRes, chartRes] = await Promise.all([
+          axios.get('/api/analytics/summary', { headers: { 'Authorization': `Bearer ${token}` } }),
+          axios.get('/api/analytics/timeseries?days=7', { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        setSummaryData(summaryRes.data.last_24_hours);
+        setChartData(chartRes.data);
       } catch (err) { 
         setError('Veri çekilirken bir hata oluştu.');
       } finally { 
         setLoading(false);
       }
     };
-    fetchSummaryData();
+    fetchData();
   }, [token]);
 
-  // --- YENİ FONKSİYON ---
   const handleSearch = () => {
     if (searchId.trim()) {
       navigate(`/journey/${searchId.trim()}`);
     }
   };
-  // --- YENİ FONKSİYON SONU ---
 
   if (loading) return <Group position="center"><Loader /></Group>;
   if (error) return <Alert color="red">{error}</Alert>;
@@ -48,7 +49,9 @@ function Dashboard() {
     <Stack spacing="lg">
       <Title order={2}>TrackLib Dashboard</Title>
       
-      {/* --- YENİ KART: OYUNCU ARAMA --- */}
+      {/* YENİ: Grafik Kartı */}
+      <DashboardChart data={chartData} />
+
       <Card shadow="sm" p="lg" radius="md" withBorder>
           <Title order={4}>Oyuncu Ara</Title>
           <Text size="sm" color="dimmed" mt={5}>
@@ -69,7 +72,6 @@ function Dashboard() {
             </Button>
           </Group>
       </Card>
-      {/* --- YENİ KART SONU --- */}
 
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Title order={4}>Son 24 Saat Özeti</Title>

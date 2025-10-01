@@ -5,6 +5,7 @@ const { protectWithJWT } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Bir müşteriye ait tüm segmentleri ve oyuncu sayılarını listele
 router.get('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     try {
@@ -14,12 +15,11 @@ router.get('/', protectWithJWT, async (req, res) => {
             orderBy: { name: 'asc' },
         });
         
-        // DEĞİŞİKLİK: s._count'ın var olup olmadığını kontrol et
         const formattedSegments = segments.map(s => ({
             id: s.id, 
             name: s.name, 
             description: s.description,
-            playerCount: s._count?.players || 0, // Optional chaining eklendi
+            playerCount: s._count?.players || 0,
             criteria: s.criteria
         }));
 
@@ -30,7 +30,66 @@ router.get('/', protectWithJWT, async (req, res) => {
     }
 });
 
-// ... (Diğer POST, PUT, DELETE rotaları aynı kalıyor) ...
+// Yeni bir segment oluştur
+router.post('/', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const { name, description, criteria } = req.body;
+
+    if (!name || !criteria) {
+        return res.status(400).json({ error: 'Segment adı ve kriterleri zorunludur.' });
+    }
+
+    try {
+        const newSegment = await prisma.segment.create({
+            data: {
+                name,
+                description,
+                criteria,
+                customerId,
+            }
+        });
+        res.status(201).json(newSegment);
+    } catch (error) {
+        res.status(500).json({ error: 'Segment oluşturulamadı.' });
+    }
+});
+
+// Mevcut bir segmenti güncelle
+router.put('/:id', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const segmentId = parseInt(req.params.id, 10);
+    const { name, description, criteria } = req.body;
+
+    try {
+        const updatedSegment = await prisma.segment.updateMany({
+            where: { id: segmentId, customerId },
+            data: { name, description, criteria },
+        });
+        if (updatedSegment.count === 0) {
+            return res.status(404).json({ error: 'Segment bulunamadı veya yetkiniz yok.' });
+        }
+        res.json({ message: 'Segment güncellendi.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Segment güncellenemedi.' });
+    }
+});
+    
+// Bir segmenti sil
+router.delete('/:id', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const segmentId = parseInt(req.params.id, 10);
+
+    try {
+        const deletedSegment = await prisma.segment.deleteMany({
+            where: { id: segmentId, customerId },
+        });
+        if (deletedSegment.count === 0) {
+            return res.status(404).json({ error: 'Segment bulunamadı veya yetkiniz yok.' });
+        }
+        res.status(204).send();
+    } catch (error) {
+        res.status(500).json({ error: 'Segment silinemedi.' });
+    }
+});
 
 module.exports = router;
-

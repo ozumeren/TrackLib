@@ -381,9 +381,22 @@ cron.schedule('*/1 * * * *', async () => {
 });
 
 
-// --- SUNUCUYU BAŞLATMA ---
+async function connectToDatabase() {
+    console.log("Veritabanı bağlantısı kontrol ediliyor...");
+    try {
+        // Veritabanına basit bir sorgu göndererek bağlantıyı test et
+        await prisma.$queryRaw`SELECT 1`;
+        console.log("Veritabanı bağlantısı başarılı.");
+    } catch (error) {
+        console.error("!!! Veritabanına bağlanılamadı. Lütfen veritabanı sunucusunun çalıştığından emin olun. !!!");
+        console.error(error);
+        // Sunucuyu başlatma, çünkü veritabanı olmadan çalışamaz
+        process.exit(1);
+    }
+}
+
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Backend sunucusu port ${PORT} üzerinde dinlemede...`);
+    // Sunucu dinlemeye başladıktan hemen sonra veritabanı bağlantısını test et
     await connectToDatabase();
 });
-

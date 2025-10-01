@@ -6,7 +6,7 @@ import SegmentForm from '../components/SegmentForm';
 import { useAuth } from '../AuthContext';
 
 function Segments() {
-  const { token } = useAuth();
+  const { token } = useAuth(); // 1. YENİ: Giriş yapmış kullanıcının jetonunu al
   const [segments, setSegments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,13 +14,15 @@ function Segments() {
   const [editingSegment, setEditingSegment] = useState(null);
 
   const fetchSegments = async () => {
+    // 2. YENİ: Jeton yoksa istek göndermeyi deneme
     if (!token) {
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      setError(null); // Hata durumunu sıfırla
+      setError(null);
+      // 3. YENİ: İsteğin başlığına (headers) jetonu ekle
       const response = await axios.get('/api/segments', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -35,22 +37,22 @@ function Segments() {
 
   useEffect(() => {
     fetchSegments();
-  }, [token]);
+  }, [token]); // 4. YENİ: Jeton değiştiğinde veriyi yeniden çek
 
   const handleSaveSegment = async (values, segmentId) => {
     try {
-      if (segmentId) { // Düzenleme
+      if (segmentId) {
         await axios.put(`/api/segments/${segmentId}`, values, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-      } else { // Oluşturma
+      } else {
         await axios.post('/api/segments', values, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
       }
       setIsModalOpen(false);
       setEditingSegment(null);
-      fetchSegments(); // Listeyi yenile
+      fetchSegments();
     } catch (err) {
       alert('Segment kaydedilirken bir hata oluştu.');
     }
@@ -62,7 +64,7 @@ function Segments() {
             await axios.delete(`/api/segments/${segmentId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchSegments(); // Listeyi yenile
+            fetchSegments();
         } catch (err) {
             alert('Segment silinirken bir hata oluştu.');
         }
@@ -98,7 +100,6 @@ function Segments() {
         onSave={handleSaveSegment}
         segment={editingSegment}
       />
-
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Group position="apart" mb="lg">
           <Title order={2}>Oyuncu Segmentleri</Title>
