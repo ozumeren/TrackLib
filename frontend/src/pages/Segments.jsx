@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Title, Card, Loader, Alert, Group, Text, Button, ActionIcon, Table } from '@mantine/core';
-import { IconAlertCircle, IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconAlertCircle, IconPencil, IconTrash, IconCheck } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications'; // 1. YENİ: Bildirimleri import et
 import SegmentForm from '../components/SegmentForm';
 import { useAuth } from '../AuthContext';
 
 function Segments() {
-  const { token } = useAuth(); // 1. YENİ: Giriş yapmış kullanıcının jetonunu al
+  const { token } = useAuth();
   const [segments, setSegments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,7 +15,6 @@ function Segments() {
   const [editingSegment, setEditingSegment] = useState(null);
 
   const fetchSegments = async () => {
-    // 2. YENİ: Jeton yoksa istek göndermeyi deneme
     if (!token) {
       setLoading(false);
       return;
@@ -22,7 +22,6 @@ function Segments() {
     try {
       setLoading(true);
       setError(null);
-      // 3. YENİ: İsteğin başlığına (headers) jetonu ekle
       const response = await axios.get('/api/segments', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -37,36 +36,61 @@ function Segments() {
 
   useEffect(() => {
     fetchSegments();
-  }, [token]); // 4. YENİ: Jeton değiştiğinde veriyi yeniden çek
+  }, [token]);
 
+  // 2. YENİ: handleSaveSegment fonksiyonu güncellendi
   const handleSaveSegment = async (values, segmentId) => {
+    const successMessage = segmentId ? 'Segment başarıyla güncellendi.' : 'Segment başarıyla oluşturuldu.';
     try {
-      if (segmentId) {
+      if (segmentId) { // Düzenleme
         await axios.put(`/api/segments/${segmentId}`, values, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-      } else {
+      } else { // Oluşturma
         await axios.post('/api/segments', values, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
       }
       setIsModalOpen(false);
       setEditingSegment(null);
-      fetchSegments();
+      fetchSegments(); // Listeyi yenile
+      notifications.show({
+        title: 'Başarılı!',
+        message: successMessage,
+        color: 'teal',
+        icon: <IconCheck size={16} />,
+      });
     } catch (err) {
-      alert('Segment kaydedilirken bir hata oluştu.');
+      notifications.show({
+        title: 'Hata!',
+        message: 'Segment kaydedilirken bir sorun oluştu.',
+        color: 'red',
+        icon: <IconAlertCircle size={16} />,
+      });
     }
   };
   
+  // 3. YENİ: handleDeleteSegment fonksiyonu güncellendi
   const handleDeleteSegment = async (segmentId) => {
     if (confirm('Bu segmenti silmek istediğinizden emin misiniz?')) {
         try {
             await axios.delete(`/api/segments/${segmentId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchSegments();
+            fetchSegments(); // Listeyi yenile
+            notifications.show({
+                title: 'Başarılı!',
+                message: 'Segment başarıyla silindi.',
+                color: 'teal',
+                icon: <IconCheck size={16} />,
+            });
         } catch (err) {
-            alert('Segment silinirken bir hata oluştu.');
+            notifications.show({
+                title: 'Hata!',
+                message: 'Segment silinirken bir sorun oluştu.',
+                color: 'red',
+                icon: <IconAlertCircle size={16} />,
+            });
         }
     }
   };
@@ -100,6 +124,7 @@ function Segments() {
         onSave={handleSaveSegment}
         segment={editingSegment}
       />
+
       <Card shadow="sm" p="lg" radius="md" withBorder>
         <Group position="apart" mb="lg">
           <Title order={2}>Oyuncu Segmentleri</Title>
