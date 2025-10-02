@@ -5,6 +5,26 @@ const { protectWithJWT } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// --- YENİ EKLENEN/GERİ GETİRİLEN ENDPOINT ---
+// Sadece segment isimlerini ve ID'lerini listeleyen basit endpoint
+// GET /api/segments/list
+router.get('/list', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    try {
+        const segments = await prisma.segment.findMany({
+            where: { customerId },
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' },
+        });
+        res.json(segments);
+    } catch (error) {
+        res.status(500).json({ error: 'Segment listesi çekilemedi.' });
+    }
+});
+
+
+// --- Mevcut Diğer Rotalar ---
+
 // Bir müşteriye ait tüm segmentleri ve oyuncu sayılarını listele
 router.get('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;

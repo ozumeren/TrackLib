@@ -1,9 +1,9 @@
-import { Box, Group, Button, Title, Text, Menu } from '@mantine/core';
+import { AppShell, Group, Button, Stack, Menu, Text, Divider } from '@mantine/core';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { IconChevronDown } from '@tabler/icons-react';
+import {IconReportMoney, IconChevronRight, IconDashboard, IconChartPie, IconTargetArrow, IconSettings, IconUser, IconLogout, IconUserShield } from '@tabler/icons-react';
 
-function Navbar() {
+function AppNavbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -12,54 +12,87 @@ function Navbar() {
     navigate('/login');
   };
 
+  const mainLinks = [
+    { icon: <IconDashboard size={16} />, label: 'Dashboard', to: '/' },
+    { icon: <IconChartPie size={16} />, label: 'Segmentler', to: '/segments' },
+    { icon: <IconTargetArrow size={16} />, label: 'Kurallar', to: '/rules' },
+    { icon: <IconReportMoney size={16} />, label: 'Terk Edilmiş Yatırımlar', to: '/abandoned-deposits' },
+  ];
+
+  const links = mainLinks.map((link) => (
+    <Button
+      key={link.label}
+      component={RouterLink}
+      to={link.to}
+      variant="subtle"
+      leftSection={link.icon}
+      fullWidth
+      styles={(theme) => ({
+        root: { justifyContent: 'flex-start', paddingLeft: theme.spacing.md },
+      })}
+    >
+      {link.label}
+    </Button>
+  ));
+
   return (
-    <Box component="nav" p="md" style={{ backgroundColor: '#228be6', color: 'white' }}>
-      <Group position="apart">
-        <Title order={3} component={RouterLink} to="/" style={{ color: 'white', textDecoration: 'none' }}>
-          TrackLib
-        </Title>
-        <Group>
-            {user ? (
-                <>
-                    <Button component={RouterLink} to="/" variant="outline" color="white">Dashboard</Button>
-                    <Button component={RouterLink} to="/segments" variant="outline" color="white">Segmentler</Button>
-                    <Button component={RouterLink} to="/rules" variant="outline" color="white">Kurallar</Button>
-		    <Button component={RouterLink} to="/abandoned-deposits" variant="outline" color="white">Terk Edilmiş Yatırımlar</Button>
-                    {/* YENİ: Sadece Admin'lerin göreceği link */}
-                    {user.role === 'ADMIN' && (
-                        <Button component={RouterLink} to="/admin/customers" variant="light" color="yellow">
-                            Yönetici Paneli
-                        </Button>
-                    )}
-                    
-                    <Menu shadow="md" width={200}>
-                        <Menu.Target>
-                            <Button variant="outline" color="white">
-                                <Group spacing="xs">
-                                    <Text>Hoş geldin, {user.name}</Text>
-                                    <IconChevronDown size={14} />
-                                </Group>
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            <Menu.Item component={RouterLink} to="/account">Hesabım</Menu.Item>
-                            <Menu.Item component={RouterLink} to="/settings">Ayarlar</Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Item color="red" onClick={handleLogout}>Çıkış Yap</Menu.Item>
-                        </Menu.Dropdown>
-                    </Menu>
-                </>
-            ) : (
-                <>
-                    <Button component={RouterLink} to="/login" variant="outline" color="white">Giriş Yap</Button>
-                    <Button component={RouterLink} to="/register" variant="light">Kayıt Ol</Button>
-                </>
+    // DEĞİŞİKLİK: 'MantineAppShell.Navbar' yerine doğru olan 'AppShell.Navbar' kullanıldı.
+    <AppShell.Navbar p="md">
+      {/* DEĞİŞİKLİK: Mantine'in yeni sürümlerinde kaldırılan 'Navbar.Section' yerine,
+        modern bir layout tekniği olan 'Stack' bileşeni kullanıldı.
+        Bu Stack, içeriği dikeyde (üst ve alt olarak) hizalamayı sağlar.
+      */}
+      <Stack justify="space-between" style={{ height: '100%' }}>
+        {/* Üst Kısım: Navigasyon Linkleri */}
+        <Stack spacing="xs">
+            {links}
+            {user?.role === 'ADMIN' && (
+                <Button
+                    component={RouterLink}
+                    to="/admin/customers"
+                    variant="subtle"
+                    leftSection={<IconUserShield size={16} />}
+                    fullWidth
+                    color="yellow"
+                    styles={(theme) => ({
+                        root: { justifyContent: 'flex-start', paddingLeft: theme.spacing.md },
+                    })}
+                >
+                    Yönetici Paneli
+                </Button>
             )}
-        </Group>
-      </Group>
-    </Box>
+        </Stack>
+
+        {/* Alt Kısım: Kullanıcı Menüsü */}
+        <div>
+          <Divider my="sm" />
+          <Menu shadow="md" width={250} position="top-end" withArrow>
+              <Menu.Target>
+                  <Button variant="subtle" fullWidth>
+                      <Group justify="space-between" style={{ flexWrap: 'nowrap' }}>
+                        <Group spacing="xs" align="baseline">
+                            <Text size="sm" fw={500}>{user?.name}</Text>
+                            <Text size="xs" color="dimmed">{user?.email}</Text>
+                        </Group>                         
+			<IconChevronRight size={16} />
+                      </Group>
+                  </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                  <Menu.Item icon={<IconUser size={14} />} component={RouterLink} to="/account">Hesabım</Menu.Item>
+                  <Menu.Item icon={<IconSettings size={14} />} component={RouterLink} to="/settings">Ayarlar</Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item color="red" icon={<IconLogout size={14} />} onClick={handleLogout}>
+                      Çıkış Yap
+                  </Menu.Item>
+              </Menu.Dropdown>
+          </Menu>
+        </div>
+      </Stack>
+    </AppShell.Navbar>
   );
 }
 
-export default Navbar;
+
+export default AppNavbar;
 

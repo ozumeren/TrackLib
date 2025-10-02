@@ -14,7 +14,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
       name: '',
       isActive: true,
       triggerType: '',
-      config_inactivity_minutes: 2,
+      config_inactivity_days: 14, // Değişiklik: Dakika yerine gün
       config_event_eventName: '',
       config_segment_entry_segmentId: '',
       conversionGoalEvent: '',
@@ -53,7 +53,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
         isActive: rule.isActive,
         triggerType: rule.triggerType || '',
         conversionGoalEvent: rule.conversionGoalEvent || '',
-        config_inactivity_minutes: rule.config?.minutes || 2,
+        config_inactivity_days: rule.config?.days || 14,
         config_event_eventName: rule.config?.eventName || '',
         config_segment_entry_segmentId: rule.config?.segmentId?.toString() || '',
         variants: rule.variants.map(v => ({
@@ -69,7 +69,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
   const handleSubmit = (values) => {
     let config = {};
     if (values.triggerType === 'INACTIVITY') {
-      config = { minutes: values.config_inactivity_minutes };
+      config = { days: values.config_inactivity_days };
     } else if (values.triggerType === 'EVENT') {
       config = { eventName: values.config_event_eventName };
     } else if (values.triggerType === 'SEGMENT_ENTRY') {
@@ -166,10 +166,10 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
           
           {/* --- CORRECTED DYNAMIC TRIGGER SETTINGS --- */}
           {form.values.triggerType === 'INACTIVITY' && (
-            <NumberInput
-              label="Pasiflik Süresi (Dakika)"
-              placeholder="Örn: 20160 (14 gün)"
-              {...form.getInputProps('config_inactivity_minutes')}
+             <NumberInput
+              label="Pasiflik Süresi (Gün)"
+              placeholder="Örn: 14"
+              {...form.getInputProps('config_inactivity_days')}
             />
           )}
           {form.values.triggerType === 'EVENT' && (

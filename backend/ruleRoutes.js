@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { protectWithJWT, isOwner } = require('./authMiddleware');
+// DEĞİŞİKLİK: 'isOwner' artık burada gerekli değil
+const { protectWithJWT } = require('./authMiddleware');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -24,7 +25,8 @@ router.get('/', protectWithJWT, async (req, res) => {
 });
 
 // Yeni bir kural ve varyantlarını oluştur
-router.post('/', protectWithJWT, isOwner, async (req, res) => {
+// DEĞİŞİKLİK: 'isOwner' kontrolü kaldırıldı
+router.post('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const { name, isActive, triggerType, config, conversionGoalEvent, variants } = req.body;
 
@@ -61,7 +63,8 @@ router.post('/', protectWithJWT, isOwner, async (req, res) => {
 });
 
 // Bir kuralı güncelle
-router.put('/:id', protectWithJWT, isOwner, async (req, res) => {
+// DEĞİŞİKLİK: 'isOwner' kontrolü kaldırıldı
+router.put('/:id', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const ruleId = parseInt(req.params.id, 10);
     const { name, isActive, triggerType, config, conversionGoalEvent, variants } = req.body;
@@ -109,7 +112,8 @@ router.put('/:id', protectWithJWT, isOwner, async (req, res) => {
 });
 
 // Bir kuralı sil
-router.delete('/:id', protectWithJWT, isOwner, async (req, res) => {
+// DEĞİŞİKLİK: 'isOwner' kontrolü kaldırıldı
+router.delete('/:id', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const ruleId = parseInt(req.params.id, 10);
 
