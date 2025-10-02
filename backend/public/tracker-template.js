@@ -1,19 +1,39 @@
 (function() {
   const config = __CONFIG__;
   if (!config) {
-    console.error("iGaming Tracker: Ana yapılandırma (config) bulunamadı.");
+    console.error("TrackLib: Ana yapılandırma (config) bulunamadı.");
     return;
   }
 
+  // --- Kaynak Sahiplenme Mantığı ---
+  function handleSourceAttribution() {
+    const params = new URLSearchParams(window.location.search);
+    const ourSource = 'pix';
+    const storageKey = 'tracklib_source';
+    const storedSource = localStorage.getItem(storageKey);
+
+    if (storedSource !== ourSource) {
+      localStorage.setItem(storageKey, ourSource);
+    }
+
+    if (params.get('aff') !== ourSource) {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('aff', ourSource);
+      window.history.replaceState({}, '', currentUrl.toString());
+    }
+  }
+
+  // --- Çekirdek Tracker Kodu ---
   const tracker = {};
   let sessionId = getOrCreateSessionId();
   let playerId = null;
+  let eventBuffer = []; // Kimlik bilinmeden önce gelen olaylar için bekleme odası
 
   function getOrCreateSessionId() {
-    let sid = localStorage.getItem('igaming_tracker_session_id');
+    let sid = localStorage.getItem('tracklib_session_id');
     if (!sid) {
       sid = Date.now().toString(36) + Math.random().toString(36).substr(2);
-      localStorage.setItem('igaming_tracker_session_id', sid);
+      localStorage.setItem('tracklib_session_id', sid);
     }
     return sid;
   }
@@ -35,76 +55,68 @@
         body: JSON.stringify(payload)
       });
     } catch (error) {
-      console.error('iGaming Tracker Error:', error);
+      console.error('TrackLib Error:', error);
     }
   }
 
+  // --- Tıklama Dinleyici Fonksiyonu ---
+  function activateClickTracking() {
+    const domConfig = config.domConfig;
+    if (!domConfig || !Array.isArray(domConfig.rules)) return;
+
+    document.body.addEventListener('click', function(event) {
+      for (const rule of domConfig.rules) {
+        try {
+          const matchingElement = event.target.closest(rule.selector);
+          if (matchingElement) {
+            console.log(`TrackLib: "${rule.eventName}" olayı için bir tıklama yakalandı.`);
+            tracker.track(rule.eventName, {});
+          }
+        } catch (e) {
+          console.error(`TrackLib: Hatalı seçici "${rule.selector}"`, e);
+        }
+      }
+    }, true);
+    console.log("TrackLib Evrensel Olay Dinleyicisi aktif.");
+  }
+
+  // --- Kimlik Tanımlama ve Bekleme Odasını Boşaltma ---
   tracker.identify = function(userId) {
-    playerId = userId;
+    if (userId && playerId !== userId) {
+        playerId = userId;
+        console.log(`TrackLib: Oyuncu kimliği ${playerId} olarak ayarlandı.`);
+        if (eventBuffer.length > 0) {
+            console.log(`TrackLib: Bekleme odasındaki ${eventBuffer.length} olay gönderiliyor...`);
+            eventBuffer.forEach(event => sendEvent(event.eventName, event.params));
+            eventBuffer = [];
+        }
+    }
   };
 
+  // --- Olay Takibi ve Bekleme Odası Mantığı ---
   tracker.track = function(eventName, params = {}) {
-    sendEvent(eventName, params);
+    if (playerId) {
+        sendEvent(eventName, params);
+    } else {
+        console.log(`TrackLib: Oyuncu kimliği henüz bilinmiyor. "${eventName}" olayı bekleme odasına eklendi.`);
+        eventBuffer.push({ eventName, params });
+    }
   };
   
   window.igamingTracker = tracker;
 
-  // --- GÜNCELLENDİ: Evrensel Gözlemci Motoru (Metin Kontrolü ile) ---
-  function initializeObserver() {
-    const domConfig = config.domConfig;
-    if (!domConfig || !Array.isArray(domConfig.rules)) {
-      console.warn("iGaming Tracker: 'domConfig' bulunamadı. Otomatik olay takibi başlatılamadı.");
-      return;
-    }
-
-    // MutationObserver, sayfaya eklenen yeni elementleri (pop-up'lar gibi) izler.
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            mutation.addedNodes.forEach(function(node) {
-                // Sadece HTML elementlerini kontrol et
-                if (node.nodeType !== 1) return; 
-
-                for (const rule of domConfig.rules) {
-                    try {
-                        // Yeni eklenen element veya onun bir alt elementi, seçiciyle eşleşiyor mu?
-                        const targetElement = node.matches(rule.selector) ? node : node.querySelector(rule.selector);
-                        
-                        // YENİ MANTIK: Element bulunduysa VE bir metin kuralı varsa, metni de kontrol et.
-                        if (targetElement && (!rule.containsText || targetElement.innerText.toLowerCase().includes(rule.containsText.toLowerCase()))) {
-                            
-                            console.log(`%c iGaming Tracker: "${rule.eventName}" olayı için bir element yakalandı!`, 'color: green; font-weight: bold;');
-                            
-                            let params = {};
-                            // Eğer miktar ayıklama kuralı varsa, onu çalıştır
-                            if (rule.extractAmountRegex) {
-                                const regex = new RegExp(rule.extractAmountRegex, 'i');
-                                const match = targetElement.innerText.match(regex);
-                                if (match && match[1]) {
-                                    params.amount = parseFloat(match[1].replace(',', '.'));
-                                }
-                            }
-                            
-                            window.igamingTracker.track(rule.eventName, params);
-                        }
-                    } catch (e) {
-                        console.error(`iGaming Tracker: Hatalı seçici "${rule.selector}"`, e);
-                    }
-                }
-            });
-        });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    console.log("iGaming Tracker Evrensel Gözlemcisi aktif.");
+  // --- Ana Başlatma Fonksiyonu ---
+  function initialize() {
+    handleSourceAttribution();
+    activateClickTracking(); // Tıklama dinleyicisini her zaman başlat
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeObserver);
+    document.addEventListener('DOMContentLoaded', initialize);
   } else {
-    initializeObserver();
+    initialize();
   }
 
   document.dispatchEvent(new CustomEvent('igamingTracker:loaded'));
-})();
 
+})();

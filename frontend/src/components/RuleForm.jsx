@@ -14,7 +14,6 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
       name: '',
       isActive: true,
       triggerType: '',
-      // Config artık ayrı alanlarda yönetilecek
       config_inactivity_minutes: 2,
       config_event_eventName: '',
       config_segment_entry_segmentId: '',
@@ -28,7 +27,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
     },
   });
 
-  // Segment listesini backend'den çek
+  // Fetch segment list from the backend
   useEffect(() => {
     const fetchSegments = async () => {
       if (!token) return;
@@ -36,7 +35,6 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
         const response = await axios.get('/api/segments/list', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        // Veriyi Select bileşeninin anlayacağı formata çevir
         setSegments(response.data.map(s => ({ value: s.id.toString(), label: s.name })));
       } catch (error) {
         console.error("Segment listesi çekilemedi", error);
@@ -47,7 +45,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
     }
   }, [isOpen, token]);
 
-  // Düzenleme modunda, formu doldur
+  // Populate form when editing a rule
   useEffect(() => {
     if (rule) {
       form.setValues({
@@ -69,7 +67,6 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
   }, [rule, isOpen]);
 
   const handleSubmit = (values) => {
-    // Dinamik form alanlarından backend'in beklediği 'config' JSON objesini oluştur
     let config = {};
     if (values.triggerType === 'INACTIVITY') {
       config = { minutes: values.config_inactivity_minutes };
@@ -99,7 +96,42 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
 
   const variantFields = form.values.variants.map((item, index) => (
     <Fieldset key={index} legend={`Varyant ${String.fromCharCode(65 + index)}`} mt="md">
-      {/* ... (Varyant form alanları aynı kalıyor) ... */}
+      <Stack>
+        <TextInput
+          withAsterisk
+          label="Varyant Adı"
+          placeholder="Örn: %20 Bonus Teklifi"
+          {...form.getInputProps(`variants.${index}.name`)}
+        />
+        <Select
+          withAsterisk
+          label="Aksiyon Türü"
+          data={[
+            { value: 'SEND_TELEGRAM_MESSAGE', label: 'Telegram Mesajı Gönder' },
+            { value: 'FORWARD_TO_META_ADS', label: 'Meta (Facebook) Ads\'e İlet' },
+            { value: 'FORWARD_TO_GOOGLE_ADS', label: 'Google Ads\'e İlet' },
+          ]}
+          {...form.getInputProps(`variants.${index}.actionType`)}
+        />
+        <JsonInput
+          label="Aksiyon İçeriği (JSON)"
+          placeholder='{ "messageTemplate": "Merhaba..." } veya { "eventName": "Purchase" }'
+          validationError="Geçersiz JSON"
+          formatOnBlur
+          autosize
+          minRows={3}
+          {...form.getInputProps(`variants.${index}.actionPayload`)}
+        />
+         <Button
+            color="red"
+            variant="light"
+            leftSection={<IconTrash size={14} />}
+            onClick={() => form.removeListItem('variants', index)}
+            style={{ alignSelf: 'flex-end' }}
+        >
+            Varyantı Sil
+        </Button>
+      </Stack>
     </Fieldset>
   ));
 
@@ -125,14 +157,14 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
             withAsterisk
             label="Tetikleyici Türü"
             data={[
-              { value: 'INACTIVITY', label: 'Pasiflik' },
-              { value: 'EVENT', label: 'Belirli Bir Olay' },
-              { value: 'SEGMENT_ENTRY', label: 'Segment Girişi' },
+              { value: 'INACTIVITY', label: 'Oyuncu Pasifleştiğinde' },
+              { value: 'EVENT', label: 'Belirli Bir Eylem Gerçekleştiğinde' },
+              { value: 'SEGMENT_ENTRY', label: 'Oyuncu Grubuna Girdiğinde' },
             ]}
             {...form.getInputProps('triggerType')}
           />
-
-          {/* --- YENİ: DİNAMİK TETİKLEYİCİ AYARLARI --- */}
+          
+          {/* --- CORRECTED DYNAMIC TRIGGER SETTINGS --- */}
           {form.values.triggerType === 'INACTIVITY' && (
             <NumberInput
               label="Pasiflik Süresi (Dakika)"
@@ -142,32 +174,32 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
           )}
           {form.values.triggerType === 'EVENT' && (
              <TextInput
-              label="İzlenecek Olayın Adı"
+              label="İzlenecek Eylemin Adı"
               placeholder="Örn: deposit_failed"
               {...form.getInputProps('config_event_eventName')}
             />
           )}
           {form.values.triggerType === 'SEGMENT_ENTRY' && (
             <Select
-              label="Hedef Segment"
-              placeholder="Bir segment seçin"
+              label="Hedef Oyuncu Grubu"
+              placeholder="Bir grup seçin"
               data={segments}
               {...form.getInputProps('config_segment_entry_segmentId')}
             />
           )}
           
           <TextInput
-            label="Dönüşüm Hedefi Olayı (A/B Testi için)"
+            label="Dönüşüm Hedefi Eylemi (A/B Testi için)"
             placeholder="Örn: login_successful"
             {...form.getInputProps('conversionGoalEvent')}
           />
           
           <Stack mt="lg">
             <Title order={5}>A/B Testi Varyantları</Title>
-            {variantFields}
+            {variantFields.length > 0 ? variantFields : <Text color="dimmed" size="sm" align="center" p="md">Aksiyonları tanımlamak için bir varyant ekleyin.</Text>}
             <Button
               variant="light"
-              onClick={() => form.insertListItem('variants', { name: '', actionType: 'SEND_TELEGRAM_MESSAGE', actionPayload: '{}' })}
+              onClick={() => form.insertListItem('variants', { name: '', actionType: '', actionPayload: '{}' })}
               mt="sm"
             >
               + Varyant Ekle

@@ -1,4 +1,5 @@
 // --- Gerekli Kütüphaneler ---
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
@@ -11,6 +12,7 @@ const Redis = require('ioredis');
 const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
+const axios = require('axios'); // YENİ: Meta API isteği için eklendi
 
 // --- Başlangıç Ayarları ---
 const app = express();
@@ -69,16 +71,91 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
 
 // 2. Yeni Müşteri için Varsayılan Verileri Oluşturma Fonksiyonu
 async function createPredefinedData(customerId) {
-    // ... (Bu fonksiyonun içeriği önceki gibi dolu)
+  try {
+    await prisma.segment.createMany({
+      data: [
+        {
+          name: 'Aktif Oyuncular (Son 7 Gün)',
+          description: 'Son 7 gün içinde en az bir kez giriş yapmış olan tüm oyuncular.',
+          criteria: { "rules": [{ "fact": "loginCount", "operator": "greaterThanOrEqual", "value": 1, "periodInDays": 7 }] },
+          customerId: customerId,
+        },
+      ],
+    });
+    await prisma.rule.create({
+      data: {
+        name: 'Pasif Oyuncuları Geri Kazanma Kampanyası (Örnek)',
+        isActive: true,
+        triggerType: 'INACTIVITY',
+        config: { "minutes": 1440 * 14 },
+        conversionGoalEvent: 'login_successful',
+        customerId: customerId,
+        variants: {
+          create: [
+            {
+              name: 'Varyant A: Standart Hatırlatma',
+              actionType: 'SEND_TELEGRAM_MESSAGE',
+              actionPayload: { "messageTemplate": "Merhaba {playerName}, seni tekrar aramızda görmeyi çok isteriz!" },
+            },
+            {
+              name: 'Varyant B: Free Spin Teklifi',
+              actionType: 'SEND_TELEGRAM_MESSAGE',
+              actionPayload: { "messageTemplate": "Merhaba {playerName}! Geri dönmen için hesabına 10 Free Spin ekledik. Kaçırma!" },
+            },
+          ],
+        },
+      },
+    });
+  } catch (error) {
+    console.error(`Müşteri ID ${customerId} için varsayılan veri oluşturulurken hata oluştu:`, error);
+  }
 }
 
 // 3. Yetkilendirme (Auth) Rotaları
 const authRoutes = express.Router();
 authRoutes.post('/register', async (req, res) => {
-    // ... (Register fonksiyonunun içeriği önceki gibi dolu)
+    const { customerName, userName, email, password } = req.body;
+    if (!customerName || !userName || !email || !password) {
+        return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
+    }
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        const apiKey = `trk_${crypto.randomBytes(16).toString('hex')}`;
+        const newCustomer = await prisma.customer.create({
+            data: {
+                name: customerName,
+                apiKey: apiKey,
+                users: {
+                    create: { name: userName, email: email, password: hashedPassword, role: 'OWNER' },
+                },
+            },
+        });
+        await createPredefinedData(newCustomer.id);
+        res.status(201).json({ message: 'Müşteri başarıyla oluşturuldu.' });
+    } catch (error) {
+        if (error.code === 'P2002') return res.status(400).json({ error: 'Bu e-posta adresi zaten kullanılıyor.' });
+        res.status(500).json({ error: 'Kullanıcı oluşturulamadı.' });
+    }
 });
 authRoutes.post('/login', async (req, res) => {
-    // ... (Login fonksiyonunun içeriği önceki gibi dolu)
+    const { email, password } = req.body;
+    try {
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (user && (await bcrypt.compare(password, user.password))) {
+            const token = jwt.sign(
+                { userId: user.id, customerId: user.customerId, role: user.role },
+                JWT_SECRET,
+                { expiresIn: '1d' }
+            );
+            res.json({ name: user.name, role: user.role, email: user.email, token: token });
+        } else {
+            res.status(401).json({ error: 'Geçersiz e-posta veya şifre.' });
+        }
+    } catch (error) {
+        console.error("Giriş sırasında kritik hata:", error);
+        res.status(500).json({ error: 'Giriş yapılamadı.' });
+    }
 });
 app.use('/api/auth', authRoutes);
 
@@ -125,134 +202,173 @@ app.post('/v1/events', protectWithApiKey, async (req, res) => {
     }
 });
 app.post('/v1/telegram/webhook/:apiKey', async (req, res) => {
-    // ... (Webhook fonksiyonunun içeriği önceki gibi dolu)
+    const { apiKey } = req.params;
+    const message = req.body.message;
+    const customer = await prisma.customer.findUnique({ where: { apiKey } });
+    if (!customer) return res.sendStatus(404);
+    if (message && message.text && message.text.startsWith('/start')) {
+        const chatId = message.chat.id.toString();
+        const playerId = message.text.split(' ')[1];
+        if (playerId) {
+            try {
+                const player = await prisma.player.upsert({
+                    where: { playerId_customerId: { playerId, customerId: customer.id } },
+                    update: {},
+                    create: { playerId, customerId: customer.id },
+                });
+                await prisma.telegramConnection.upsert({
+                    where: { playerId: player.id },
+                    update: { telegramChatId: chatId },
+                    create: { telegramChatId: chatId, playerId: player.id, customerId: customer.id },
+                });
+                if (customer.telegramBotToken) {
+                    const bot = new TelegramBot(customer.telegramBotToken);
+                    bot.sendMessage(chatId, 'Hesabınız başarıyla bağlandı!');
+                }
+            } catch (error) { console.error('Eşleştirme hatası:', error.message); }
+        }
+    }
+    res.sendStatus(200);
 });
 
-// --- OTOMASYON ZAMANLAYICI (Tam ve Doldurulmuş Versiyon) ---
+// --- OTOMASYON ZAMANLAYICI (Sunucu Taraflı Etiketleme ile Güncellendi) ---
 cron.schedule('*/1 * * * *', async () => {
     const timestamp = `[${new Date().toLocaleTimeString()}]`;
     console.log(`${timestamp} --- Otomasyon Motoru Başlatıldı ---`);
 
-    // Bölüm 1: A/B Testi Motoru (Pasiflik)
     try {
-        const inactivityRules = await prisma.rule.findMany({
-            where: { isActive: true, triggerType: 'INACTIVITY', variants: { some: {} } },
+        const activeRules = await prisma.rule.findMany({
+            where: { isActive: true },
             include: { customer: true, variants: true },
         });
 
-        for (const rule of inactivityRules) {
-            if (rule.variants.length < 1) continue;
-            const inactivityMinutes = rule.config.minutes || 2;
-            const threshold = new Date(Date.now() - inactivityMinutes * 60 * 1000);
-            const activePlayerEvents = await prisma.event.findMany({
-                where: { customerId: rule.customerId, eventName: 'login_successful', createdAt: { gte: threshold } },
-                select: { playerId: true }, distinct: ['playerId'],
-            });
-            const activePlayerIds = activePlayerEvents.map(e => e.playerId).filter(id => id);
-            const inactivePlayers = await prisma.player.findMany({
-                where: { customerId: rule.customerId, NOT: { playerId: { in: activePlayerIds } } },
-                include: { telegramConnection: true }
-            });
+        for (const rule of activeRules) {
+            let playersToTrigger = [];
 
-            if (inactivePlayers.length > 0 && rule.customer.telegramBotToken) {
-                const bot = new TelegramBot(rule.customer.telegramBotToken);
-                for (const player of inactivePlayers) {
-                    if (player.telegramConnection) {
-                        const variantIndex = Math.floor(Math.random() * rule.variants.length);
-                        const assignedVariant = rule.variants[variantIndex];
-                        const abTestPayload = { ruleId: rule.id, variantId: assignedVariant.id, goalEvent: rule.conversionGoalEvent };
-                        await redis.set(`ab_test:${player.playerId}`, JSON.stringify(abTestPayload), 'EX', 60 * 60 * 24 * 7);
-                        let message = assignedVariant.actionPayload.messageTemplate || "Seni özledik!";
-                        message = message.replace('{playerName}', player.playerId);
-                        await bot.sendMessage(player.telegramConnection.telegramChatId, message);
-                        await prisma.ruleVariant.update({
-                            where: { id: assignedVariant.id },
-                            data: { exposures: { increment: 1 } },
-                        });
-                        await prisma.player.delete({ where: { id: player.id } }); // Test için sil
-                    }
-                }
+            if (rule.triggerType === 'INACTIVITY') {
+                const inactivityMinutes = rule.config.minutes || 2;
+                const threshold = new Date(Date.now() - inactivityMinutes * 60 * 1000);
+                const activePlayerEvents = await prisma.event.findMany({
+                    where: { customerId: rule.customerId, eventName: 'login_successful', createdAt: { gte: threshold } },
+                    select: { playerId: true }, distinct: ['playerId'],
+                });
+                const activePlayerIds = activePlayerEvents.map(e => e.playerId).filter(id => id);
+                playersToTrigger = await prisma.player.findMany({
+                    where: { customerId: rule.customerId, NOT: { playerId: { in: activePlayerIds } } },
+                    include: { telegramConnection: true }
+                });
             }
-        }
-    } catch (error) {
-        console.error(`${timestamp} A/B Testi motoru hatası:`, error);
-    }
+            
+            // ... (Diğer tetikleyici türleri: EVENT, SEGMENT_ENTRY mantığı buraya eklenebilir) ...
 
-    // Bölüm 2: Segmentasyon Motoru ve Tetikleyici
-    try {
-        const segmentsBefore = await prisma.segment.findMany({ include: { players: { select: { id: true } } } });
-        const segmentMapBefore = new Map(segmentsBefore.map(s => [s.id, new Set(s.players.map(p => p.id))]));
-        
-        const segmentsToProcess = await prisma.segment.findMany({ where: { isActive: true } });
-        for (const segment of segmentsToProcess) {
-            const players = await prisma.player.findMany({ where: { customerId: segment.customerId } });
-            const playersToConnect = [];
-            for (const player of players) {
-                let matchesAllCriteria = true;
-                if (!segment.criteria || !Array.isArray(segment.criteria.rules)) continue;
-                for (const criteria of segment.criteria.rules) {
-                    let playerStat = 0;
-                    if (criteria.fact === 'loginCount') {
-                       const periodInDays = criteria.periodInDays || 30;
-                       const startDate = new Date(Date.now() - periodInDays * 24 * 60 * 60 * 1000);
-                       playerStat = await prisma.event.count({ where: { playerId: player.playerId, customerId: segment.customerId, eventName: 'login_successful', createdAt: { gte: startDate } } });
-                    }
-                    if (criteria.fact === 'totalDeposit') {
-                        const depositEvents = await prisma.event.findMany({ where: { playerId: player.playerId, customerId: segment.customerId, eventName: 'deposit_successful', parameters: { path: ['amount'], not: 'null' } } });
-                        playerStat = depositEvents.reduce((total, event) => (event.parameters && typeof event.parameters.amount === 'number') ? total + event.parameters.amount : total, 0);
-                    }
-                    let match = false;
-                    if (criteria.operator === 'greaterThanOrEqual' && playerStat >= criteria.value) match = true;
-                    // ... (diğer operatörler)
-                    if (!match) { matchesAllCriteria = false; break; }
-                }
-                if (matchesAllCriteria) playersToConnect.push({ id: player.id });
-            }
-            await prisma.segment.update({ where: { id: segment.id }, data: { players: { set: playersToConnect } } });
-        }
-        
-        const segmentsAfter = await prisma.segment.findMany({ where: { id: { in: [...segmentMapBefore.keys()] } }, include: { players: { select: { id: true, playerId: true } } } });
-        const segmentEntryRules = await prisma.rule.findMany({ where: { isActive: true, triggerType: 'SEGMENT_ENTRY' }, include: { customer: true, variants: true } });
+            if (playersToTrigger.length > 0) {
+                console.log(`[${rule.name}] kuralı için ${playersToTrigger.length} oyuncu bulundu.`);
 
-        for (const segment of segmentsAfter) {
-            const playersBefore = segmentMapBefore.get(segment.id) || new Set();
-            for (const playerAfter of segment.players) {
-                if (!playersBefore.has(playerAfter.id)) {
-                    console.log(`Oyuncu [${playerAfter.playerId}], [${segment.name}] segmentine YENİ GİRDİ.`);
-                    for (const rule of segmentEntryRules) {
-                        if (rule.config.segmentId === segment.id) {
-                            const player = await prisma.player.findUnique({ where: { id: playerAfter.id }, include: { telegramConnection: true } });
-                            if (player && player.telegramConnection && rule.customer.telegramBotToken && rule.variants.length > 0) {
+                for (const player of playersToTrigger) {
+                    if (rule.variants.length === 0) continue;
+                    
+                    const variant = rule.variants[Math.floor(Math.random() * rule.variants.length)];
+                    
+                    // --- AKSİYON TÜRÜNE GÖRE İŞLEM YAP ---
+                    switch (variant.actionType) {
+                        case 'SEND_TELEGRAM_MESSAGE':
+                            if (player.telegramConnection && rule.customer.telegramBotToken) {
                                 const bot = new TelegramBot(rule.customer.telegramBotToken);
-                                const variant = rule.variants[Math.floor(Math.random() * rule.variants.length)];
                                 let message = variant.actionPayload.messageTemplate.replace('{playerName}', player.playerId);
                                 await bot.sendMessage(player.telegramConnection.telegramChatId, message);
-                                await prisma.ruleVariant.update({ where: { id: variant.id }, data: { exposures: { increment: 1 } } });
+                                console.log(`--> [Telegram] Oyuncu ${player.playerId}'ye mesaj gönderildi.`);
                             }
-                        }
+                            break;
+
+                        case 'FORWARD_TO_META_ADS':
+                            if (rule.customer.metaPixelId && rule.customer.metaAccessToken) {
+                                const eventName = variant.actionPayload.eventName || 'Lead'; // Varsayılan olay
+                                const eventTime = Math.floor(Date.now() / 1000);
+                                
+                                const payload = {
+                                    data: [{
+                                        event_name: eventName,
+                                        event_time: eventTime,
+                                        action_source: 'system', // Sunucu taraflı olduğunu belirtir
+                                        user_data: {
+                                            external_id: [crypto.createHash('sha256').update(player.playerId).digest('hex')],
+                                            em: player.email ? [crypto.createHash('sha256').update(player.email.toLowerCase()).digest('hex')] : [],
+                                        },
+                                    }],
+                                };
+
+                                const url = `https://graph.facebook.com/v19.0/${rule.customer.metaPixelId}/events?access_token=${rule.customer.metaAccessToken}`;
+                                
+                                try {
+                                    await axios.post(url, payload);
+                                    console.log(`--> [Meta CAPI] Oyuncu ${player.playerId} için "${eventName}" olayı gönderildi.`);
+                                } catch (axiosError) {
+                                    console.error(`--> [Meta CAPI] Hata: ${axiosError.response?.data?.error?.message || axiosError.message}`);
+                                }
+                            }
+                            break;
+                        case 'FORWARD_TO_GOOGLE_ADS':
+                            if (rule.customer.googleAdsId && rule.customer.googleApiSecret) {
+                                const eventName = variant.actionPayload.eventName || 'lead'; // Google için genellikle küçük harf kullanılır
+                                
+                                const payload = {
+                                    // Oyuncu ID'sinden hash'lenmiş bir client_id oluşturuyoruz
+                                    client_id: crypto.createHash('sha256').update(player.playerId).digest('hex'),
+                                    events: [{
+                                        name: eventName,
+                                        params: {
+                                            // event_category gibi ek parametreler buraya eklenebilir
+                                            'send_to': rule.customer.googleAdsId,
+                                        },
+                                    }],
+                                };
+
+                                const url = `https://www.google-analytics.com/mp/collect?api_secret=${rule.customer.googleApiSecret}&measurement_id=${rule.customer.googleAdsId}`;
+                                
+                                try {
+                                    await axios.post(url, payload);
+                                    console.log(`--> [Google Ads MP] Oyuncu ${player.playerId} için "${eventName}" olayı gönderildi.`);
+                                } catch (axiosError) {
+                                    console.error(`--> [Google Ads MP] Hata: ${axiosError.response?.data?.error?.message || axiosError.message}`);
+                                }
+                            }
+                            break;
                     }
+
+                    // A/B Testi istatistiklerini güncelle (gösterim)
+                    await prisma.ruleVariant.update({
+                        where: { id: variant.id },
+                        data: { exposures: { increment: 1 } },
+                    });
                 }
             }
         }
     } catch (error) {
-        console.error(`${timestamp} Segmentasyon/Tetikleyici motoru hatası:`, error);
+        console.error(`${timestamp} Otomasyon motoru hatası:`, error);
     }
 });
 
 // --- Veritabanı "Isıtma" Fonksiyonu ---
 async function connectToDatabase() {
+    console.log("Veritabanı bağlantısı kontrol ediliyor...");
     try {
+        // Veritabanına basit bir sorgu göndererek bağlantıyı test et
         await prisma.$queryRaw`SELECT 1`;
         console.log("Veritabanı bağlantısı başarılı.");
     } catch (error) {
-        console.error("!!! Veritabanına bağlanılamadı. !!!");
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("!!!! VERİTABANI BAĞLANTISI BAŞARISIZ OLDU !!!!");
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.error("Prisma'dan gelen detaylı hata mesajı:");
+        console.error(error); // Hatanın tamamını logla
+        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        
+        // Sunucuyu başlatma, çünkü veritabanı olmadan çalışamaz
         process.exit(1);
     }
 }
-
 // --- SUNUCUYU BAŞLATMA ---
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Backend sunucusu port ${PORT} üzerinde dinlemede...`);
     await connectToDatabase();
 });
-

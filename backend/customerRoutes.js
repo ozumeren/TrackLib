@@ -11,10 +11,19 @@ router.get('/settings', protectWithJWT, async (req, res) => {
     try {
         const customer = await prisma.customer.findUnique({
             where: { id: req.user.customerId },
-            select: { name: true, apiKey: true, telegramBotToken: true }
+            // DEĞİŞİKLİK: Yeni reklam platformu alanlarını da seç
+            select: { 
+                name: true, 
+                apiKey: true, 
+                telegramBotToken: true,
+                metaPixelId: true,
+                metaAccessToken: true,
+                googleAdsId: true,
+                googleApiSecret: true,
+            }
         });
         if (!customer) {
-            return res.status(44).json({ error: 'Müşteri bulunamadı.' });
+            return res.status(404).json({ error: 'Müşteri bulunamadı.' });
         }
         res.json(customer);
     } catch (error) {
@@ -24,11 +33,26 @@ router.get('/settings', protectWithJWT, async (req, res) => {
 
 // Müşteri ayarlarını güncelleme
 router.put('/settings', protectWithJWT, isOwner, async (req, res) => {
-    const { telegramBotToken } = req.body;
+    // DEĞİŞİKLİK: body'den tüm yeni alanları al
+    const { 
+        telegramBotToken,
+        metaPixelId,
+        metaAccessToken,
+        googleAdsId,
+        googleApiSecret,
+    } = req.body;
+
     try {
         await prisma.customer.update({
             where: { id: req.user.customerId },
-            data: { telegramBotToken },
+            // DEĞİŞİKLİK: Gelen tüm verilerle güncelle
+            data: { 
+                telegramBotToken,
+                metaPixelId,
+                metaAccessToken,
+                googleAdsId,
+                googleApiSecret,
+            },
         });
         res.json({ message: 'Ayarlar başarıyla güncellendi.' });
     } catch (error) {

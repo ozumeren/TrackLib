@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -11,9 +12,13 @@ enum TriggerType {
   EVENT
   SEGMENT_ENTRY
 }
+
 enum ActionType {
   SEND_TELEGRAM_MESSAGE
+  FORWARD_TO_META_ADS
+  FORWARD_TO_GOOGLE_ADS
 }
+
 enum Role {
   OWNER
   ADMIN
@@ -26,6 +31,10 @@ model Customer {
   apiKey              String               @unique
   telegramBotToken    String?
   domConfig           Json?
+  metaPixelId         String?
+  metaAccessToken     String?
+  googleAdsId         String?
+  googleApiSecret     String?
   events              Event[]
   telegramConnections TelegramConnection[]
   rules               Rule[]
@@ -34,13 +43,12 @@ model Customer {
   users               User[]
 }
 
-// --- DÜZELTME BU MODELDE ---
 model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
   name       String
   password   String
-  role       Role     @default(MEMBER) // String yerine Role enum'ı kullanıldı
+  role       Role     @default(MEMBER)
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   customerId Int
 }
@@ -64,6 +72,7 @@ model Player {
   customerId         Int
   telegramConnection TelegramConnection?
   segments           Segment[]            @relation("PlayerSegments")
+
   @@unique([playerId, customerId])
 }
 
@@ -111,3 +120,4 @@ model RuleVariant {
   exposures     Int        @default(0)
   conversions   Int        @default(0)
 }
+
