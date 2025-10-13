@@ -1,4 +1,7 @@
-// --- Gerekli Kütüphaneler ---
+// ============================================
+// iGAMING TRACKER - BACKEND SERVER
+// ============================================
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -12,16 +15,20 @@ const Redis = require('ioredis');
 const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
-const axios = require('axios'); // YENİ: Meta API isteği için eklendi
+const axios = require('axios');
 
-// --- Başlangıç Ayarları ---
+// ============================================
+// INITIALIZATION
+// ============================================
 const app = express();
 const prisma = new PrismaClient();
 const redis = new Redis();
-const PORT = 3000;
-const JWT_SECRET = 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
 
-// --- Middleware Ayarları ---
+// ============================================
+// MIDDLEWARE
+// ============================================
 const corsOptions = {
   origin: '*',
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -29,9 +36,28 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
+app.use(express.static('public'));
 
-// --- Harici Route Dosyaları ---
+// ============================================
+// AUTHENTICATION MIDDLEWARE
+// ============================================
 const { protectWithJWT, protectWithApiKey, isOwner, isAdmin } = require('./authMiddleware');
+
+// Domain validation middleware (opsiyonel - dosyayı oluşturmanız gerekiyor)
+let validateScriptOrigin, validateEventOrigin;
+try {
+  const domainCheck = require('./middleware/domainCheck');
+  validateScriptOrigin = domainCheck.validateScriptOrigin;
+  validateEventOrigin = domainCheck.validateEventOrigin;
+} catch (err) {
+  console.log('⚠️  Domain validation middleware not found, skipping...');
+  validateScriptOrigin = (req, res, next) => next();
+  validateEventOrigin = (req, res, next) => next();
+}
+
+// ============================================
+// EXTERNAL ROUTES
+// ============================================
 const analyticsRoutes = require('./analyticsRoutes');
 const segmentRoutes = require('./segmentRoutes');
 const ruleRoutes = require('./ruleRoutes');
@@ -39,7 +65,6 @@ const userRoutes = require('./userRoutes');
 const customerRoutes = require('./customerRoutes');
 const adminRoutes = require('./adminRoutes');
 
-// --- ROTALAR (ROUTES) ---
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/segments', segmentRoutes);
 app.use('/api/rules', ruleRoutes);
@@ -47,29 +72,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 1. Dinamik Tracker.js Sunucusu
-app.get('/tracker/:apiKey.js', async (req, res) => {
-    try {
-        const { apiKey } = req.params;
-        const customer = await prisma.customer.findUnique({ where: { apiKey } });
-        if (!customer) return res.status(404).type('text/javascript').send('// Customer not found.');
-        const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
-        let scriptContent = fs.readFileSync(templatePath, 'utf8');
-        const config = {
-            apiKey: customer.apiKey,
-            backendUrl: `http://${req.get('host')}/v1/events`,
-            domConfig: customer.domConfig || {}
-        };
-        scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
-        res.setHeader('Content-Type', 'application/javascript');
-        res.send(scriptContent);
-    } catch (error) {
-        console.error("Tracker script generation error:", error);
-        res.status(500).type('text/javascript').send('// Error generating tracker script.');
-    }
-});
-
-// 2. Yeni Müşteri için Varsayılan Verileri Oluşturma Fonksiyonu
+// ============================================
+// HELPER FUNCTION - Create Default Data
+// ============================================
 async function createPredefinedData(customerId) {
   try {
     await prisma.segment.createMany({
@@ -77,11 +82,21 @@ async function createPredefinedData(customerId) {
         {
           name: 'Aktif Oyuncular (Son 7 Gün)',
           description: 'Son 7 gün içinde en az bir kez giriş yapmış olan tüm oyuncular.',
-          criteria: { "rules": [{ "fact": "loginCount", "operator": "greaterThanOrEqual", "value": 1, "periodInDays": 7 }] },
+          criteria: { 
+            "rules": [
+              { 
+                "fact": "loginCount", 
+                "operator": "greaterThanOrEqual", 
+                "value": 1, 
+                "periodInDays": 7 
+              }
+            ] 
+          },
           customerId: customerId,
         },
       ],
     });
+
     await prisma.rule.create({
       data: {
         name: 'Pasif Oyuncuları Geri Kazanma Kampanyası (Örnek)',
@@ -95,247 +110,541 @@ async function createPredefinedData(customerId) {
             {
               name: 'Varyant A: Standart Hatırlatma',
               actionType: 'SEND_TELEGRAM_MESSAGE',
-              actionPayload: { "messageTemplate": "Merhaba {playerName}, seni tekrar aramızda görmeyi çok isteriz!" },
+              actionPayload: { 
+                "messageTemplate": "Merhaba {playerName}, seni tekrar aramızda görmeyi çok isteriz!" 
+              },
             },
             {
               name: 'Varyant B: Free Spin Teklifi',
               actionType: 'SEND_TELEGRAM_MESSAGE',
-              actionPayload: { "messageTemplate": "Merhaba {playerName}! Geri dönmen için hesabına 10 Free Spin ekledik. Kaçırma!" },
+              actionPayload: { 
+                "messageTemplate": "Merhaba {playerName}! Geri dönmen için hesabına 10 Free Spin ekledik. Kaçırma!" 
+              },
             },
           ],
         },
       },
     });
+
+    console.log(`✅ Default data created for customer ID: ${customerId}`);
   } catch (error) {
-    console.error(`Müşteri ID ${customerId} için varsayılan veri oluşturulurken hata oluştu:`, error);
+    console.error(`❌ Error creating default data for customer ${customerId}:`, error);
   }
 }
 
-// 3. Yetkilendirme (Auth) Rotaları
+// ============================================
+// SCRIPT SERVING ROUTES
+// ============================================
+
+// YENİ: Script ID bazlı route (pix_ronabet.js gibi)
+app.get('/scripts/:scriptId.js', validateScriptOrigin, async (req, res) => {
+    try {
+        const { scriptId } = req.params;
+        
+        const customer = await prisma.customer.findFirst({ 
+            where: { scriptId: scriptId } 
+        });
+        
+        if (!customer) {
+            return res.status(404)
+                .type('text/javascript')
+                .send('console.error("TrackLib: Customer not found. Invalid script ID.");');
+        }
+
+        const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
+        
+        if (!fs.existsSync(templatePath)) {
+            return res.status(500)
+                .type('text/javascript')
+                .send('console.error("TrackLib: Template file not found.");');
+        }
+
+        let scriptContent = fs.readFileSync(templatePath, 'utf8');
+        
+        const config = {
+            scriptId: scriptId,
+            apiKey: customer.apiKey,
+            backendUrl: `https://${req.get('host')}/v1/events`,
+            domConfig: customer.domConfig || {}
+        };
+        
+        scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
+        
+        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 saat cache
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        
+        res.send(scriptContent);
+        
+        console.log(`✅ Script served: ${scriptId} from ${req.get('origin') || 'direct'}`);
+        
+    } catch (error) {
+        console.error("Script generation error:", error);
+        res.status(500)
+            .type('text/javascript')
+            .send('console.error("TrackLib: Script generation failed");');
+    }
+});
+
+// ESKİ: API Key bazlı route (geriye dönük uyumluluk için)
+app.get('/tracker/:apiKey.js', async (req, res) => {
+    try {
+        const { apiKey } = req.params;
+        const customer = await prisma.customer.findUnique({ where: { apiKey } });
+        
+        if (!customer) {
+            return res.status(404)
+                .type('text/javascript')
+                .send('console.error("TrackLib: Customer not found");');
+        }
+
+        const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
+        let scriptContent = fs.readFileSync(templatePath, 'utf8');
+        
+        const config = {
+            apiKey: customer.apiKey,
+            backendUrl: `https://${req.get('host')}/v1/events`,
+            domConfig: customer.domConfig || {}
+        };
+        
+        scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
+        res.setHeader('Content-Type', 'application/javascript');
+        res.send(scriptContent);
+        
+    } catch (error) {
+        console.error("Tracker script generation error:", error);
+        res.status(500).type('text/javascript').send('// Error generating tracker script.');
+    }
+});
+
+// ============================================
+// AUTHENTICATION ROUTES
+// ============================================
 const authRoutes = express.Router();
+
 authRoutes.post('/register', async (req, res) => {
-    const { customerName, userName, email, password } = req.body;
-    if (!customerName || !userName || !email || !password) {
+    const { customerName, scriptId, userName, email, password } = req.body;
+    
+    // Validasyon
+    if (!customerName || !scriptId || !userName || !email || !password) {
         return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
     }
+
+    // Script ID formatı kontrolü
+    if (!/^pix_[a-z0-9_]+$/.test(scriptId)) {
+        return res.status(400).json({ 
+            error: 'Script ID "pix_" ile başlamalı ve sadece küçük harf, rakam ve alt çizgi içerebilir.' 
+        });
+    }
+
     try {
+        // Script ID benzersiz mi kontrol et
+        const existingCustomer = await prisma.customer.findFirst({
+            where: { 
+              OR: [
+                { scriptId: scriptId },
+                { apiKey: scriptId }
+              ]
+            }
+        });
+
+        if (existingCustomer) {
+            return res.status(400).json({ 
+                error: 'Bu Script ID zaten kullanılıyor. Lütfen başka bir tane deneyin.' 
+            });
+        }
+
+        // Şifreyi hashle
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
+        
+        // API Key oluştur
         const apiKey = `trk_${crypto.randomBytes(16).toString('hex')}`;
+        
+        // Müşteri ve kullanıcı oluştur
         const newCustomer = await prisma.customer.create({
             data: {
                 name: customerName,
                 apiKey: apiKey,
+                scriptId: scriptId,
+                allowedDomains: [], // Boş array, sonra müşteri ekleyecek
                 users: {
-                    create: { name: userName, email: email, password: hashedPassword, role: 'OWNER' },
+                    create: { 
+                        name: userName, 
+                        email: email, 
+                        password: hashedPassword, 
+                        role: 'OWNER' 
+                    },
                 },
             },
+            include: {
+                users: true
+            }
         });
+        
+        // Varsayılan segment ve rule'ları oluştur
         await createPredefinedData(newCustomer.id);
-        res.status(201).json({ message: 'Müşteri başarıyla oluşturuldu.' });
+        
+        res.status(201).json({ 
+            message: 'Müşteri başarıyla oluşturuldu.',
+            scriptId: scriptId,
+            scriptUrl: `/scripts/${scriptId}.js`,
+            integrationCode: `<script id="${scriptId}" src="https://${req.get('host')}/scripts/${scriptId}.js" async></script>`
+        });
+        
+        console.log(`✅ New customer registered: ${customerName} (${scriptId})`);
+        
     } catch (error) {
-        if (error.code === 'P2002') return res.status(400).json({ error: 'Bu e-posta adresi zaten kullanılıyor.' });
+        console.error('Registration error:', error);
+        
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.[0];
+            if (field === 'email') {
+                return res.status(400).json({ error: 'Bu e-posta adresi zaten kullanılıyor.' });
+            } else if (field === 'scriptId') {
+                return res.status(400).json({ error: 'Bu Script ID zaten kullanılıyor.' });
+            }
+        }
+        
         res.status(500).json({ error: 'Kullanıcı oluşturulamadı.' });
     }
 });
+
 authRoutes.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    
+    if (!email || !password) {
+        return res.status(400).json({ error: 'E-posta ve şifre gereklidir.' });
+    }
+    
     try {
         const user = await prisma.user.findUnique({ where: { email } });
-        if (user && (await bcrypt.compare(password, user.password))) {
-            const token = jwt.sign(
-                { userId: user.id, customerId: user.customerId, role: user.role },
-                JWT_SECRET,
-                { expiresIn: '1d' }
-            );
-            res.json({ name: user.name, role: user.role, email: user.email, token: token });
-        } else {
-            res.status(401).json({ error: 'Geçersiz e-posta veya şifre.' });
+        
+        if (!user) {
+            return res.status(401).json({ error: 'Geçersiz kimlik bilgileri.' });
         }
+        
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Geçersiz kimlik bilgileri.' });
+        }
+        
+        const token = jwt.sign(
+            { userId: user.id, customerId: user.customerId, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        res.json({ 
+            name: user.name, 
+            role: user.role, 
+            email: user.email, 
+            token: token 
+        });
+        
+        console.log(`✅ User logged in: ${email}`);
+        
     } catch (error) {
-        console.error("Giriş sırasında kritik hata:", error);
+        console.error('Login error:', error);
         res.status(500).json({ error: 'Giriş yapılamadı.' });
     }
 });
+
 app.use('/api/auth', authRoutes);
 
-// 4. Olay Toplama ve Telegram Webhook Rotaları
+// ============================================
+// DOMAIN MANAGEMENT ROUTES
+// ============================================
+app.put('/api/customers/domains', protectWithJWT, isOwner, async (req, res) => {
+    try {
+        const { domains } = req.body;
+        
+        if (!Array.isArray(domains)) {
+            return res.status(400).json({ error: 'Domains must be an array' });
+        }
+
+        // Her domain'i temizle ve doğrula
+        const cleanDomains = domains
+            .map(d => d.trim().toLowerCase())
+            .filter(d => d.length > 0)
+            .filter(d => {
+                return /^(\*\.)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/.test(d);
+            });
+
+        await prisma.customer.update({
+            where: { id: req.user.customerId },
+            data: { allowedDomains: cleanDomains }
+        });
+
+        res.json({ 
+            message: 'Domains updated successfully',
+            domains: cleanDomains 
+        });
+
+    } catch (error) {
+        console.error('Domain update error:', error);
+        res.status(500).json({ error: 'Failed to update domains' });
+    }
+});
+
+app.get('/api/customers/domains', protectWithJWT, async (req, res) => {
+    try {
+        const customer = await prisma.customer.findUnique({
+            where: { id: req.user.customerId },
+            select: { allowedDomains: true }
+        });
+
+        res.json({ domains: customer?.allowedDomains || [] });
+
+    } catch (error) {
+        console.error('Domain fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch domains' });
+    }
+});
+
+// ============================================
+// EVENT TRACKING ROUTE
+// ============================================
 app.options('/v1/events', cors(corsOptions));
-app.post('/v1/events', protectWithApiKey, async (req, res) => {
+
+app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) => {
     const eventData = req.body;
     const customer = req.customer;
+    
     try {
+        // Rate limiting kontrolü
+        const rateLimitKey = `rate:${customer.apiKey}:${eventData.session_id}`;
+        const requestCount = await redis.incr(rateLimitKey);
+        
+        if (requestCount === 1) {
+            await redis.expire(rateLimitKey, 60); // 1 dakika
+        }
+        
+        if (requestCount > 100) {
+            console.log(`⚠️  Rate limit exceeded: ${customer.name}`);
+            return res.status(429).json({ error: 'Rate limit exceeded' });
+        }
+
+        // Player kaydı oluştur/güncelle
         if (eventData.player_id) {
-             await prisma.player.upsert({
-                where: { playerId_customerId: { playerId: eventData.player_id, customerId: customer.id } },
+            await prisma.player.upsert({
+                where: { 
+                    playerId_customerId: { 
+                        playerId: eventData.player_id, 
+                        customerId: customer.id 
+                    } 
+                },
                 update: {},
-                create: { playerId: eventData.player_id, customerId: customer.id },
+                create: { 
+                    playerId: eventData.player_id, 
+                    customerId: customer.id 
+                },
             });
         }
+
+        // Event'i kaydet
         await prisma.event.create({
             data: {
-                apiKey: eventData.api_key, sessionId: eventData.session_id,
-                playerId: eventData.player_id, eventName: eventData.event_name,
-                url: eventData.url, parameters: eventData.parameters || {},
+                apiKey: eventData.api_key,
+                sessionId: eventData.session_id,
+                playerId: eventData.player_id || null,
+                eventName: eventData.event_name,
+                url: eventData.url || '',
+                parameters: eventData.parameters || {},
                 customerId: customer.id,
+                createdAt: eventData.timestamp_utc ? new Date(eventData.timestamp_utc) : new Date()
             },
         });
+
+        // A/B Test conversion tracking
         if (eventData.player_id) {
             const abTestEntry = await redis.get(`ab_test:${eventData.player_id}`);
+            
             if (abTestEntry) {
                 const { variantId } = JSON.parse(abTestEntry);
-                const variant = await prisma.ruleVariant.findUnique({ where: {id: variantId}, include: {rule: true} });
+                const variant = await prisma.ruleVariant.findUnique({ 
+                    where: { id: variantId }, 
+                    include: { rule: true } 
+                });
+                
                 if (variant && eventData.event_name === variant.rule.conversionGoalEvent) {
                     await prisma.ruleVariant.update({
                         where: { id: variantId },
                         data: { conversions: { increment: 1 } },
                     });
-                    console.log(`--> A/B Test DÖNÜŞÜM! Oyuncu ${eventData.player_id}, varyant ${variantId} için dönüşüm sağladı.`);
-                    await redis.del(`ab_test:${eventData.player_id}`);
+                    console.log(`✅ A/B Test conversion recorded for variant ${variantId}`);
                 }
             }
         }
-        res.status(200).json({ status: 'success' });
+
+        res.status(200).json({ success: true });
+
     } catch (error) {
-        console.error("Event işleme hatası:", error);
-        res.status(500).json({ status: 'error' });
+        console.error('Event tracking error:', error);
+        res.status(500).json({ error: 'Failed to track event' });
     }
-});
-app.post('/v1/telegram/webhook/:apiKey', async (req, res) => {
-    const { apiKey } = req.params;
-    const message = req.body.message;
-    const customer = await prisma.customer.findUnique({ where: { apiKey } });
-    if (!customer) return res.sendStatus(404);
-    if (message && message.text && message.text.startsWith('/start')) {
-        const chatId = message.chat.id.toString();
-        const playerId = message.text.split(' ')[1];
-        if (playerId) {
-            try {
-                const player = await prisma.player.upsert({
-                    where: { playerId_customerId: { playerId, customerId: customer.id } },
-                    update: {},
-                    create: { playerId, customerId: customer.id },
-                });
-                await prisma.telegramConnection.upsert({
-                    where: { playerId: player.id },
-                    update: { telegramChatId: chatId },
-                    create: { telegramChatId: chatId, playerId: player.id, customerId: customer.id },
-                });
-                if (customer.telegramBotToken) {
-                    const bot = new TelegramBot(customer.telegramBotToken);
-                    bot.sendMessage(chatId, 'Hesabınız başarıyla bağlandı!');
-                }
-            } catch (error) { console.error('Eşleştirme hatası:', error.message); }
-        }
-    }
-    res.sendStatus(200);
 });
 
-// --- OTOMASYON ZAMANLAYICI (Sunucu Taraflı Etiketleme ile Güncellendi) ---
-cron.schedule('*/1 * * * *', async () => {
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} --- Otomasyon Motoru Başlatıldı ---`);
+// ============================================
+// TELEGRAM WEBHOOK ROUTE
+// ============================================
+app.post('/telegram-webhook', async (req, res) => {
+    const { chatId, apiKey } = req.body;
+    
+    if (!chatId || !apiKey) {
+        return res.status(400).json({ error: 'chatId ve apiKey gereklidir.' });
+    }
+
+    try {
+        await prisma.customer.update({
+            where: { apiKey },
+            data: { telegramChatId: chatId },
+        });
+        
+        res.json({ message: 'Telegram Chat ID başarıyla kaydedildi.' });
+        console.log(`✅ Telegram Chat ID registered for API Key: ${apiKey}`);
+        
+    } catch (error) {
+        console.error('Telegram webhook error:', error);
+        res.status(500).json({ error: 'Chat ID kaydedilemedi.' });
+    }
+});
+
+// ============================================
+// AUTOMATION ENGINE (CRON JOB)
+// ============================================
+cron.schedule('* * * * *', async () => {
+    const timestamp = new Date().toLocaleTimeString('tr-TR');
+    console.log(`⏰ [${timestamp}] Otomasyon motoru çalışıyor...`);
 
     try {
         const activeRules = await prisma.rule.findMany({
             where: { isActive: true },
-            include: { customer: true, variants: true },
+            include: { 
+                customer: true, 
+                variants: true 
+            },
         });
 
         for (const rule of activeRules) {
-            let playersToTrigger = [];
+            const players = await prisma.player.findMany({
+                where: { customerId: rule.customerId },
+            });
 
-            if (rule.triggerType === 'INACTIVITY') {
-                const inactivityMinutes = rule.config.minutes || 2;
-                const threshold = new Date(Date.now() - inactivityMinutes * 60 * 1000);
-                const activePlayerEvents = await prisma.event.findMany({
-                    where: { customerId: rule.customerId, eventName: 'login_successful', createdAt: { gte: threshold } },
-                    select: { playerId: true }, distinct: ['playerId'],
-                });
-                const activePlayerIds = activePlayerEvents.map(e => e.playerId).filter(id => id);
-                playersToTrigger = await prisma.player.findMany({
-                    where: { customerId: rule.customerId, NOT: { playerId: { in: activePlayerIds } } },
-                    include: { telegramConnection: true }
-                });
-            }
-            
-            // ... (Diğer tetikleyici türleri: EVENT, SEGMENT_ENTRY mantığı buraya eklenebilir) ...
+            for (const player of players) {
+                let shouldTrigger = false;
 
-            if (playersToTrigger.length > 0) {
-                console.log(`[${rule.name}] kuralı için ${playersToTrigger.length} oyuncu bulundu.`);
+                if (rule.triggerType === 'INACTIVITY') {
+                    const minutesAgo = rule.config.minutes;
+                    const cutoffTime = new Date(Date.now() - minutesAgo * 60 * 1000);
 
-                for (const player of playersToTrigger) {
-                    if (rule.variants.length === 0) continue;
-                    
-                    const variant = rule.variants[Math.floor(Math.random() * rule.variants.length)];
-                    
-                    // --- AKSİYON TÜRÜNE GÖRE İŞLEM YAP ---
+                    const recentEvent = await prisma.event.findFirst({
+                        where: {
+                            customerId: rule.customerId,
+                            playerId: player.playerId,
+                            createdAt: { gte: cutoffTime },
+                        },
+                    });
+
+                    shouldTrigger = !recentEvent;
+                }
+
+                if (shouldTrigger) {
+                    console.log(`🎯 Rule "${rule.name}" triggered for player: ${player.playerId}`);
+
+                    let abTestEntry = await redis.get(`ab_test:${player.playerId}`);
+                    let variant;
+
+                    if (abTestEntry) {
+                        const { variantId } = JSON.parse(abTestEntry);
+                        variant = rule.variants.find((v) => v.id === variantId);
+                    }
+
+                    if (!variant) {
+                        const randomIndex = Math.floor(Math.random() * rule.variants.length);
+                        variant = rule.variants[randomIndex];
+
+                        await redis.set(
+                            `ab_test:${player.playerId}`,
+                            JSON.stringify({ variantId: variant.id }),
+                            'EX',
+                            60 * 60 * 24 * 30
+                        );
+                    }
+
+                    // Execute action based on type
                     switch (variant.actionType) {
                         case 'SEND_TELEGRAM_MESSAGE':
-                            if (player.telegramConnection && rule.customer.telegramBotToken) {
+                            if (rule.customer.telegramBotToken && rule.customer.telegramChatId) {
                                 const bot = new TelegramBot(rule.customer.telegramBotToken);
-                                let message = variant.actionPayload.messageTemplate.replace('{playerName}', player.playerId);
-                                await bot.sendMessage(player.telegramConnection.telegramChatId, message);
-                                console.log(`--> [Telegram] Oyuncu ${player.playerId}'ye mesaj gönderildi.`);
+                                const messageTemplate = variant.actionPayload.messageTemplate;
+                                const finalMessage = messageTemplate.replace('{playerName}', player.playerId);
+
+                                try {
+                                    await bot.sendMessage(rule.customer.telegramChatId, finalMessage);
+                                    console.log(`✅ Telegram message sent to ${player.playerId}`);
+                                } catch (err) {
+                                    console.error(`❌ Telegram error:`, err.message);
+                                }
                             }
                             break;
 
-                        case 'FORWARD_TO_META_ADS':
+                        case 'FORWARD_TO_META':
                             if (rule.customer.metaPixelId && rule.customer.metaAccessToken) {
-                                const eventName = variant.actionPayload.eventName || 'Lead'; // Varsayılan olay
-                                const eventTime = Math.floor(Date.now() / 1000);
-                                
+                                const eventName = variant.actionPayload.eventName || 'Lead';
+
                                 const payload = {
                                     data: [{
                                         event_name: eventName,
-                                        event_time: eventTime,
-                                        action_source: 'system', // Sunucu taraflı olduğunu belirtir
+                                        event_time: Math.floor(Date.now() / 1000),
+                                        action_source: 'website',
                                         user_data: {
-                                            external_id: [crypto.createHash('sha256').update(player.playerId).digest('hex')],
+                                            client_user_id: crypto.createHash('sha256').update(player.playerId).digest('hex'),
                                             em: player.email ? [crypto.createHash('sha256').update(player.email.toLowerCase()).digest('hex')] : [],
                                         },
                                     }],
                                 };
 
                                 const url = `https://graph.facebook.com/v19.0/${rule.customer.metaPixelId}/events?access_token=${rule.customer.metaAccessToken}`;
-                                
+
                                 try {
                                     await axios.post(url, payload);
-                                    console.log(`--> [Meta CAPI] Oyuncu ${player.playerId} için "${eventName}" olayı gönderildi.`);
+                                    console.log(`✅ Meta CAPI event sent: ${eventName} for ${player.playerId}`);
                                 } catch (axiosError) {
-                                    console.error(`--> [Meta CAPI] Hata: ${axiosError.response?.data?.error?.message || axiosError.message}`);
+                                    console.error(`❌ Meta CAPI error:`, axiosError.response?.data?.error?.message || axiosError.message);
                                 }
                             }
                             break;
+
                         case 'FORWARD_TO_GOOGLE_ADS':
                             if (rule.customer.googleAdsId && rule.customer.googleApiSecret) {
-                                const eventName = variant.actionPayload.eventName || 'lead'; // Google için genellikle küçük harf kullanılır
-                                
+                                const eventName = variant.actionPayload.eventName || 'lead';
+
                                 const payload = {
-                                    // Oyuncu ID'sinden hash'lenmiş bir client_id oluşturuyoruz
                                     client_id: crypto.createHash('sha256').update(player.playerId).digest('hex'),
                                     events: [{
                                         name: eventName,
                                         params: {
-                                            // event_category gibi ek parametreler buraya eklenebilir
                                             'send_to': rule.customer.googleAdsId,
                                         },
                                     }],
                                 };
 
                                 const url = `https://www.google-analytics.com/mp/collect?api_secret=${rule.customer.googleApiSecret}&measurement_id=${rule.customer.googleAdsId}`;
-                                
+
                                 try {
                                     await axios.post(url, payload);
-                                    console.log(`--> [Google Ads MP] Oyuncu ${player.playerId} için "${eventName}" olayı gönderildi.`);
+                                    console.log(`✅ Google Ads event sent: ${eventName} for ${player.playerId}`);
                                 } catch (axiosError) {
-                                    console.error(`--> [Google Ads MP] Hata: ${axiosError.response?.data?.error?.message || axiosError.message}`);
+                                    console.error(`❌ Google Ads error:`, axiosError.response?.data?.error?.message || axiosError.message);
                                 }
                             }
                             break;
                     }
 
-                    // A/B Testi istatistiklerini güncelle (gösterim)
+                    // A/B Test istatistiklerini güncelle (gösterim)
                     await prisma.ruleVariant.update({
                         where: { id: variant.id },
                         data: { exposures: { increment: 1 } },
@@ -344,31 +653,62 @@ cron.schedule('*/1 * * * *', async () => {
             }
         }
     } catch (error) {
-        console.error(`${timestamp} Otomasyon motoru hatası:`, error);
+        console.error(`❌ Automation engine error:`, error);
     }
 });
 
-// --- Veritabanı "Isıtma" Fonksiyonu ---
+// ============================================
+// DATABASE CONNECTION TEST
+// ============================================
 async function connectToDatabase() {
-    console.log("Veritabanı bağlantısı kontrol ediliyor...");
+    console.log("🔌 Testing database connection...");
     try {
-        // Veritabanına basit bir sorgu göndererek bağlantıyı test et
         await prisma.$queryRaw`SELECT 1`;
-        console.log("Veritabanı bağlantısı başarılı.");
+        console.log("✅ Database connection successful.");
     } catch (error) {
         console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        console.error("!!!! VERİTABANI BAĞLANTISI BAŞARISIZ OLDU !!!!");
+        console.error("!!!! DATABASE CONNECTION FAILED !!!!");
         console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        console.error("Prisma'dan gelen detaylı hata mesajı:");
-        console.error(error); // Hatanın tamamını logla
+        console.error("Prisma error details:");
+        console.error(error);
         console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        
-        // Sunucuyu başlatma, çünkü veritabanı olmadan çalışamaz
         process.exit(1);
     }
 }
-// --- SUNUCUYU BAŞLATMA ---
+
+// ============================================
+// START SERVER
+// ============================================
 app.listen(PORT, '0.0.0.0', async () => {
-    console.log(`Backend sunucusu port ${PORT} üzerinde dinlemede...`);
+    console.log(`
+    ╔════════════════════════════════════════╗
+    ║   iGAMING TRACKER - BACKEND SERVER    ║
+    ╠════════════════════════════════════════╣
+    ║   Port: ${PORT.toString().padEnd(29)} ║
+    ║   Environment: ${(process.env.NODE_ENV || 'development').padEnd(22)} ║
+    ╚════════════════════════════════════════╝
+    `);
+    
     await connectToDatabase();
+    
+    console.log("\n🚀 Server is ready to accept requests!");
+    console.log(`📝 API Documentation: http://localhost:${PORT}/api`);
+    console.log(`🎯 Script Endpoint: http://localhost:${PORT}/scripts/pix_yourscript.js\n`);
+});
+
+// ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+process.on('SIGTERM', async () => {
+    console.log('⚠️  SIGTERM received, shutting down gracefully...');
+    await prisma.$disconnect();
+    await redis.quit();
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    console.log('\n⚠️  SIGINT received, shutting down gracefully...');
+    await prisma.$disconnect();
+    await redis.quit();
+    process.exit(0);
 });
