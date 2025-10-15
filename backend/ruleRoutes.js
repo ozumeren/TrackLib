@@ -130,5 +130,43 @@ router.delete('/:id', protectWithJWT, async (req, res) => {
     }
 });
 
+// backend/ruleRoutes.js içine eklenecek endpoint
+// Mevcut route'lardan sonra ekleyin
+
+// Toggle rule active/inactive status
+router.patch('/:id/toggle', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const ruleId = parseInt(req.params.id, 10);
+
+    try {
+        // Önce kuralı getir
+        const rule = await prisma.rule.findFirst({
+            where: {
+                id: ruleId,
+                customerId: customerId
+            }
+        });
+
+        if (!rule) {
+            return res.status(404).json({ error: 'Kural bulunamadı.' });
+        }
+
+        // Durumu tersine çevir
+        const updatedRule = await prisma.rule.update({
+            where: { id: ruleId },
+            data: { isActive: !rule.isActive }
+        });
+
+        res.json({
+            message: 'Kural durumu güncellendi.',
+            rule: updatedRule
+        });
+
+    } catch (error) {
+        console.error('Rule toggle error:', error);
+        res.status(500).json({ error: 'Kural durumu güncellenemedi.' });
+    }
+});
+
 module.exports = router;
 
