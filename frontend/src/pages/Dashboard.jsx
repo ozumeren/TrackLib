@@ -8,6 +8,7 @@ import {
 } from '@mantine/core';
 import { useAuth } from '../AuthContext';
 import DashboardChart from '../components/DashboardChart';
+import LiveEventFeed from '../components/LiveEventFeed';
 import { 
   IconSearch, IconUsers, IconCoin, IconTrendingUp, 
   IconUserPlus, IconArrowUpRight, IconArrowDownRight,

@@ -188,6 +188,121 @@ router.get('/timeseries', protectWithJWT, async (req, res) => {
         res.status(500).json({ error: 'Grafik verileri alınamadı.' });
     }
 });
+router.get('/live-events', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const limit = parseInt(req.query.limit || '20', 10);
+    const after = req.query.after; // Timestamp for pagination
+
+    try {
+        const whereClause = {
+            customerId: customerId,
+        };
+
+        // Eğer 'after' parametresi varsa, sadece o zamandan sonraki eventleri al
+        if (after) {
+            whereClause.createdAt = {
+                gt: new Date(after)
+            };
+        }
+
+        const events = await prisma.event.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            select: {
+                id: true,
+                eventName: true,
+                playerId: true,
+                parameters: true,
+                url: true,
+                createdAt: true,
+                sessionId: true,
+            }
+        });
+
+        // Event'leri zenginleştir
+        const enrichedEvents = events.map(event => ({
+            id: event.id,
+            eventName: event.eventName,
+            playerId: event.playerId || 'Anonymous',
+            parameters: event.parameters,
+            url: event.url,
+            createdAt: event.createdAt,
+            sessionId: event.sessionId,
+            // Event type'a göre icon ve renk
+            metadata: getEventMetadata(event.eventName, event.parameters)
+        }));
+
+        res.json({
+            events: enrichedEvents,
+            timestamp: new Date().toISOString(),
+            count: enrichedEvents.length
+        });
+
+    } catch (error) {
+        console.error('Live events error:', error);
+        res.status(500).json({ error: 'Canlı eventler alınamadı.' });
+    }
+});
+
+// Event metadata helper function
+function getEventMetadata(eventName, parameters) {
+    const metadata = {
+        icon: '📊',
+        color: 'blue',
+        label: eventName
+    };
+
+    switch (eventName) {
+        case 'page_view':
+            metadata.icon = '👁️';
+            metadata.color = 'gray';
+            metadata.label = 'Sayfa Görüntüleme';
+            break;
+        case 'login_successful':
+            metadata.icon = '🔐';
+            metadata.color = 'green';
+            metadata.label = 'Giriş Başarılı';
+            break;
+        case 'registration_completed':
+            metadata.icon = '✨';
+            metadata.color = 'violet';
+            metadata.label = 'Kayıt Tamamlandı';
+            break;
+        case 'deposit_successful':
+            metadata.icon = '💰';
+            metadata.color = 'teal';
+            metadata.label = 'Para Yatırma';
+            if (parameters?.amount) {
+                metadata.value = `${parameters.amount} ${parameters.currency || 'TRY'}`;
+            }
+            break;
+        case 'deposit_failed':
+            metadata.icon = '❌';
+            metadata.color = 'red';
+            metadata.label = 'Yatırma Başarısız';
+            break;
+        case 'withdrawal_successful':
+            metadata.icon = '💸';
+            metadata.color = 'yellow';
+            metadata.label = 'Para Çekme';
+            if (parameters?.amount) {
+                metadata.value = `${parameters.amount} ${parameters.currency || 'TRY'}`;
+            }
+            break;
+        case 'player_identified':
+            metadata.icon = '👤';
+            metadata.color = 'blue';
+            metadata.label = 'Oyuncu Tanımlandı';
+            break;
+        default:
+            metadata.icon = '📌';
+            metadata.color = 'gray';
+            metadata.label = eventName.replace(/_/g, ' ');
+    }
+
+    return metadata;
+}
 
 module.exports = router;
 
