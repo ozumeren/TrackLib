@@ -1,11 +1,19 @@
-import { AppShell, Group, Button, Stack, Menu, Text, Divider } from '@mantine/core';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { 
+  AppShell, Group, Button, Stack, Menu, Text, Divider, 
+  ThemeIcon, Badge, UnstyledButton, Box, Avatar
+} from '@mantine/core';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import {IconReportMoney, IconChevronRight, IconDashboard, IconChartPie, IconTargetArrow, IconSettings, IconUser, IconLogout, IconUserShield } from '@tabler/icons-react';
+import {
+  IconReportMoney, IconChevronDown, IconDashboard, IconChartPie, 
+  IconTargetArrow, IconSettings, IconUser, IconLogout, IconUserShield,
+  IconChartBar
+} from '@tabler/icons-react';
 
 function AppNavbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -13,86 +21,233 @@ function AppNavbar() {
   };
 
   const mainLinks = [
-    { icon: <IconDashboard size={16} />, label: 'Dashboard', to: '/' },
-    { icon: <IconChartPie size={16} />, label: 'Segmentler', to: '/segments' },
-    { icon: <IconTargetArrow size={16} />, label: 'Kurallar', to: '/rules' },
-    { icon: <IconReportMoney size={16} />, label: 'Terk Edilmiş Yatırımlar', to: '/abandoned-deposits' },
+    { 
+      icon: IconDashboard, 
+      label: 'Dashboard', 
+      to: '/',
+      description: 'Genel bakış'
+    },
+    { 
+      icon: IconChartPie, 
+      label: 'Segmentler', 
+      to: '/segments',
+      description: 'Oyuncu grupları'
+    },
+    { 
+      icon: IconTargetArrow, 
+      label: 'Kurallar', 
+      to: '/rules',
+      description: 'Otomasyon'
+    },
+    { 
+      icon: IconReportMoney, 
+      label: 'Terk Edilmiş', 
+      to: '/abandoned-deposits',
+      description: 'Kayıp fırsatlar'
+    },
   ];
 
-  const links = mainLinks.map((link) => (
-    <Button
-      key={link.label}
-      component={RouterLink}
-      to={link.to}
-      variant="subtle"
-      leftSection={link.icon}
-      fullWidth
-      styles={(theme) => ({
-        root: { justifyContent: 'flex-start', paddingLeft: theme.spacing.md },
-      })}
-    >
-      {link.label}
-    </Button>
-  ));
-
   return (
-    // DEĞİŞİKLİK: 'MantineAppShell.Navbar' yerine doğru olan 'AppShell.Navbar' kullanıldı.
     <AppShell.Navbar p="md">
-      {/* DEĞİŞİKLİK: Mantine'in yeni sürümlerinde kaldırılan 'Navbar.Section' yerine,
-        modern bir layout tekniği olan 'Stack' bileşeni kullanıldı.
-        Bu Stack, içeriği dikeyde (üst ve alt olarak) hizalamayı sağlar.
-      */}
       <Stack justify="space-between" style={{ height: '100%' }}>
-        {/* Üst Kısım: Navigasyon Linkleri */}
-        <Stack spacing="xs">
-            {links}
-            {user?.role === 'ADMIN' && (
-                <Button
-                    component={RouterLink}
-                    to="/admin/customers"
-                    variant="subtle"
-                    leftSection={<IconUserShield size={16} />}
-                    fullWidth
-                    color="yellow"
-                    styles={(theme) => ({
-                        root: { justifyContent: 'flex-start', paddingLeft: theme.spacing.md },
-                    })}
-                >
-                    Yönetici Paneli
-                </Button>
-            )}
-        </Stack>
+        {/* Logo Section */}
+        <Box>
+          <Group spacing="xs" mb="xl" px="sm">
+            <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
+              <IconChartBar size={20} />
+            </ThemeIcon>
+            <div>
+              <Text size="lg" weight={700}>TrackLib</Text>
+              <Badge size="xs" variant="dot" color="green">Live</Badge>
+            </div>
+          </Group>
 
-        {/* Alt Kısım: Kullanıcı Menüsü */}
-        <div>
-          <Divider my="sm" />
-          <Menu shadow="md" width={250} position="top-end" withArrow>
-              <Menu.Target>
-                  <Button variant="subtle" fullWidth>
-                      <Group justify="space-between" style={{ flexWrap: 'nowrap' }}>
-                        <Group spacing="xs" align="baseline">
-                            <Text size="sm" fw={500}>{user?.name}</Text>
-                            <Text size="xs" color="dimmed">{user?.email}</Text>
-                        </Group>                         
-			<IconChevronRight size={16} />
-                      </Group>
-                  </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                  <Menu.Item icon={<IconUser size={14} />} component={RouterLink} to="/account">Hesabım</Menu.Item>
-                  <Menu.Item icon={<IconSettings size={14} />} component={RouterLink} to="/settings">Ayarlar</Menu.Item>
-                  <Menu.Divider />
-                  <Menu.Item color="red" icon={<IconLogout size={14} />} onClick={handleLogout}>
-                      Çıkış Yap
-                  </Menu.Item>
-              </Menu.Dropdown>
+          <Divider mb="md" />
+
+          {/* Navigation Links */}
+          <Stack spacing={4}>
+            {mainLinks.map((link) => {
+              const Icon = link.icon;
+              const isActive = location.pathname === link.to;
+              
+              return (
+                <UnstyledButton
+                  key={link.label}
+                  component={RouterLink}
+                  to={link.to}
+                  sx={(theme) => ({
+                    display: 'block',
+                    width: '100%',
+                    padding: theme.spacing.sm,
+                    borderRadius: theme.radius.md,
+                    color: isActive ? theme.colors.blue[6] : theme.colorScheme === 'dark' ? theme.colors.dark[0] : theme.black,
+                    backgroundColor: isActive 
+                      ? theme.colorScheme === 'dark' 
+                        ? theme.colors.dark[6] 
+                        : theme.colors.blue[0]
+                      : 'transparent',
+                    
+                    '&:hover': {
+                      backgroundColor: isActive
+                        ? theme.colorScheme === 'dark'
+                          ? theme.colors.dark[6]
+                          : theme.colors.blue[0]
+                        : theme.colorScheme === 'dark'
+                        ? theme.colors.dark[7]
+                        : theme.colors.gray[0],
+                    },
+
+                    transition: 'all 0.15s ease',
+                  })}
+                >
+                  <Group>
+                    <ThemeIcon 
+                      size="md" 
+                      radius="md" 
+                      variant={isActive ? 'filled' : 'light'}
+                      color={isActive ? 'blue' : 'gray'}
+                    >
+                      <Icon size={18} />
+                    </ThemeIcon>
+                    <div style={{ flex: 1 }}>
+                      <Text size="sm" weight={isActive ? 600 : 500}>
+                        {link.label}
+                      </Text>
+                      <Text size="xs" color="dimmed">
+                        {link.description}
+                      </Text>
+                    </div>
+                  </Group>
+                </UnstyledButton>
+              );
+            })}
+
+            {/* Admin Panel Link */}
+            {user?.role === 'ADMIN' && (
+              <>
+                <Divider my="sm" />
+                <UnstyledButton
+                  component={RouterLink}
+                  to="/admin/customers"
+                  sx={(theme) => ({
+                    display: 'block',
+                    width: '100%',
+                    padding: theme.spacing.sm,
+                    borderRadius: theme.radius.md,
+                    backgroundColor: theme.colors.yellow[0],
+                    
+                    '&:hover': {
+                      backgroundColor: theme.colors.yellow[1],
+                    },
+                  })}
+                >
+                  <Group>
+                    <ThemeIcon size="md" radius="md" color="yellow">
+                      <IconUserShield size={18} />
+                    </ThemeIcon>
+                    <div style={{ flex: 1 }}>
+                      <Text size="sm" weight={600} color="yellow.9">
+                        Yönetici Paneli
+                      </Text>
+                      <Text size="xs" color="yellow.7">
+                        Tüm müşteriler
+                      </Text>
+                    </div>
+                  </Group>
+                </UnstyledButton>
+              </>
+            )}
+          </Stack>
+        </Box>
+
+        {/* User Menu */}
+        <Box>
+          <Divider my="md" />
+          
+          <Menu 
+            shadow="md" 
+            width={260} 
+            position="right-end" 
+            withArrow
+            offset={10}
+          >
+            <Menu.Target>
+              <UnstyledButton
+                sx={(theme) => ({
+                  display: 'block',
+                  width: '100%',
+                  padding: theme.spacing.sm,
+                  borderRadius: theme.radius.md,
+                  
+                  '&:hover': {
+                    backgroundColor: theme.colorScheme === 'dark' 
+                      ? theme.colors.dark[6] 
+                      : theme.colors.gray[0],
+                  },
+                })}
+              >
+                <Group>
+                  <Avatar 
+                    radius="xl" 
+                    size="md"
+                    color="blue"
+                  >
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <div style={{ flex: 1 }}>
+                    <Text size="sm" weight={600}>
+                      {user?.name}
+                    </Text>
+                    <Text size="xs" color="dimmed">
+                      {user?.email}
+                    </Text>
+                  </div>
+                  <IconChevronDown size={16} />
+                </Group>
+              </UnstyledButton>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Label>Hesap</Menu.Label>
+              <Menu.Item 
+                icon={<IconUser size={16} />} 
+                component={RouterLink} 
+                to="/account"
+              >
+                Profil Ayarları
+              </Menu.Item>
+              <Menu.Item 
+                icon={<IconSettings size={16} />} 
+                component={RouterLink} 
+                to="/settings"
+              >
+                Entegrasyon Ayarları
+              </Menu.Item>
+              
+              <Menu.Divider />
+              
+              <Menu.Label>Hesap Bilgileri</Menu.Label>
+              <Menu.Item disabled>
+                <Text size="xs" color="dimmed">
+                  Rol: {user?.role === 'OWNER' ? 'Yönetici' : user?.role}
+                </Text>
+              </Menu.Item>
+              
+              <Menu.Divider />
+              
+              <Menu.Item 
+                color="red" 
+                icon={<IconLogout size={16} />} 
+                onClick={handleLogout}
+              >
+                Çıkış Yap
+              </Menu.Item>
+            </Menu.Dropdown>
           </Menu>
-        </div>
+        </Box>
       </Stack>
     </AppShell.Navbar>
   );
 }
 
-
 export default AppNavbar;
-
