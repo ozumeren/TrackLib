@@ -223,7 +223,7 @@ function Dashboard() {
                     radius="md" 
                     withBorder
                     component={RouterLink}
-                    to={`/journey/${playerId}`}
+                    to={`/player/${playerId}`}
                     style={{ 
                       textDecoration: 'none',
                       transition: 'all 0.2s',

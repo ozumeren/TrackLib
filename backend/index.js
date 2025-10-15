@@ -64,7 +64,9 @@ const ruleRoutes = require('./ruleRoutes');
 const userRoutes = require('./userRoutes');
 const customerRoutes = require('./customerRoutes');
 const adminRoutes = require('./adminRoutes');
+const playerProfileRoutes = require('./playerProfileRoutes');
 
+app.use('/api/player-profile', playerProfileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/segments', segmentRoutes);
 app.use('/api/rules', ruleRoutes);

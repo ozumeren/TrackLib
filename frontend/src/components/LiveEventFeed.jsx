@@ -241,7 +241,7 @@ function LiveEventFeed({ maxHeight = 500 }) {
                       <Text 
                         size="sm" 
                         component={RouterLink}
-                        to={`/journey/${event.playerId}`}
+                        to={`/player/${event.playerId}`}
                         style={{ 
                           textDecoration: 'none',
                           display: 'flex',

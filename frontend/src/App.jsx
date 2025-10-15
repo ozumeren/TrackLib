@@ -16,6 +16,7 @@ import SettingsPage from './pages/SettingsPage';
 import AdminCustomersPage from './pages/AdminCustomersPage';
 import AdminCustomerDetailPage from './pages/AdminCustomerDetailPage';
 import AbandonedDepositsPage from './pages/AbandonedDepositsPage';
+import PlayerProfile from './pages/PlayerProfile';
 
 function App() {
   const { token, loading } = useAuth();
@@ -55,8 +56,9 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/segments" element={<ProtectedRoute><Segments /></ProtectedRoute>} />
           <Route path="/rules" element={<ProtectedRoute><RulesPage /></ProtectedRoute>} />
-	  <Route path="/abandoned-deposits" element={<ProtectedRoute><AbandonedDepositsPage /></ProtectedRoute>} />
+	        <Route path="/abandoned-deposits" element={<ProtectedRoute><AbandonedDepositsPage /></ProtectedRoute>} />
           <Route path="/journey/:playerId" element={<ProtectedRoute><PlayerJourney /></ProtectedRoute>} />
+          <Route path="/player/:playerId" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="/admin/customers" element={<ProtectedRoute adminOnly={true}><AdminCustomersPage /></ProtectedRoute>} />
