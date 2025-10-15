@@ -65,7 +65,6 @@ function Dashboard() {
     </Alert>
   );
 
-  // Stat kartları için data
   const stats = [
     {
       title: 'Toplam Olaylar',
@@ -196,126 +195,133 @@ function Dashboard() {
         <DashboardChart data={chartData} />
       </Card>
 
-      {/* Recent Players */}
-      <SimpleGrid cols={2} breakpoints={[{ maxWidth: 'sm', cols: 1 }]}>
-        <Card shadow="sm" p="lg" radius="md" withBorder>
-          <Group position="apart" mb="md">
-            <div>
-              <Text size="lg" weight={600}>Son Aktif Oyuncular</Text>
-              <Text size="sm" color="dimmed">Son 24 saatte aktif olan kullanıcılar</Text>
-            </div>
-            <ThemeIcon size="md" radius="md" variant="light" color="teal">
-              <IconUsers size={18} />
-            </ThemeIcon>
-          </Group>
-          
-          {summaryData?.uniquePlayers?.length > 0 ? (
-            <Stack spacing="xs">
-              {summaryData.uniquePlayers.slice(0, 8).map((playerId, index) => (
-                <Paper 
-                  key={playerId} 
-                  p="sm" 
-                  radius="md" 
-                  withBorder
-                  component={RouterLink}
-                  to={`/journey/${playerId}`}
-                  style={{ 
-                    textDecoration: 'none',
-                    transition: 'all 0.2s',
-                    cursor: 'pointer'
-                  }}
-                  sx={(theme) => ({
-                    '&:hover': {
-                      backgroundColor: theme.colorScheme === 'dark' 
-                        ? theme.colors.dark[6] 
-                        : theme.colors.gray[0],
-                      transform: 'translateX(4px)'
-                    }
-                  })}
-                >
-                  <Group position="apart">
-                    <Group spacing="sm">
-                      <ThemeIcon size="sm" radius="xl" variant="light" color="teal">
-                        {index + 1}
-                      </ThemeIcon>
-                      <Text size="sm" weight={500}>{playerId}</Text>
+      {/* 2 Kolonlu Grid: Sol tarafta LiveEventFeed, sağ tarafta Recent Players ve Stats */}
+      <SimpleGrid cols={2} breakpoints={[{ maxWidth: 'md', cols: 1 }]} spacing="lg">
+        {/* SOL: Canlı Event Akışı */}
+        <LiveEventFeed maxHeight={600} />
+
+        {/* SAĞ: Diğer kartlar */}
+        <Stack spacing="lg">
+          {/* Recent Players */}
+          <Card shadow="sm" p="lg" radius="md" withBorder>
+            <Group position="apart" mb="md">
+              <div>
+                <Text size="lg" weight={600}>Son Aktif Oyuncular</Text>
+                <Text size="sm" color="dimmed">Son 24 saatte aktif olan kullanıcılar</Text>
+              </div>
+              <ThemeIcon size="md" radius="md" variant="light" color="teal">
+                <IconUsers size={18} />
+              </ThemeIcon>
+            </Group>
+            
+            {summaryData?.uniquePlayers?.length > 0 ? (
+              <Stack spacing="xs">
+                {summaryData.uniquePlayers.slice(0, 8).map((playerId, index) => (
+                  <Paper 
+                    key={playerId} 
+                    p="sm" 
+                    radius="md" 
+                    withBorder
+                    component={RouterLink}
+                    to={`/journey/${playerId}`}
+                    style={{ 
+                      textDecoration: 'none',
+                      transition: 'all 0.2s',
+                      cursor: 'pointer'
+                    }}
+                    sx={(theme) => ({
+                      '&:hover': {
+                        backgroundColor: theme.colorScheme === 'dark' 
+                          ? theme.colors.dark[6] 
+                          : theme.colors.gray[0],
+                        transform: 'translateX(4px)'
+                      }
+                    })}
+                  >
+                    <Group position="apart">
+                      <Group spacing="sm">
+                        <ThemeIcon size="sm" radius="xl" variant="light" color="teal">
+                          {index + 1}
+                        </ThemeIcon>
+                        <Text size="sm" weight={500}>{playerId}</Text>
+                      </Group>
+                      <ActionIcon size="sm" color="blue" variant="subtle">
+                        <IconArrowUpRight size={14} />
+                      </ActionIcon>
                     </Group>
-                    <ActionIcon size="sm" color="blue" variant="subtle">
-                      <IconArrowUpRight size={14} />
-                    </ActionIcon>
-                  </Group>
-                </Paper>
-              ))}
-            </Stack>
-          ) : (
-            <Center py="xl">
-              <Stack align="center" spacing="xs">
-                <ThemeIcon size="xl" radius="xl" variant="light" color="gray">
-                  <IconUsers size={24} />
-                </ThemeIcon>
-                <Text size="sm" color="dimmed">Henüz aktif oyuncu yok</Text>
+                  </Paper>
+                ))}
               </Stack>
-            </Center>
-          )}
-        </Card>
+            ) : (
+              <Center py="xl">
+                <Stack align="center" spacing="xs">
+                  <ThemeIcon size="xl" radius="xl" variant="light" color="gray">
+                    <IconUsers size={24} />
+                  </ThemeIcon>
+                  <Text size="sm" color="dimmed">Henüz aktif oyuncu yok</Text>
+                </Stack>
+              </Center>
+            )}
+          </Card>
 
-        {/* Quick Stats */}
-        <Card shadow="sm" p="lg" radius="md" withBorder>
-          <Group position="apart" mb="md">
-            <div>
-              <Text size="lg" weight={600}>Performans Özeti</Text>
-              <Text size="sm" color="dimmed">Genel sistem durumu</Text>
-            </div>
-            <ThemeIcon size="md" radius="md" variant="light" color="blue">
-              <IconChartBar size={18} />
-            </ThemeIcon>
-          </Group>
-          
-          <Stack spacing="md">
-            <Box>
-              <Group position="apart" mb={8}>
-                <Text size="sm">Conversion Rate</Text>
-                <Text size="sm" weight={600}>12.5%</Text>
-              </Group>
-              <Progress value={12.5} size="lg" radius="xl" color="teal" />
-            </Box>
+          {/* Quick Stats */}
+          <Card shadow="sm" p="lg" radius="md" withBorder>
+            <Group position="apart" mb="md">
+              <div>
+                <Text size="lg" weight={600}>Performans Özeti</Text>
+                <Text size="sm" color="dimmed">Genel sistem durumu</Text>
+              </div>
+              <ThemeIcon size="md" radius="md" variant="light" color="blue">
+                <IconChartBar size={18} />
+              </ThemeIcon>
+            </Group>
+            
+            <Stack spacing="md">
+              <Box>
+                <Group position="apart" mb={8}>
+                  <Text size="sm">Conversion Rate</Text>
+                  <Text size="sm" weight={600}>12.5%</Text>
+                </Group>
+                <Progress value={12.5} size="lg" radius="xl" color="teal" />
+              </Box>
 
-            <Box>
-              <Group position="apart" mb={8}>
-                <Text size="sm">Active Sessions</Text>
-                <Text size="sm" weight={600}>87%</Text>
-              </Group>
-              <Progress value={87} size="lg" radius="xl" color="blue" />
-            </Box>
+              <Box>
+                <Group position="apart" mb={8}>
+                  <Text size="sm">Active Sessions</Text>
+                  <Text size="sm" weight={600}>87%</Text>
+                </Group>
+                <Progress value={87} size="lg" radius="xl" color="blue" />
+              </Box>
 
-            <Box>
-              <Group position="apart" mb={8}>
-                <Text size="sm">Deposit Success Rate</Text>
-                <Text size="sm" weight={600}>94%</Text>
-              </Group>
-              <Progress value={94} size="lg" radius="xl" color="yellow" />
-            </Box>
+              <Box>
+                <Group position="apart" mb={8}>
+                  <Text size="sm">Deposit Success Rate</Text>
+                  <Text size="sm" weight={600}>94%</Text>
+                </Group>
+                <Progress value={94} size="lg" radius="xl" color="yellow" />
+              </Box>
 
-            <Paper p="md" radius="md" withBorder bg="gray.0">
-              <Group position="apart">
-                <div>
-                  <Text size="xs" color="dimmed" mb={4}>System Health</Text>
-                  <Text size="lg" weight={700} color="teal">Excellent</Text>
-                </div>
-                <RingProgress
-                  size={60}
-                  thickness={6}
-                  sections={[{ value: 98, color: 'teal' }]}
-                  label={
-                    <Center>
-                      <Text size="xs" weight={700}>98%</Text>
-                    </Center>
-                  }
-                />
-              </Group>
-            </Paper>
-          </Stack>
-        </Card>
+              <Paper p="md" radius="md" withBorder bg="gray.0">
+                <Group position="apart">
+                  <div>
+                    <Text size="xs" color="dimmed" mb={4}>System Health</Text>
+                    <Text size="lg" weight={700} color="teal">Excellent</Text>
+                  </div>
+                  <RingProgress
+                    size={60}
+                    thickness={6}
+                    sections={[{ value: 98, color: 'teal' }]}
+                    label={
+                      <Center>
+                        <Text size="xs" weight={700}>98%</Text>
+                      </Center>
+                    }
+                  />
+                </Group>
+              </Paper>
+            </Stack>
+          </Card>
+        </Stack>
       </SimpleGrid>
     </Stack>
   );
