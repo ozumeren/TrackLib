@@ -474,14 +474,16 @@
 	<script src="http://37.27.72.40:3000/scripts/pix_deneme.js"></script>
     <!-- Main Script -->
     <script>
-        let currentBalance = 0;
-        let totalDeposit = 0;
-        let totalWithdrawal = 0;
-        let gamesPlayed = 0;
-        let currentGameId = null;
+        // Global variables
+        window.currentBalance = 0;
+        window.totalDeposit = 0;
+        window.totalWithdrawal = 0;
+        window.gamesPlayed = 0;
+        window.currentGameId = null;
 
-        // Login Handler
-        function handleLogin() {
+        // Login Handler - Make it global
+        window.handleLogin = function() {
+            console.log('handleLogin called');
             const playerId = document.getElementById('playerIdInput').value;
             const email = document.getElementById('emailInput').value;
 
@@ -490,14 +492,20 @@
                 return;
             }
 
+            console.log('Tracker available:', !!window.tracker);
+            
             // Tracker'a kimlik bildir
             if (window.tracker) {
+                console.log('Calling tracker.identify with:', playerId);
                 window.tracker.identify(playerId);
                 
                 // Login eventi gönder
+                console.log('Calling tracker.track login_successful');
                 window.tracker.track('login_successful', {
                     email: email || undefined
                 });
+            } else {
+                console.error('window.tracker not available!');
             }
 
             // UI güncelle
@@ -506,43 +514,24 @@
             document.getElementById('loginBtn').classList.add('hidden');
             document.getElementById('logoutBtn').classList.remove('hidden');
             
-            currentBalance = 1000; // Başlangıç bakiyesi
+            window.currentBalance = 1000; // Başlangıç bakiyesi
             updateBalance();
 
             showNotification(`✅ Hoş geldin ${playerId}!`, 'success');
-        }
+        };
 
-        // Logout Handler
-        document.getElementById('logoutBtn').addEventListener('click', function() {
-            if (window.tracker) {
-                window.tracker.track('logout');
-            }
-
-            document.getElementById('authSection').classList.add('active');
-            document.getElementById('dashboard').classList.remove('active');
-            document.getElementById('loginBtn').classList.remove('hidden');
-            document.getElementById('logoutBtn').classList.add('hidden');
-
-            currentBalance = 0;
-            totalDeposit = 0;
-            totalWithdrawal = 0;
-            gamesPlayed = 0;
-            updateBalance();
-            updateStats();
-
-            showNotification('👋 Görüşmek üzere!', 'info');
-        });
-
-        // Deposit Handler
-        function handleDeposit() {
+        // Deposit Handler - Make it global
+        window.handleDeposit = function() {
+            console.log('handleDeposit called');
             const amount = Math.floor(Math.random() * 500) + 100; // 100-600 TL
             
-            currentBalance += amount;
-            totalDeposit += amount;
+            window.currentBalance += amount;
+            window.totalDeposit += amount;
             updateBalance();
             updateStats();
 
             if (window.tracker) {
+                console.log('Sending deposit_successful:', amount);
                 window.tracker.track('deposit_successful', {
                     amount: amount,
                     currency: 'TRY',
@@ -551,23 +540,25 @@
             }
 
             showNotification(`✅ ${amount} TL yatırıldı!`, 'success');
-        }
+        };
 
-        // Withdrawal Handler
-        function handleWithdrawal() {
-            if (currentBalance < 50) {
+        // Withdrawal Handler - Make it global
+        window.handleWithdrawal = function() {
+            console.log('handleWithdrawal called');
+            if (window.currentBalance < 50) {
                 showNotification('❌ Yetersiz bakiye!', 'error');
                 return;
             }
 
-            const amount = Math.min(Math.floor(Math.random() * 200) + 50, currentBalance);
+            const amount = Math.min(Math.floor(Math.random() * 200) + 50, window.currentBalance);
             
-            currentBalance -= amount;
-            totalWithdrawal += amount;
+            window.currentBalance -= amount;
+            window.totalWithdrawal += amount;
             updateBalance();
             updateStats();
 
             if (window.tracker) {
+                console.log('Sending withdrawal_requested:', amount);
                 window.tracker.track('withdrawal_requested', {
                     amount: amount,
                     currency: 'TRY',
@@ -576,10 +567,11 @@
             }
 
             showNotification(`✅ ${amount} TL çekim talebi oluşturuldu!`, 'success');
-        }
+        };
 
-        // Bonus Request
-        function handleBonusRequest() {
+        // Bonus Request - Make it global
+        window.handleBonusRequest = function() {
+            console.log('handleBonusRequest called');
             if (window.tracker) {
                 window.tracker.track('bonus_requested', {
                     bonus_type: 'welcome_bonus',
@@ -588,10 +580,11 @@
             }
 
             showNotification('🎁 Bonus talebiniz alındı!', 'success');
-        }
+        };
 
-        // Failed Deposit Simulation
-        function simulateFailedDeposit() {
+        // Failed Deposit Simulation - Make it global
+        window.simulateFailedDeposit = function() {
+            console.log('simulateFailedDeposit called');
             if (window.tracker) {
                 window.tracker.track('deposit_failed', {
                     amount: 100,
@@ -602,15 +595,16 @@
             }
 
             showNotification('❌ Yatırım başarısız! (Test)', 'error');
-        }
+        };
 
-        // Play Game
-        function playGame(gameName, gameId) {
-            currentGameId = gameId;
+        // Play Game - Make it global
+        window.playGame = function(gameName, gameId) {
+            console.log('playGame called:', gameName, gameId);
+            window.currentGameId = gameId;
             document.getElementById('gameTitle').textContent = gameName;
             document.getElementById('gameModal').classList.add('active');
 
-            gamesPlayed++;
+            window.gamesPlayed++;
             updateStats();
 
             if (window.tracker) {
@@ -619,17 +613,17 @@
                     game_name: gameName
                 });
             }
-        }
+        };
 
-        // Simulate Win
-        function simulateWin() {
+        // Simulate Win - Make it global
+        window.simulateWin = function() {
             const winAmount = Math.floor(Math.random() * 300) + 50;
-            currentBalance += winAmount;
+            window.currentBalance += winAmount;
             updateBalance();
 
             if (window.tracker) {
                 window.tracker.track('game_ended', {
-                    game_id: currentGameId,
+                    game_id: window.currentGameId,
                     result: 'win',
                     amount: winAmount
                 });
@@ -637,17 +631,17 @@
 
             showNotification(`🎉 ${winAmount} TL kazandınız!`, 'success');
             closeModal();
-        }
+        };
 
-        // Simulate Loss
-        function simulateLoss() {
+        // Simulate Loss - Make it global
+        window.simulateLoss = function() {
             const lossAmount = Math.floor(Math.random() * 100) + 20;
-            currentBalance = Math.max(0, currentBalance - lossAmount);
+            window.currentBalance = Math.max(0, window.currentBalance - lossAmount);
             updateBalance();
 
             if (window.tracker) {
                 window.tracker.track('game_ended', {
-                    game_id: currentGameId,
+                    game_id: window.currentGameId,
                     result: 'loss',
                     amount: lossAmount
                 });
@@ -655,24 +649,47 @@
 
             showNotification(`😢 ${lossAmount} TL kaybettiniz`, 'error');
             closeModal();
-        }
+        };
 
-        // Close Modal
-        function closeModal() {
+        // Close Modal - Make it global
+        window.closeModal = function() {
             document.getElementById('gameModal').classList.remove('active');
-            currentGameId = null;
-        }
+            window.currentGameId = null;
+        };
+
+        // Logout Handler
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                if (window.tracker) {
+                    window.tracker.track('logout');
+                }
+
+                document.getElementById('authSection').classList.add('active');
+                document.getElementById('dashboard').classList.remove('active');
+                document.getElementById('loginBtn').classList.remove('hidden');
+                document.getElementById('logoutBtn').classList.add('hidden');
+
+                window.currentBalance = 0;
+                window.totalDeposit = 0;
+                window.totalWithdrawal = 0;
+                window.gamesPlayed = 0;
+                updateBalance();
+                updateStats();
+
+                showNotification('👋 Görüşmek üzere!', 'info');
+            });
+        });
 
         // Update Balance
         function updateBalance() {
-            document.getElementById('balance').textContent = `Bakiye: ₺${currentBalance}`;
+            document.getElementById('balance').textContent = `Bakiye: ₺${window.currentBalance}`;
         }
 
         // Update Stats
         function updateStats() {
-            document.getElementById('totalDeposit').textContent = `₺${totalDeposit}`;
-            document.getElementById('totalWithdrawal').textContent = `₺${totalWithdrawal}`;
-            document.getElementById('gamesPlayed').textContent = gamesPlayed;
+            document.getElementById('totalDeposit').textContent = `₺${window.totalDeposit}`;
+            document.getElementById('totalWithdrawal').textContent = `₺${window.totalWithdrawal}`;
+            document.getElementById('gamesPlayed').textContent = window.gamesPlayed;
         }
 
         // Show Notification
