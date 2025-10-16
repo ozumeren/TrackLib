@@ -12,22 +12,22 @@ import {
   IconUpload, IconEye
 } from '@tabler/icons-react';
 
-// Event türleri
+// Event türleri - Basit format
 const eventTypes = [
-  { value: 'deposit_page_view', label: '💰 Para Yatırma Sayfası', group: 'Sayfa' },
-  { value: 'withdrawal_page_view', label: '💸 Para Çekme Sayfası', group: 'Sayfa' },
-  { value: 'registration_page_view', label: '📝 Kayıt Sayfası', group: 'Sayfa' },
-  { value: 'login_page_view', label: '🔐 Giriş Sayfası', group: 'Sayfa' },
-  { value: 'game_page_view', label: '🎮 Oyun Sayfası', group: 'Sayfa' },
-  { value: 'bonus_page_view', label: '🎁 Bonus Sayfası', group: 'Sayfa' },
-  { value: 'deposit_successful', label: '✅ Yatırım Başarılı', group: 'Finansal' },
-  { value: 'deposit_failed', label: '❌ Yatırım Başarısız', group: 'Finansal' },
-  { value: 'withdrawal_requested', label: '💸 Çekim Talebi', group: 'Finansal' },
-  { value: 'game_started', label: '🎯 Oyun Başladı', group: 'Oyun' },
-  { value: 'game_ended', label: '🏁 Oyun Bitti', group: 'Oyun' },
-  { value: 'button_click', label: '🖱️ Buton Tıklama', group: 'Etkileşim' },
-  { value: 'form_submit', label: '📋 Form Gönderimi', group: 'Etkileşim' },
-  { value: 'custom', label: '⚙️ Özel Event', group: 'Diğer' }
+  { value: 'deposit_page_view', label: '💰 Para Yatırma Sayfası' },
+  { value: 'withdrawal_page_view', label: '💸 Para Çekme Sayfası' },
+  { value: 'registration_page_view', label: '📝 Kayıt Sayfası' },
+  { value: 'login_page_view', label: '🔐 Giriş Sayfası' },
+  { value: 'game_page_view', label: '🎮 Oyun Sayfası' },
+  { value: 'bonus_page_view', label: '🎁 Bonus Sayfası' },
+  { value: 'deposit_successful', label: '✅ Yatırım Başarılı' },
+  { value: 'deposit_failed', label: '❌ Yatırım Başarısız' },
+  { value: 'withdrawal_requested', label: '💸 Çekim Talebi' },
+  { value: 'game_started', label: '🎯 Oyun Başladı' },
+  { value: 'game_ended', label: '🏁 Oyun Bitti' },
+  { value: 'button_click', label: '🖱️ Buton Tıklama' },
+  { value: 'form_submit', label: '📋 Form Gönderimi' },
+  { value: 'custom', label: '⚙️ Özel Event' }
 ];
 
 // Trigger türleri
