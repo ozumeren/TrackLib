@@ -14,10 +14,6 @@
   // ============================================
   const tracker = {};
   
-  // Immediately expose to window (before any potential errors)
-  window.TrackLib = tracker;
-  window.tracker = tracker;
-  
   let sessionId = getOrCreateSessionId();
   let playerId = null;
   let eventQueue = []; // Retry mekanizması için
@@ -222,6 +218,14 @@
       duration_seconds: duration
     });
   };
+
+  // ============================================
+  // EXPOSE TO WINDOW - After all methods are defined
+  // ============================================
+  window.TrackLib = tracker;
+  window.tracker = tracker;
+  
+  console.log('✓ Tracker methods exposed to window');
 
   // ============================================
   // AUTO TRACKING
