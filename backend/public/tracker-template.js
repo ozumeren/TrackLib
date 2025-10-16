@@ -13,6 +13,11 @@
   // CORE VARIABLES
   // ============================================
   const tracker = {};
+  
+  // Immediately expose to window (before any potential errors)
+  window.TrackLib = tracker;
+  window.tracker = tracker;
+  
   let sessionId = getOrCreateSessionId();
   let playerId = null;
   let eventQueue = []; // Retry mekanizması için
@@ -240,9 +245,5 @@
     sendEvent('session_end', { duration_seconds: sessionDuration });
   });
 
-  // Expose to window
-  window.TrackLib = tracker;
-  window.tracker = tracker; // Backward compatibility
-  
-  console.log('✓ TrackLib initialized successfully');
+  console.log('✓ TrackLib fully initialized');
 })();
