@@ -4,9 +4,9 @@ import {
   Modal, Button, TextInput, Stack, Group, Select, JsonInput,
   Switch, Text, NumberInput, Alert, Paper, ThemeIcon,
   Stepper, Badge, Accordion, Divider, Tooltip, MultiSelect,
-  SegmentedControl, DateTimePicker, Textarea
+  SegmentedControl, Textarea
 } from '@mantine/core';
-import { DateInput, TimeInput } from '@mantine/dates';
+import { DateInput, TimeInput, DateTimePicker } from '@mantine/dates';
 import { useEffect, useState } from 'react';
 import {
   IconTrash, IconRocket, IconInfoCircle, IconPlus,
@@ -256,7 +256,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
         firstDepositOnly: false
       },
       
-      // Trigger config
+      // Trigger config - BOŞ OBJE OLARAK BAŞLAT
       config: {},
       
       conversionGoalEvent: '',
@@ -695,6 +695,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
           label="Aksiyon Türü"
           placeholder="Aksiyon seçin"
           data={actionTypes}
+          searchable
           {...form.getInputProps(`variants.${index}.actionType`)}
         />
 
@@ -788,6 +789,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
                     group: group.group
                   }))
                 )}
+                searchable
                 {...form.getInputProps('triggerType')}
               />
 
