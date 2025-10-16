@@ -16,7 +16,7 @@ import {
 } from '@tabler/icons-react';
 
 function Dashboard() {
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useAuth();
   const [summaryData, setSummaryData] = useState(null);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,10 @@ function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         const [summaryRes, chartRes] = await Promise.all([
@@ -36,13 +39,17 @@ function Dashboard() {
         setSummaryData(summaryRes.data.last_24_hours);
         setChartData(chartRes.data);
       } catch (err) { 
+        console.error('Dashboard data fetch error:', err);
         setError('Veri çekilirken bir hata oluştu.');
       } finally { 
         setLoading(false);
       }
     };
-    fetchData();
-  }, [token]);
+    
+    if (!authLoading) {
+      fetchData();
+    }
+  }, [token, authLoading]);
 
   const handleSearch = () => {
     if (searchId.trim()) {

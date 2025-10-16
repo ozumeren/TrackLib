@@ -14,7 +14,7 @@ import axios from 'axios';
 import { useAuth } from '../AuthContext';
 
 function LiveEventFeed({ maxHeight = 500 }) {
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
@@ -23,7 +23,7 @@ function LiveEventFeed({ maxHeight = 500 }) {
   const lastTimestampRef = useRef(null);
 
   const fetchEvents = async (isInitial = false) => {
-    if (!token || isPaused) return;
+    if (!token || isPaused || authLoading) return;
 
     try {
       const params = {};
@@ -66,6 +66,11 @@ function LiveEventFeed({ maxHeight = 500 }) {
   };
 
   useEffect(() => {
+    // Auth loading bitmeden çalışma
+    if (authLoading || !token) {
+      return;
+    }
+
     // İlk yükleme
     fetchEvents(true);
 
@@ -79,7 +84,7 @@ function LiveEventFeed({ maxHeight = 500 }) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [token, isPaused]);
+  }, [token, isPaused, authLoading]);
 
   const togglePause = () => {
     setIsPaused(!isPaused);
