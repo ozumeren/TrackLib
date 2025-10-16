@@ -234,15 +234,15 @@ console.log('✅ Test tamamlandı!');
 
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
-      <Tabs value={activeTab} onTabChange={setActiveTab}>
+      <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
-          <Tabs.Tab value="visual" leftSection={<IconWand size={16} />}>
+          <Tabs.Tab value="visual" icon={<IconWand size={16} />}>
             Görsel Düzenleyici
           </Tabs.Tab>
-          <Tabs.Tab value="code" leftSection={<IconCode size={16} />}>
+          <Tabs.Tab value="code" icon={<IconCode size={16} />}>
             JSON Editör
           </Tabs.Tab>
-          <Tabs.Tab value="templates" leftSection={<IconDownload size={16} />}>
+          <Tabs.Tab value="templates" icon={<IconDownload size={16} />}>
             Şablonlar
           </Tabs.Tab>
         </Tabs.List>

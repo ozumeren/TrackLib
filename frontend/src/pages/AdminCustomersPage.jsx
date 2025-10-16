@@ -6,13 +6,31 @@ import { useAuth } from '../AuthContext';
 import {
   Title, Card, Loader, Alert, Group, Text, Table, Badge,
   Stack, ThemeIcon, Center, Button, ActionIcon, Tooltip,
-  TextInput, Paper, Box, CopyButton, Code, SimpleGrid
+  TextInput, Paper, Box, Code, SimpleGrid
 } from '@mantine/core';
+import { useClipboard } from '@mantine/hooks';
 import {
   IconAlertCircle, IconUsers, IconKey, IconSettings,
   IconCheck, IconCopy, IconSearch, IconBuilding,
   IconCode, IconShield, IconRefresh
 } from '@tabler/icons-react';
+
+// Kopyalama butonu bileşeni
+function CopyButtonComponent({ value }) {
+  const clipboard = useClipboard({ timeout: 2000 });
+  
+  return (
+    <Tooltip label={clipboard.copied ? 'Kopyalandı!' : 'Kopyala'}>
+      <ActionIcon
+        color={clipboard.copied ? 'teal' : 'gray'}
+        onClick={() => clipboard.copy(value)}
+        size="sm"
+      >
+        {clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+      </ActionIcon>
+    </Tooltip>
+  );
+}
 
 function AdminCustomersPage() {
   const { token } = useAuth();
@@ -198,19 +216,7 @@ function AdminCustomersPage() {
                       <Code color="blue" style={{ fontSize: 11 }}>
                         {customer.apiKey.substring(0, 20)}...
                       </Code>
-                      <CopyButton value={customer.apiKey}>
-                        {({ copied, copy }) => (
-                          <Tooltip label={copied ? 'Kopyalandı!' : 'Kopyala'}>
-                            <ActionIcon
-                              color={copied ? 'teal' : 'gray'}
-                              onClick={copy}
-                              size="sm"
-                            >
-                              {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                            </ActionIcon>
-                          </Tooltip>
-                        )}
-                      </CopyButton>
+                      <CopyButtonComponent value={customer.apiKey} />
                     </Group>
                   </td>
                   <td>
@@ -219,19 +225,7 @@ function AdminCustomersPage() {
                         <Code color="grape" style={{ fontSize: 11 }}>
                           {customer.scriptId.substring(0, 16)}...
                         </Code>
-                        <CopyButton value={customer.scriptId}>
-                          {({ copied, copy }) => (
-                            <Tooltip label={copied ? 'Kopyalandı!' : 'Kopyala'}>
-                              <ActionIcon
-                                color={copied ? 'teal' : 'gray'}
-                                onClick={copy}
-                                size="sm"
-                              >
-                                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                              </ActionIcon>
-                            </Tooltip>
-                          )}
-                        </CopyButton>
+                        <CopyButtonComponent value={customer.scriptId} />
                       </Group>
                     ) : (
                       <Badge size="sm" variant="light" color="gray">
