@@ -471,7 +471,7 @@
     <div class="notification" id="notification"></div>
 
     <!-- Tracker Script - BURAYA KENDİ SCRIPT ID'NİZİ YAZIN -->
-	<script src="http://37.27.72.40:3000/s/pix_deneme.js"></script>
+	<script src="http://37.27.72.40:3000/scripts/pix_deneme.js"></script>
     <!-- Main Script -->
     <script>
         let currentBalance = 0;
@@ -491,11 +491,11 @@
             }
 
             // Tracker'a kimlik bildir
-            if (window.igamingTracker) {
-                window.igamingTracker.identify(playerId);
+            if (window.tracker) {
+                window.tracker.identify(playerId);
                 
                 // Login eventi gönder
-                window.igamingTracker.track('login_successful', {
+                window.tracker.track('login_successful', {
                     email: email || undefined
                 });
             }
@@ -514,8 +514,8 @@
 
         // Logout Handler
         document.getElementById('logoutBtn').addEventListener('click', function() {
-            if (window.igamingTracker) {
-                window.igamingTracker.track('logout');
+            if (window.tracker) {
+                window.tracker.track('logout');
             }
 
             document.getElementById('authSection').classList.add('active');
@@ -542,8 +542,12 @@
             updateBalance();
             updateStats();
 
-            if (window.igamingTracker) {
-                window.igamingTracker.deposit(amount, 'TRY', 'credit_card');
+            if (window.tracker) {
+                window.tracker.track('deposit_successful', {
+                    amount: amount,
+                    currency: 'TRY',
+                    payment_method: 'credit_card'
+                });
             }
 
             showNotification(`✅ ${amount} TL yatırıldı!`, 'success');
@@ -563,8 +567,12 @@
             updateBalance();
             updateStats();
 
-            if (window.igamingTracker) {
-                window.igamingTracker.withdrawal(amount, 'TRY', 'bank_transfer');
+            if (window.tracker) {
+                window.tracker.track('withdrawal_requested', {
+                    amount: amount,
+                    currency: 'TRY',
+                    payment_method: 'bank_transfer'
+                });
             }
 
             showNotification(`✅ ${amount} TL çekim talebi oluşturuldu!`, 'success');
@@ -572,8 +580,8 @@
 
         // Bonus Request
         function handleBonusRequest() {
-            if (window.igamingTracker) {
-                window.igamingTracker.track('bonus_requested', {
+            if (window.tracker) {
+                window.tracker.track('bonus_requested', {
                     bonus_type: 'welcome_bonus',
                     bonus_amount: 50
                 });
@@ -584,8 +592,8 @@
 
         // Failed Deposit Simulation
         function simulateFailedDeposit() {
-            if (window.igamingTracker) {
-                window.igamingTracker.track('deposit_failed', {
+            if (window.tracker) {
+                window.tracker.track('deposit_failed', {
                     amount: 100,
                     currency: 'TRY',
                     method: 'credit_card',
@@ -605,8 +613,8 @@
             gamesPlayed++;
             updateStats();
 
-            if (window.igamingTracker) {
-                window.igamingTracker.track('game_started', {
+            if (window.tracker) {
+                window.tracker.track('game_started', {
                     game_id: gameId,
                     game_name: gameName
                 });
@@ -619,8 +627,8 @@
             currentBalance += winAmount;
             updateBalance();
 
-            if (window.igamingTracker) {
-                window.igamingTracker.track('game_ended', {
+            if (window.tracker) {
+                window.tracker.track('game_ended', {
                     game_id: currentGameId,
                     result: 'win',
                     amount: winAmount
@@ -637,8 +645,8 @@
             currentBalance = Math.max(0, currentBalance - lossAmount);
             updateBalance();
 
-            if (window.igamingTracker) {
-                window.igamingTracker.track('game_ended', {
+            if (window.tracker) {
+                window.tracker.track('game_ended', {
                     game_id: currentGameId,
                     result: 'loss',
                     amount: lossAmount
@@ -678,9 +686,12 @@
             }, 3000);
         }
 
-        // Wait for tracker to load
-        document.addEventListener('igamingTracker:loaded', function() {
-            console.log('✅ Tracker yüklendi ve hazır!');
+        // Check if tracker loaded
+        console.log('Checking tracker...', window.tracker);
+        
+        // Wait for page load
+        window.addEventListener('load', function() {
+            console.log('Page loaded. Tracker available:', !!window.tracker);
         });
     </script>
 </body>

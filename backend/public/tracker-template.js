@@ -242,6 +242,7 @@
 
   // Expose to window
   window.TrackLib = tracker;
+  window.tracker = tracker; // Backward compatibility
   
   console.log('✓ TrackLib initialized successfully');
 })();
