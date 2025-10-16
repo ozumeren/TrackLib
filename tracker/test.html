@@ -402,8 +402,14 @@
                     <button class="btn btn-success deposit-button" onclick="handleDeposit()">
                         💰 Para Yatır
                     </button>
-                    <button class="btn btn-warning withdrawal-button" onclick="handleWithdrawal()">
-                        💸 Para Çek
+                    <button class="btn btn-warning" onclick="handleWithdrawalRequested()">
+                        💸 Para Çekim Talebi
+                    </button>
+                    <button class="btn btn-success" onclick="handleWithdrawalSuccessful()">
+                        ✅ Para Çekim Başarılı
+                    </button>
+                    <button class="btn btn-danger" onclick="handleWithdrawalFailed()">
+                        ❌ Para Çekim Başarısız
                     </button>
                     <button class="btn btn-primary" onclick="handleBonusRequest()">
                         🎁 Bonus Al
@@ -542,9 +548,31 @@
             showNotification(`✅ ${amount} TL yatırıldı!`, 'success');
         };
 
-        // Withdrawal Handler - Make it global
-        window.handleWithdrawal = function() {
-            console.log('handleWithdrawal called');
+        // Withdrawal Requested Handler - Make it global
+        window.handleWithdrawalRequested = function() {
+            console.log('handleWithdrawalRequested called');
+            if (window.currentBalance < 50) {
+                showNotification('❌ Yetersiz bakiye!', 'error');
+                return;
+            }
+
+            const amount = Math.min(Math.floor(Math.random() * 200) + 50, window.currentBalance);
+
+            if (window.tracker) {
+                console.log('Sending withdrawal_requested:', amount);
+                window.tracker.track('withdrawal_requested', {
+                    amount: amount,
+                    currency: 'TRY',
+                    payment_method: 'bank_transfer'
+                });
+            }
+
+            showNotification(`💸 ${amount} TL çekim talebi oluşturuldu!`, 'info');
+        };
+
+        // Withdrawal Successful Handler - Make it global
+        window.handleWithdrawalSuccessful = function() {
+            console.log('handleWithdrawalSuccessful called');
             if (window.currentBalance < 50) {
                 showNotification('❌ Yetersiz bakiye!', 'error');
                 return;
@@ -558,15 +586,34 @@
             updateStats();
 
             if (window.tracker) {
-                console.log('Sending withdrawal_requested:', amount);
-                window.tracker.track('withdrawal_requested', {
+                console.log('Sending withdrawal_successful:', amount);
+                window.tracker.track('withdrawal_successful', {
                     amount: amount,
                     currency: 'TRY',
                     payment_method: 'bank_transfer'
                 });
             }
 
-            showNotification(`✅ ${amount} TL çekim talebi oluşturuldu!`, 'success');
+            showNotification(`✅ ${amount} TL çekim başarılı!`, 'success');
+        };
+
+        // Withdrawal Failed Handler - Make it global
+        window.handleWithdrawalFailed = function() {
+            console.log('handleWithdrawalFailed called');
+            const amount = Math.floor(Math.random() * 200) + 50;
+
+            if (window.tracker) {
+                console.log('Sending withdrawal_failed:', amount);
+                window.tracker.track('withdrawal_failed', {
+                    amount: amount,
+                    currency: 'TRY',
+                    payment_method: 'bank_transfer',
+                    error_code: 'bank_rejected',
+                    error_message: 'Banka tarafından reddedildi'
+                });
+            }
+
+            showNotification(`❌ ${amount} TL çekim başarısız!`, 'error');
         };
 
         // Bonus Request - Make it global
