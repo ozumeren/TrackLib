@@ -18,210 +18,50 @@ import {
 import axios from 'axios';
 import { useAuth } from '../AuthContext';
 
-// Genişletilmiş tetikleyici türleri
-const triggerTypes = [
-  {
-    group: '👤 Oyuncu Davranışı',
-    items: [
-      {
-        value: 'INACTIVITY',
-        label: '⏰ Pasiflik',
-        description: 'Oyuncu X gün giriş yapmadığında',
-        icon: IconClock,
-        color: 'orange'
-      },
-      {
-        value: 'LOGIN_STREAK',
-        label: '🔥 Giriş Serisi',
-        description: 'X gün üst üste giriş yaptığında',
-        icon: IconTrendingUp,
-        color: 'green'
-      },
-      {
-        value: 'SESSION_DURATION',
-        label: '⌚ Oturum Süresi',
-        description: 'Oturum belirli süreye ulaştığında',
-        icon: IconClock,
-        color: 'blue'
-      }
-    ]
-  },
-  {
-    group: '💰 Finansal',
-    items: [
-      {
-        value: 'FIRST_DEPOSIT',
-        label: '💎 İlk Yatırım',
-        description: 'Oyuncunun ilk para yatırmasında',
-        icon: IconCoin,
-        color: 'yellow'
-      },
-      {
-        value: 'DEPOSIT_THRESHOLD',
-        label: '💰 Yatırım Eşiği',
-        description: 'Belirli miktara ulaşıldığında',
-        icon: IconTrendingUp,
-        color: 'teal'
-      },
-      {
-        value: 'WITHDRAWAL_THRESHOLD',
-        label: '💸 Çekim Eşiği',
-        description: 'Belirli çekim miktarında',
-        icon: IconWallet,
-        color: 'violet'
-      },
-      {
-        value: 'LOW_BALANCE',
-        label: '📉 Düşük Bakiye',
-        description: 'Bakiye belirli seviyenin altına düştüğünde',
-        icon: IconTrendingDown,
-        color: 'red'
-      },
-      {
-        value: 'HIGH_BALANCE',
-        label: '📈 Yüksek Bakiye',
-        description: 'Bakiye belirli seviyeyi aştığında',
-        icon: IconTrendingUp,
-        color: 'green'
-      },
-      {
-        value: 'MULTIPLE_FAILED_DEPOSITS',
-        label: '❌ Başarısız Yatırımlar',
-        description: 'Birden fazla başarısız yatırım denemesi',
-        icon: IconAlertTriangle,
-        color: 'red'
-      }
-    ]
-  },
-  {
-    group: '🎮 Oyun',
-    items: [
-      {
-        value: 'WIN_STREAK',
-        label: '🎯 Kazanma Serisi',
-        description: 'X kez üst üste kazandığında',
-        icon: IconTrendingUp,
-        color: 'green'
-      },
-      {
-        value: 'LOSS_STREAK',
-        label: '💔 Kaybetme Serisi',
-        description: 'X kez üst üste kaybettiğinde',
-        icon: IconTrendingDown,
-        color: 'red'
-      },
-      {
-        value: 'GAME_SPECIFIC',
-        label: '🎰 Oyun Özel',
-        description: 'Belirli bir oyun oynanıldığında',
-        icon: IconDeviceGamepad2,
-        color: 'grape'
-      },
-      {
-        value: 'BET_SIZE',
-        label: '💵 Bahis Büyüklüğü',
-        description: 'Belirli bahis miktarında',
-        icon: IconCoin,
-        color: 'orange'
-      },
-      {
-        value: 'RTP_THRESHOLD',
-        label: '📊 RTP Eşiği',
-        description: 'Oyuncu RTP belirli seviyede',
-        icon: IconPercentage,
-        color: 'blue'
-      }
-    ]
-  },
-  {
-    group: '👥 Segmentasyon',
-    items: [
-      {
-        value: 'SEGMENT_ENTRY',
-        label: '➕ Segment Girişi',
-        description: 'Segmente dahil olduğunda',
-        icon: IconUsers,
-        color: 'blue'
-      },
-      {
-        value: 'SEGMENT_EXIT',
-        label: '➖ Segment Çıkışı',
-        description: 'Segmentten çıktığında',
-        icon: IconUsers,
-        color: 'gray'
-      }
-    ]
-  },
-  {
-    group: '📅 Zamana Dayalı',
-    items: [
-      {
-        value: 'TIME_BASED',
-        label: '🕐 Zamanlı',
-        description: 'Belirli tarih/saatte',
-        icon: IconCalendar,
-        color: 'cyan'
-      },
-      {
-        value: 'BIRTHDAY',
-        label: '🎂 Doğum Günü',
-        description: 'Oyuncunun doğum gününde',
-        icon: IconCake,
-        color: 'pink'
-      },
-      {
-        value: 'ACCOUNT_ANNIVERSARY',
-        label: '🎉 Hesap Yıldönümü',
-        description: 'Kayıt yıldönümünde',
-        icon: IconStar,
-        color: 'yellow'
-      },
-      {
-        value: 'BONUS_EXPIRY',
-        label: '⏰ Bonus Süresi Dolacak',
-        description: 'Bonus süresinin dolmasına yakın',
-        icon: IconGift,
-        color: 'orange'
-      }
-    ]
-  },
-  {
-    group: '⚡ Event Bazlı',
-    items: [
-      {
-        value: 'EVENT',
-        label: '⚡ Event',
-        description: 'Özel bir event gerçekleştiğinde',
-        icon: IconBolt,
-        color: 'yellow'
-      }
-    ]
-  }
+// Genişletilmiş tetikleyici türleri - BASİTLEŞTİRİLMİŞ
+const triggerTypesList = [
+  { value: 'INACTIVITY', label: '⏰ Pasiflik', description: 'Oyuncu X gün giriş yapmadığında' },
+  { value: 'LOGIN_STREAK', label: '🔥 Giriş Serisi', description: 'X gün üst üste giriş yaptığında' },
+  { value: 'SESSION_DURATION', label: '⌚ Oturum Süresi', description: 'Oturum belirli süreye ulaştığında' },
+  { value: 'FIRST_DEPOSIT', label: '💎 İlk Yatırım', description: 'Oyuncunun ilk para yatırmasında' },
+  { value: 'DEPOSIT_THRESHOLD', label: '💰 Yatırım Eşiği', description: 'Belirli miktara ulaşıldığında' },
+  { value: 'WITHDRAWAL_THRESHOLD', label: '💸 Çekim Eşiği', description: 'Belirli çekim miktarında' },
+  { value: 'LOW_BALANCE', label: '📉 Düşük Bakiye', description: 'Bakiye belirli seviyenin altına düştüğünde' },
+  { value: 'HIGH_BALANCE', label: '📈 Yüksek Bakiye', description: 'Bakiye belirli seviyeyi aştığında' },
+  { value: 'MULTIPLE_FAILED_DEPOSITS', label: '❌ Başarısız Yatırımlar', description: 'Birden fazla başarısız yatırım denemesi' },
+  { value: 'WIN_STREAK', label: '🎯 Kazanma Serisi', description: 'X kez üst üste kazandığında' },
+  { value: 'LOSS_STREAK', label: '💔 Kaybetme Serisi', description: 'X kez üst üste kaybettiğinde' },
+  { value: 'GAME_SPECIFIC', label: '🎰 Oyun Özel', description: 'Belirli bir oyun oynanıldığında' },
+  { value: 'BET_SIZE', label: '💵 Bahis Büyüklüğü', description: 'Belirli bahis miktarında' },
+  { value: 'RTP_THRESHOLD', label: '📊 RTP Eşiği', description: 'Oyuncu RTP belirli seviyede' },
+  { value: 'SEGMENT_ENTRY', label: '➕ Segment Girişi', description: 'Segmente dahil olduğunda' },
+  { value: 'SEGMENT_EXIT', label: '➖ Segment Çıkışı', description: 'Segmentten çıktığında' },
+  { value: 'TIME_BASED', label: '🕐 Zamanlı', description: 'Belirli tarih/saatte' },
+  { value: 'BIRTHDAY', label: '🎂 Doğum Günü', description: 'Oyuncunun doğum gününde' },
+  { value: 'ACCOUNT_ANNIVERSARY', label: '🎉 Hesap Yıldönümü', description: 'Kayıt yıldönümünde' },
+  { value: 'BONUS_EXPIRY', label: '⏰ Bonus Süresi Dolacak', description: 'Bonus süresinin dolmasına yakın' },
+  { value: 'EVENT', label: '⚡ Event', description: 'Özel bir event gerçekleştiğinde' }
 ];
 
 // Aksiyon türleri
 const actionTypes = [
-  { value: 'SEND_TELEGRAM_MESSAGE', label: '📱 Telegram Mesajı', group: 'Mesajlaşma' },
-  { value: 'SEND_EMAIL', label: '📧 Email', group: 'Mesajlaşma' },
-  { value: 'SEND_SMS', label: '💬 SMS', group: 'Mesajlaşma' },
-  { value: 'SEND_PUSH_NOTIFICATION', label: '🔔 Push Notification', group: 'Mesajlaşma' },
-  { value: 'SEND_IN_APP_MESSAGE', label: '💭 Uygulama İçi Mesaj', group: 'Mesajlaşma' },
-  { value: 'TRIGGER_POPUP', label: '🪟 Popup Göster', group: 'Mesajlaşma' },
-  
-  { value: 'ADD_BONUS', label: '🎁 Bonus Ekle', group: 'Ödül' },
-  { value: 'ADD_FREE_SPINS', label: '🎰 Free Spin Ekle', group: 'Ödül' },
-  { value: 'APPLY_CASHBACK', label: '💰 Cashback Uygula', group: 'Ödül' },
-  { value: 'ADJUST_LOYALTY_POINTS', label: '⭐ Loyalty Puanı', group: 'Ödül' },
-  { value: 'CHANGE_VIP_TIER', label: '👑 VIP Seviye Değiştir', group: 'Ödül' },
-  
-  { value: 'ADD_TO_SEGMENT', label: '➕ Segmente Ekle', group: 'Segmentasyon' },
-  { value: 'REMOVE_FROM_SEGMENT', label: '➖ Segmentten Çıkar', group: 'Segmentasyon' },
-  
-  { value: 'FLAG_ACCOUNT', label: '🚩 Hesabı İşaretle', group: 'Yönetim' },
-  { value: 'CREATE_TASK', label: '📋 Görev Oluştur', group: 'Yönetim' },
-  
-  { value: 'WEBHOOK', label: '🔗 Webhook Çağır', group: 'Entegrasyon' },
-  { value: 'CUSTOM_JAVASCRIPT', label: '⚙️ Özel JavaScript', group: 'Entegrasyon' }
+  { value: 'SEND_TELEGRAM_MESSAGE', label: '📱 Telegram Mesajı' },
+  { value: 'SEND_EMAIL', label: '📧 Email' },
+  { value: 'SEND_SMS', label: '💬 SMS' },
+  { value: 'SEND_PUSH_NOTIFICATION', label: '🔔 Push Notification' },
+  { value: 'SEND_IN_APP_MESSAGE', label: '💭 Uygulama İçi Mesaj' },
+  { value: 'TRIGGER_POPUP', label: '🪟 Popup Göster' },
+  { value: 'ADD_BONUS', label: '🎁 Bonus Ekle' },
+  { value: 'ADD_FREE_SPINS', label: '🎰 Free Spin Ekle' },
+  { value: 'APPLY_CASHBACK', label: '💰 Cashback Uygula' },
+  { value: 'ADJUST_LOYALTY_POINTS', label: '⭐ Loyalty Puanı' },
+  { value: 'CHANGE_VIP_TIER', label: '👑 VIP Seviye Değiştir' },
+  { value: 'ADD_TO_SEGMENT', label: '➕ Segmente Ekle' },
+  { value: 'REMOVE_FROM_SEGMENT', label: '➖ Segmentten Çıkar' },
+  { value: 'FLAG_ACCOUNT', label: '🚩 Hesabı İşaretle' },
+  { value: 'CREATE_TASK', label: '📋 Görev Oluştur' },
+  { value: 'WEBHOOK', label: '🔗 Webhook Çağır' },
+  { value: 'CUSTOM_JAVASCRIPT', label: '⚙️ Özel JavaScript' }
 ];
 
 function RuleForm({ isOpen, onClose, onSave, rule }) {
@@ -782,13 +622,7 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
                 withAsterisk
                 label="Tetikleyici Türü"
                 placeholder="Kural ne zaman çalışsın?"
-                data={triggerTypes.flatMap(group => 
-                  group.items.map(item => ({
-                    value: item.value,
-                    label: item.label,
-                    group: group.group
-                  }))
-                )}
+                data={triggerTypesList}
                 searchable
                 {...form.getInputProps('triggerType')}
               />
