@@ -368,7 +368,7 @@ function SettingsPage() {
 
         {/* Integrations Tab */}
         <Tabs.Panel value="integrations" pt="md">
-          <SimpleGrid cols={1} spacing="md">
+          <Stack spacing="md">
             {/* Telegram */}
             <Card shadow="sm" padding="lg" radius="md" withBorder>
               <Group position="apart" mb="md">
@@ -386,14 +386,14 @@ function SettingsPage() {
                   </div>
                 </Group>
                 <Badge
-                  color={customer.telegramChatId ? 'green' : 'gray'}
+                  color={customer?.telegramChatId ? 'green' : 'gray'}
                   variant="dot"
                 >
-                  {customer.telegramChatId ? 'Aktif' : 'Pasif'}
+                  {customer?.telegramChatId ? 'Aktif' : 'Pasif'}
                 </Badge>
               </Group>
 
-              {customer.telegramChatId ? (
+              {customer?.telegramChatId ? (
                 <Alert icon={<IconCheck size={16} />} color="green" variant="light">
                   <Text size="sm">
                     Chat ID: <Code>{customer.telegramChatId}</Code>
@@ -430,14 +430,14 @@ function SettingsPage() {
                   </div>
                 </Group>
                 <Badge
-                  color={customer.metaPixelId ? 'green' : 'gray'}
+                  color={customer?.metaPixelId ? 'green' : 'gray'}
                   variant="dot"
                 >
-                  {customer.metaPixelId ? 'Aktif' : 'Pasif'}
+                  {customer?.metaPixelId ? 'Aktif' : 'Pasif'}
                 </Badge>
               </Group>
 
-              {customer.metaPixelId ? (
+              {customer?.metaPixelId ? (
                 <Alert icon={<IconCheck size={16} />} color="green" variant="light">
                   <Text size="sm">
                     Pixel ID yapılandırılmış
@@ -473,14 +473,14 @@ function SettingsPage() {
                   </div>
                 </Group>
                 <Badge
-                  color={customer.googleAdsId ? 'green' : 'gray'}
+                  color={customer?.googleAdsId ? 'green' : 'gray'}
                   variant="dot"
                 >
-                  {customer.googleAdsId ? 'Aktif' : 'Pasif'}
+                  {customer?.googleAdsId ? 'Aktif' : 'Pasif'}
                 </Badge>
               </Group>
 
-              {customer.googleAdsId ? (
+              {customer?.googleAdsId ? (
                 <Alert icon={<IconCheck size={16} />} color="green" variant="light">
                   <Text size="sm">
                     Measurement ID yapılandırılmış
@@ -498,7 +498,7 @@ function SettingsPage() {
                 </Alert>
               )}
             </Card>
-          </SimpleGrid>
+          </Stack>
         </Tabs.Panel>
       </Tabs>
     </Stack>
