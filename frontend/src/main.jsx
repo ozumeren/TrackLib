@@ -5,9 +5,13 @@ import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications'; // 1. YENİ: Bildirimleri import et
 import App from './App.jsx';
 import { AuthProvider } from './AuthContext';
+import axios from 'axios';
 
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css'; // 2. YENİ: Bildirim stillerini import et
+
+// Axios global baseURL ayarı
+axios.defaults.baseURL = 'http://37.27.72.40:3000';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
