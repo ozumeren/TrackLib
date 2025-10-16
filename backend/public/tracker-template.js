@@ -1,18 +1,7 @@
 (function() {
   // Config backend tarafından enjekte edilecek
   const config = __CONFIG__;
-  // ✅ Protokolü otomatik belirle veya HTTP zorla
-  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-  const backendUrl = config.backendUrl.replace(/^https?:/, protocol);
   
-  // TrackLib namespace
-  window.TrackLib = window.TrackLib || {
-    config: {
-      scriptId: config.scriptId,
-      apiKey: config.apiKey,
-      backendUrl: backendUrl,  // ✅ Güncellenmiş URL
-      domConfig: config.domConfig || {}
-    },
   if (!config) {
     console.error("TrackLib: Configuration not found");
     return;
@@ -151,174 +140,108 @@
 
   window.addEventListener('offline', () => {
     isOnline = false;
-    console.log('TrackLib: Offline mode activated');
+    console.log('TrackLib: Offline mode');
   });
-
-  // ============================================
-  // SOURCE ATTRIBUTION
-  // ============================================
-  function handleSourceAttribution() {
-    const params = new URLSearchParams(window.location.search);
-    const storageKey = 'tracklib_source';
-    const storedSource = localStorage.getItem(storageKey);
-    const ourSource = config.scriptId; // "pix_ronabet"
-
-    // İlk ziyaret veya farklı kaynak
-    if (!storedSource || storedSource !== ourSource) {
-      localStorage.setItem(storageKey, ourSource);
-      localStorage.setItem('tracklib_first_visit', new Date().toISOString());
-    }
-
-    // URL'e aff parametresi ekle
-    if (params.get('aff') !== ourSource) {
-      const currentUrl = new URL(window.location.href);
-      currentUrl.searchParams.set('aff', ourSource);
-      window.history.replaceState({}, '', currentUrl.toString());
-    }
-  }
-
-  // ============================================
-  // AUTO EVENT TRACKING (DOM-based)
-  // ============================================
-  function activateAutoTracking() {
-    const domConfig = config.domConfig;
-    if (!domConfig || !Array.isArray(domConfig.rules)) {
-      console.log('TrackLib: No DOM tracking rules configured');
-      return;
-    }
-
-    // Click tracking with debounce
-    let clickTimeout;
-    document.body.addEventListener('click', function(event) {
-      clearTimeout(clickTimeout);
-      clickTimeout = setTimeout(() => {
-        domConfig.rules.forEach(rule => {
-          try {
-            const element = event.target.closest(rule.selector);
-            if (element) {
-              console.log(`TrackLib: Auto-tracked "${rule.eventName}"`);
-              tracker.track(rule.eventName, {
-                element_text: element.textContent.trim().substring(0, 100),
-                element_id: element.id || null,
-                element_class: element.className || null
-              });
-            }
-          } catch (e) {
-            console.error(`TrackLib: Invalid selector "${rule.selector}"`, e);
-          }
-        });
-      }, 100); // 100ms debounce
-    }, true);
-
-    console.log(`TrackLib: Auto-tracking enabled (${domConfig.rules.length} rules)`);
-  }
 
   // ============================================
   // PUBLIC API
   // ============================================
-  
-  // Player kimliğini tanımla
   tracker.identify = function(userId) {
-    if (!userId) {
-      console.warn('TrackLib: Invalid user ID');
-      return;
-    }
-
-    if (playerId !== userId) {
-      playerId = userId;
-      console.log(`TrackLib: Player identified as ${userId}`);
-      
-      // Queue'daki eventleri gönder
-      if (eventQueue.length > 0) {
-        console.log(`TrackLib: Sending ${eventQueue.length} queued events`);
-        eventQueue.forEach(item => sendEvent(item.eventName, item.params));
-        eventQueue = [];
-      }
-
-      // Identify eventini gönder
-      tracker.track('player_identified', { player_id: userId });
-    }
+    playerId = userId;
+    sendEvent('player_identified', { player_id: userId });
   };
 
-  // Manuel event tracking
   tracker.track = function(eventName, params = {}) {
-    if (!eventName) {
-      console.warn('TrackLib: Event name required');
+    if (!config.apiKey) {
+      console.error('TrackLib: Not initialized');
       return;
     }
-
-    // Player ID yoksa queue'ya ekle
-    if (!playerId) {
-      console.log(`TrackLib: Queuing "${eventName}" (no player ID yet)`);
-      eventQueue.push({ eventName, params });
-      return;
-    }
-
     sendEvent(eventName, params);
   };
 
+  // Yüksek seviye event fonksiyonları
+  tracker.register = function(userId, email) {
+    playerId = userId;
+    sendEvent('registration_successful', { player_id: userId, email });
+  };
+
+  tracker.login = function(userId) {
+    playerId = userId;
+    sendEvent('login_successful', { player_id: userId });
+  };
+
+  tracker.logout = function() {
+    sendEvent('logout', { player_id: playerId });
+    playerId = null;
+  };
+
+  tracker.deposit = function(amount, currency, method) {
+    sendEvent('deposit_successful', {
+      amount: parseFloat(amount),
+      currency: currency || 'USD',
+      method: method || 'unknown'
+    });
+  };
+
+  tracker.withdrawal = function(amount, currency, method) {
+    sendEvent('withdrawal_successful', {
+      amount: parseFloat(amount),
+      currency: currency || 'USD',
+      method: method || 'unknown'
+    });
+  };
+
+  tracker.bet = function(amount, currency, game) {
+    sendEvent('bet_placed', {
+      amount: parseFloat(amount),
+      currency: currency || 'USD',
+      game: game || 'unknown'
+    });
+  };
+
+  tracker.win = function(amount, currency, game) {
+    sendEvent('win', {
+      amount: parseFloat(amount),
+      currency: currency || 'USD',
+      game: game || 'unknown'
+    });
+  };
+
+  tracker.gameStart = function(gameName) {
+    sendEvent('game_started', { game_name: gameName });
+  };
+
+  tracker.gameEnd = function(gameName, duration) {
+    sendEvent('game_ended', {
+      game_name: gameName,
+      duration_seconds: duration
+    });
+  };
+
+  // ============================================
+  // AUTO TRACKING
+  // ============================================
+  
   // Page view tracking
-  tracker.pageView = function(customParams = {}) {
-    tracker.track('page_view', {
-      path: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-      ...customParams
+  window.addEventListener('load', () => {
+    sendEvent('page_view', {
+      page_path: window.location.pathname,
+      page_url: window.location.href
     });
-  };
-
-  // Convenience methods
-  tracker.login = (userId) => {
-    tracker.identify(userId);
-    tracker.track('login_successful');
-  };
-
-  tracker.deposit = (amount, currency = 'TRY', method = null) => {
-    tracker.track('deposit_successful', { amount, currency, method });
-  };
-
-  tracker.withdrawal = (amount, currency = 'TRY', method = null) => {
-    tracker.track('withdrawal_successful', { amount, currency, method });
-  };
-
-  // ============================================
-  // INITIALIZATION
-  // ============================================
-  function initialize() {
-    // 1. Source attribution
-    handleSourceAttribution();
     
-    // 2. Process queued events
+    // Process queued events
     processQueue();
-    
-    // 3. Auto tracking
-    activateAutoTracking();
-    
-    // 4. Initial page view
-    tracker.pageView();
-    
-    // 5. Sayfa kapanırken son eventleri gönder
-    window.addEventListener('beforeunload', () => {
-      if (eventQueue.length > 0) {
-        eventQueue.forEach(item => saveToQueue(item.eventName, item.params));
-      }
-    });
+  });
 
-    console.log('TrackLib: Fully initialized ✓');
-  }
+  // Session tracking
+  let sessionStartTime = Date.now();
+  window.addEventListener('beforeunload', () => {
+    const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
+    sendEvent('session_end', { duration_seconds: sessionDuration });
+  });
 
-  // Global scope'a ekle
-  window.igamingTracker = tracker;
-  window.tracker = tracker; // Backward compatibility
-
-  // DOM ready olduğunda başlat
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialize);
-  } else {
-    initialize();
-  }
-
-  // Custom event dispatch
-  document.dispatchEvent(new CustomEvent('igamingTracker:loaded', { detail: config }));
-
+  // Expose to window
+  window.TrackLib = tracker;
+  
+  console.log('✓ TrackLib initialized successfully');
 })();
