@@ -6,6 +6,71 @@ const { protectWithJWT, isOwner } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Mevcut müşteri bilgilerini getirme
+router.get('/me', protectWithJWT, async (req, res) => {
+    try {
+        const customer = await prisma.customer.findUnique({
+            where: { id: req.user.customerId },
+            select: { 
+                id: true,
+                name: true, 
+                apiKey: true,
+                scriptId: true,
+                telegramChatId: true,
+                telegramBotToken: true,
+                metaPixelId: true,
+                metaAccessToken: true,
+                googleAdsId: true,
+                googleApiSecret: true,
+            }
+        });
+        if (!customer) {
+            return res.status(404).json({ error: 'Müşteri bulunamadı.' });
+        }
+        res.json(customer);
+    } catch (error) {
+        console.error('Müşteri bilgileri alınamadı:', error);
+        res.status(500).json({ error: 'Müşteri bilgileri alınamadı.' });
+    }
+});
+
+// İzin verilen domainleri getirme
+router.get('/domains', protectWithJWT, async (req, res) => {
+    try {
+        const customer = await prisma.customer.findUnique({
+            where: { id: req.user.customerId },
+            select: { allowedDomains: true }
+        });
+        if (!customer) {
+            return res.status(404).json({ error: 'Müşteri bulunamadı.' });
+        }
+        res.json({ domains: customer.allowedDomains || [] });
+    } catch (error) {
+        console.error('Domain listesi alınamadı:', error);
+        res.status(500).json({ error: 'Domain listesi alınamadı.' });
+    }
+});
+
+// İzin verilen domainleri güncelleme
+router.post('/domains', protectWithJWT, isOwner, async (req, res) => {
+    const { domains } = req.body;
+    
+    if (!Array.isArray(domains)) {
+        return res.status(400).json({ error: 'Domains bir array olmalıdır.' });
+    }
+
+    try {
+        await prisma.customer.update({
+            where: { id: req.user.customerId },
+            data: { allowedDomains: domains },
+        });
+        res.json({ message: 'Domainler başarıyla güncellendi.' });
+    } catch (error) {
+        console.error('Domainler güncellenemedi:', error);
+        res.status(500).json({ error: 'Domainler güncellenemedi.' });
+    }
+});
+
 // Müşteri ayarlarını getirme
 router.get('/settings', protectWithJWT, async (req, res) => {
     try {
