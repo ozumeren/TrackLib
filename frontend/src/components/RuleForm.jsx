@@ -1,17 +1,228 @@
-// frontend/src/components/RuleForm.jsx - İyileştirilmiş UX/UI
+// frontend/src/components/RuleForm.jsx - Genişletilmiş Kural Türleri
 import { useForm } from '@mantine/form';
 import {
   Modal, Button, TextInput, Stack, Group, Select, JsonInput,
-  Switch, Fieldset, Text, NumberInput, Alert, Paper, ThemeIcon,
-  Stepper, Badge, Code, Accordion, Box, Divider, Tooltip
+  Switch, Text, NumberInput, Alert, Paper, ThemeIcon,
+  Stepper, Badge, Accordion, Divider, Tooltip, MultiSelect,
+  SegmentedControl, DateTimePicker, Textarea
 } from '@mantine/core';
+import { DateInput, TimeInput } from '@mantine/dates';
 import { useEffect, useState } from 'react';
 import {
   IconTrash, IconRocket, IconInfoCircle, IconPlus,
-  IconCheck, IconBolt, IconClock, IconUsers, IconTarget
+  IconCheck, IconBolt, IconClock, IconUsers, IconTarget,
+  IconCalendar, IconCoin, IconTrendingUp, IconTrendingDown,
+  IconGift, IconCake, IconDeviceGamepad2, IconPercentage,
+  IconAlertTriangle, IconStar, IconWallet
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { useAuth } from '../AuthContext';
+
+// Genişletilmiş tetikleyici türleri
+const triggerTypes = [
+  {
+    group: '👤 Oyuncu Davranışı',
+    items: [
+      {
+        value: 'INACTIVITY',
+        label: '⏰ Pasiflik',
+        description: 'Oyuncu X gün giriş yapmadığında',
+        icon: IconClock,
+        color: 'orange'
+      },
+      {
+        value: 'LOGIN_STREAK',
+        label: '🔥 Giriş Serisi',
+        description: 'X gün üst üste giriş yaptığında',
+        icon: IconTrendingUp,
+        color: 'green'
+      },
+      {
+        value: 'SESSION_DURATION',
+        label: '⌚ Oturum Süresi',
+        description: 'Oturum belirli süreye ulaştığında',
+        icon: IconClock,
+        color: 'blue'
+      }
+    ]
+  },
+  {
+    group: '💰 Finansal',
+    items: [
+      {
+        value: 'FIRST_DEPOSIT',
+        label: '💎 İlk Yatırım',
+        description: 'Oyuncunun ilk para yatırmasında',
+        icon: IconCoin,
+        color: 'yellow'
+      },
+      {
+        value: 'DEPOSIT_THRESHOLD',
+        label: '💰 Yatırım Eşiği',
+        description: 'Belirli miktara ulaşıldığında',
+        icon: IconTrendingUp,
+        color: 'teal'
+      },
+      {
+        value: 'WITHDRAWAL_THRESHOLD',
+        label: '💸 Çekim Eşiği',
+        description: 'Belirli çekim miktarında',
+        icon: IconWallet,
+        color: 'violet'
+      },
+      {
+        value: 'LOW_BALANCE',
+        label: '📉 Düşük Bakiye',
+        description: 'Bakiye belirli seviyenin altına düştüğünde',
+        icon: IconTrendingDown,
+        color: 'red'
+      },
+      {
+        value: 'HIGH_BALANCE',
+        label: '📈 Yüksek Bakiye',
+        description: 'Bakiye belirli seviyeyi aştığında',
+        icon: IconTrendingUp,
+        color: 'green'
+      },
+      {
+        value: 'MULTIPLE_FAILED_DEPOSITS',
+        label: '❌ Başarısız Yatırımlar',
+        description: 'Birden fazla başarısız yatırım denemesi',
+        icon: IconAlertTriangle,
+        color: 'red'
+      }
+    ]
+  },
+  {
+    group: '🎮 Oyun',
+    items: [
+      {
+        value: 'WIN_STREAK',
+        label: '🎯 Kazanma Serisi',
+        description: 'X kez üst üste kazandığında',
+        icon: IconTrendingUp,
+        color: 'green'
+      },
+      {
+        value: 'LOSS_STREAK',
+        label: '💔 Kaybetme Serisi',
+        description: 'X kez üst üste kaybettiğinde',
+        icon: IconTrendingDown,
+        color: 'red'
+      },
+      {
+        value: 'GAME_SPECIFIC',
+        label: '🎰 Oyun Özel',
+        description: 'Belirli bir oyun oynanıldığında',
+        icon: IconDeviceGamepad2,
+        color: 'grape'
+      },
+      {
+        value: 'BET_SIZE',
+        label: '💵 Bahis Büyüklüğü',
+        description: 'Belirli bahis miktarında',
+        icon: IconCoin,
+        color: 'orange'
+      },
+      {
+        value: 'RTP_THRESHOLD',
+        label: '📊 RTP Eşiği',
+        description: 'Oyuncu RTP belirli seviyede',
+        icon: IconPercentage,
+        color: 'blue'
+      }
+    ]
+  },
+  {
+    group: '👥 Segmentasyon',
+    items: [
+      {
+        value: 'SEGMENT_ENTRY',
+        label: '➕ Segment Girişi',
+        description: 'Segmente dahil olduğunda',
+        icon: IconUsers,
+        color: 'blue'
+      },
+      {
+        value: 'SEGMENT_EXIT',
+        label: '➖ Segment Çıkışı',
+        description: 'Segmentten çıktığında',
+        icon: IconUsers,
+        color: 'gray'
+      }
+    ]
+  },
+  {
+    group: '📅 Zamana Dayalı',
+    items: [
+      {
+        value: 'TIME_BASED',
+        label: '🕐 Zamanlı',
+        description: 'Belirli tarih/saatte',
+        icon: IconCalendar,
+        color: 'cyan'
+      },
+      {
+        value: 'BIRTHDAY',
+        label: '🎂 Doğum Günü',
+        description: 'Oyuncunun doğum gününde',
+        icon: IconCake,
+        color: 'pink'
+      },
+      {
+        value: 'ACCOUNT_ANNIVERSARY',
+        label: '🎉 Hesap Yıldönümü',
+        description: 'Kayıt yıldönümünde',
+        icon: IconStar,
+        color: 'yellow'
+      },
+      {
+        value: 'BONUS_EXPIRY',
+        label: '⏰ Bonus Süresi Dolacak',
+        description: 'Bonus süresinin dolmasına yakın',
+        icon: IconGift,
+        color: 'orange'
+      }
+    ]
+  },
+  {
+    group: '⚡ Event Bazlı',
+    items: [
+      {
+        value: 'EVENT',
+        label: '⚡ Event',
+        description: 'Özel bir event gerçekleştiğinde',
+        icon: IconBolt,
+        color: 'yellow'
+      }
+    ]
+  }
+];
+
+// Aksiyon türleri
+const actionTypes = [
+  { value: 'SEND_TELEGRAM_MESSAGE', label: '📱 Telegram Mesajı', group: 'Mesajlaşma' },
+  { value: 'SEND_EMAIL', label: '📧 Email', group: 'Mesajlaşma' },
+  { value: 'SEND_SMS', label: '💬 SMS', group: 'Mesajlaşma' },
+  { value: 'SEND_PUSH_NOTIFICATION', label: '🔔 Push Notification', group: 'Mesajlaşma' },
+  { value: 'SEND_IN_APP_MESSAGE', label: '💭 Uygulama İçi Mesaj', group: 'Mesajlaşma' },
+  { value: 'TRIGGER_POPUP', label: '🪟 Popup Göster', group: 'Mesajlaşma' },
+  
+  { value: 'ADD_BONUS', label: '🎁 Bonus Ekle', group: 'Ödül' },
+  { value: 'ADD_FREE_SPINS', label: '🎰 Free Spin Ekle', group: 'Ödül' },
+  { value: 'APPLY_CASHBACK', label: '💰 Cashback Uygula', group: 'Ödül' },
+  { value: 'ADJUST_LOYALTY_POINTS', label: '⭐ Loyalty Puanı', group: 'Ödül' },
+  { value: 'CHANGE_VIP_TIER', label: '👑 VIP Seviye Değiştir', group: 'Ödül' },
+  
+  { value: 'ADD_TO_SEGMENT', label: '➕ Segmente Ekle', group: 'Segmentasyon' },
+  { value: 'REMOVE_FROM_SEGMENT', label: '➖ Segmentten Çıkar', group: 'Segmentasyon' },
+  
+  { value: 'FLAG_ACCOUNT', label: '🚩 Hesabı İşaretle', group: 'Yönetim' },
+  { value: 'CREATE_TASK', label: '📋 Görev Oluştur', group: 'Yönetim' },
+  
+  { value: 'WEBHOOK', label: '🔗 Webhook Çağır', group: 'Entegrasyon' },
+  { value: 'CUSTOM_JAVASCRIPT', label: '⚙️ Özel JavaScript', group: 'Entegrasyon' }
+];
 
 function RuleForm({ isOpen, onClose, onSave, rule }) {
   const { token } = useAuth();
@@ -21,12 +232,35 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
   const form = useForm({
     initialValues: {
       name: '',
+      description: '',
       isActive: true,
       triggerType: '',
-      config_inactivity_days: 14,
-      config_event_eventName: '',
-      config_segment_entry_segmentId: '',
+      priority: 0,
+      
+      // Sıklık kontrolü
+      maxExecutionsPerPlayer: null,
+      cooldownPeriodDays: null,
+      
+      // Zamanlama
+      startDate: null,
+      endDate: null,
+      activeHours: [],
+      activeDaysOfWeek: [],
+      
+      // Koşullar
+      conditions: {
+        countries: [],
+        vipTiers: [],
+        minAge: null,
+        deviceTypes: [],
+        firstDepositOnly: false
+      },
+      
+      // Trigger config
+      config: {},
+      
       conversionGoalEvent: '',
+      testingEnabled: false,
       variants: [],
     },
     validate: {
@@ -55,55 +289,331 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
     }
   }, [isOpen, token]);
 
-  useEffect(() => {
-    if (rule) {
-      form.setValues({
-        name: rule.name || '',
-        isActive: rule.isActive,
-        triggerType: rule.triggerType || '',
-        conversionGoalEvent: rule.conversionGoalEvent || '',
-        config_inactivity_days: rule.config?.days || 14,
-        config_event_eventName: rule.config?.eventName || '',
-        config_segment_entry_segmentId: rule.config?.segmentId?.toString() || '',
-        variants: rule.variants.map((v) => ({
-          ...v,
-          actionPayload: v.actionPayload
-            ? JSON.stringify(v.actionPayload, null, 2)
-            : '{}',
-        })),
-      });
-      setActive(0);
-    } else {
-      form.reset();
-      setActive(0);
-    }
-  }, [rule, isOpen]);
-
-  const handleSubmit = (values) => {
-    let config = {};
-    if (values.triggerType === 'INACTIVITY') {
-      config = { days: values.config_inactivity_days };
-    } else if (values.triggerType === 'EVENT') {
-      config = { eventName: values.config_event_eventName };
-    } else if (values.triggerType === 'SEGMENT_ENTRY') {
-      config = { segmentId: parseInt(values.config_segment_entry_segmentId, 10) };
-    }
-
-    try {
-      const payload = {
-        name: values.name,
-        isActive: values.isActive,
-        triggerType: values.triggerType,
-        conversionGoalEvent: values.conversionGoalEvent,
-        config: config,
-        variants: values.variants.map((v) => ({
-          ...v,
-          actionPayload: JSON.parse(v.actionPayload),
-        })),
-      };
-      onSave(payload, rule?.id);
-    } catch (e) {
-      alert('Aksiyon İçeriği (actionPayload) geçersiz JSON formatında.');
+  const getTriggerConfigFields = () => {
+    const type = form.values.triggerType;
+    
+    switch(type) {
+      case 'INACTIVITY':
+        return (
+          <NumberInput
+            label="Pasiflik Süresi (Gün)"
+            description="Kaç gün giriş yapmazsa tetiklensin?"
+            placeholder="Örn: 14"
+            min={1}
+            value={form.values.config.days}
+            onChange={(val) => form.setFieldValue('config.days', val)}
+          />
+        );
+        
+      case 'EVENT':
+        return (
+          <TextInput
+            label="Event Adı"
+            description="Hangi event gerçekleştiğinde tetiklensin?"
+            placeholder="Örn: deposit_failed, big_win"
+            value={form.values.config.eventName}
+            onChange={(e) => form.setFieldValue('config.eventName', e.target.value)}
+          />
+        );
+        
+      case 'SEGMENT_ENTRY':
+      case 'SEGMENT_EXIT':
+        return (
+          <Select
+            label="Hedef Segment"
+            description="Hangi segment?"
+            placeholder="Segment seçin"
+            data={segments}
+            value={form.values.config.segmentId?.toString()}
+            onChange={(val) => form.setFieldValue('config.segmentId', parseInt(val))}
+          />
+        );
+        
+      case 'TIME_BASED':
+        return (
+          <Stack spacing="md">
+            <Select
+              label="Zamanlama Türü"
+              data={[
+                { value: 'specific', label: 'Belirli Tarih/Saat' },
+                { value: 'daily', label: 'Her Gün' },
+                { value: 'weekly', label: 'Her Hafta' },
+                { value: 'monthly', label: 'Her Ay' }
+              ]}
+              value={form.values.config.type}
+              onChange={(val) => form.setFieldValue('config.type', val)}
+            />
+            
+            {form.values.config.type === 'specific' && (
+              <DateTimePicker
+                label="Tarih ve Saat"
+                placeholder="Seçin"
+                value={form.values.config.datetime}
+                onChange={(val) => form.setFieldValue('config.datetime', val)}
+              />
+            )}
+            
+            {form.values.config.type === 'daily' && (
+              <TimeInput
+                label="Saat"
+                placeholder="14:00"
+                value={form.values.config.time}
+                onChange={(val) => form.setFieldValue('config.time', val)}
+              />
+            )}
+          </Stack>
+        );
+        
+      case 'DEPOSIT_THRESHOLD':
+      case 'WITHDRAWAL_THRESHOLD':
+        return (
+          <Stack spacing="md">
+            <NumberInput
+              label="Miktar"
+              description="Eşik değer"
+              placeholder="1000"
+              min={0}
+              value={form.values.config.amount}
+              onChange={(val) => form.setFieldValue('config.amount', val)}
+            />
+            <Select
+              label="Periyot"
+              data={[
+                { value: 'total', label: 'Toplam (Tüm Zamanlar)' },
+                { value: 'daily', label: 'Günlük' },
+                { value: 'weekly', label: 'Haftalık' },
+                { value: 'monthly', label: 'Aylık' }
+              ]}
+              value={form.values.config.period}
+              onChange={(val) => form.setFieldValue('config.period', val)}
+            />
+          </Stack>
+        );
+        
+      case 'LOGIN_STREAK':
+        return (
+          <NumberInput
+            label="Ardışık Gün Sayısı"
+            description="Kaç gün üst üste giriş yapmalı?"
+            placeholder="7"
+            min={1}
+            value={form.values.config.consecutiveDays}
+            onChange={(val) => form.setFieldValue('config.consecutiveDays', val)}
+          />
+        );
+        
+      case 'WIN_STREAK':
+      case 'LOSS_STREAK':
+        return (
+          <Stack spacing="md">
+            <NumberInput
+              label="Ardışık Sayı"
+              description="Kaç kez üst üste?"
+              placeholder="3"
+              min={1}
+              value={form.values.config.consecutiveCount}
+              onChange={(val) => form.setFieldValue('config.consecutiveCount', val)}
+            />
+            <NumberInput
+              label="Minimum Bahis Miktarı (Opsiyonel)"
+              placeholder="100"
+              min={0}
+              value={form.values.config.minBetAmount}
+              onChange={(val) => form.setFieldValue('config.minBetAmount', val)}
+            />
+          </Stack>
+        );
+        
+      case 'FIRST_DEPOSIT':
+        return (
+          <Select
+            label="Tetikleme Zamanı"
+            data={[
+              { value: 'immediate', label: 'Anında' },
+              { value: 'delay', label: 'Gecikmeli' }
+            ]}
+            value={form.values.config.trigger}
+            onChange={(val) => form.setFieldValue('config.trigger', val)}
+          />
+        );
+        
+      case 'LOW_BALANCE':
+      case 'HIGH_BALANCE':
+        return (
+          <NumberInput
+            label="Eşik Değer"
+            description="Bakiye limiti"
+            placeholder="100"
+            min={0}
+            value={form.values.config.threshold}
+            onChange={(val) => form.setFieldValue('config.threshold', val)}
+          />
+        );
+        
+      case 'BIRTHDAY':
+        return (
+          <NumberInput
+            label="Kaç Gün Önce?"
+            description="Doğum gününden kaç gün önce tetiklensin?"
+            placeholder="3"
+            min={0}
+            max={30}
+            value={form.values.config.daysBefore}
+            onChange={(val) => form.setFieldValue('config.daysBefore', val)}
+          />
+        );
+        
+      case 'ACCOUNT_ANNIVERSARY':
+        return (
+          <NumberInput
+            label="Yıldönümü (Yıl)"
+            description="Kaçıncı yıl?"
+            placeholder="1"
+            min={1}
+            value={form.values.config.yearsSince}
+            onChange={(val) => form.setFieldValue('config.yearsSince', val)}
+          />
+        );
+        
+      case 'GAME_SPECIFIC':
+        return (
+          <Stack spacing="md">
+            <TextInput
+              label="Oyun ID"
+              placeholder="slot-123"
+              value={form.values.config.gameId}
+              onChange={(e) => form.setFieldValue('config.gameId', e.target.value)}
+            />
+            <Select
+              label="Event Türü"
+              data={[
+                { value: 'game_started', label: 'Oyun Başladı' },
+                { value: 'game_ended', label: 'Oyun Bitti' },
+                { value: 'big_win', label: 'Büyük Kazanç' }
+              ]}
+              value={form.values.config.eventType}
+              onChange={(val) => form.setFieldValue('config.eventType', val)}
+            />
+          </Stack>
+        );
+        
+      case 'BET_SIZE':
+        return (
+          <Group grow>
+            <NumberInput
+              label="Min Miktar"
+              placeholder="500"
+              min={0}
+              value={form.values.config.minAmount}
+              onChange={(val) => form.setFieldValue('config.minAmount', val)}
+            />
+            <NumberInput
+              label="Max Miktar"
+              placeholder="1000"
+              min={0}
+              value={form.values.config.maxAmount}
+              onChange={(val) => form.setFieldValue('config.maxAmount', val)}
+            />
+          </Group>
+        );
+        
+      case 'SESSION_DURATION':
+        return (
+          <Stack spacing="md">
+            <NumberInput
+              label="Süre (Dakika)"
+              description="Oturum kaç dakika sürmeli?"
+              placeholder="60"
+              min={1}
+              value={form.values.config.durationMinutes}
+              onChange={(val) => form.setFieldValue('config.durationMinutes', val)}
+            />
+            <Select
+              label="Tetikleme"
+              data={[
+                { value: 'ongoing', label: 'Oturum Devam Ederken' },
+                { value: 'ended', label: 'Oturum Bittiğinde' }
+              ]}
+              value={form.values.config.trigger}
+              onChange={(val) => form.setFieldValue('config.trigger', val)}
+            />
+          </Stack>
+        );
+        
+      case 'MULTIPLE_FAILED_DEPOSITS':
+        return (
+          <Stack spacing="md">
+            <NumberInput
+              label="Başarısız Deneme Sayısı"
+              placeholder="3"
+              min={2}
+              value={form.values.config.failedCount}
+              onChange={(val) => form.setFieldValue('config.failedCount', val)}
+            />
+            <NumberInput
+              label="Süre (Dakika)"
+              description="Bu süre içinde kaç başarısız deneme?"
+              placeholder="30"
+              min={1}
+              value={form.values.config.withinMinutes}
+              onChange={(val) => form.setFieldValue('config.withinMinutes', val)}
+            />
+          </Stack>
+        );
+        
+      case 'RTP_THRESHOLD':
+        return (
+          <Stack spacing="md">
+            <NumberInput
+              label="RTP Yüzdesi"
+              placeholder="85"
+              min={0}
+              max={200}
+              value={form.values.config.rtpPercentage}
+              onChange={(val) => form.setFieldValue('config.rtpPercentage', val)}
+            />
+            <NumberInput
+              label="Minimum Bahis Sayısı"
+              description="Kaç bahisten sonra hesaplansın?"
+              placeholder="100"
+              min={1}
+              value={form.values.config.minimumBets}
+              onChange={(val) => form.setFieldValue('config.minimumBets', val)}
+            />
+            <Select
+              label="Operatör"
+              data={[
+                { value: 'lessThan', label: 'Küçük (<)' },
+                { value: 'greaterThan', label: 'Büyük (>)' }
+              ]}
+              value={form.values.config.operator}
+              onChange={(val) => form.setFieldValue('config.operator', val)}
+            />
+          </Stack>
+        );
+        
+      case 'BONUS_EXPIRY':
+        return (
+          <Stack spacing="md">
+            <NumberInput
+              label="Kaç Saat Önce?"
+              description="Bonus süresinin dolmasına kaç saat kala?"
+              placeholder="24"
+              min={1}
+              value={form.values.config.hoursBefore}
+              onChange={(val) => form.setFieldValue('config.hoursBefore', val)}
+            />
+            <TextInput
+              label="Bonus Türü (Opsiyonel)"
+              placeholder="deposit_bonus"
+              value={form.values.config.bonusType}
+              onChange={(e) => form.setFieldValue('config.bonusType', e.target.value)}
+            />
+          </Stack>
+        );
+        
+      default:
+        return null;
     }
   };
 
@@ -118,35 +628,40 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
         return;
       }
     }
-    setActive((current) => (current < 2 ? current + 1 : current));
+    setActive((current) => (current < 3 ? current + 1 : current));
   };
 
   const prevStep = () =>
     setActive((current) => (current > 0 ? current - 1 : current));
 
-  const getTriggerIcon = (type) => {
-    switch (type) {
-      case 'INACTIVITY':
-        return IconClock;
-      case 'EVENT':
-        return IconBolt;
-      case 'SEGMENT_ENTRY':
-        return IconUsers;
-      default:
-        return IconTarget;
-    }
-  };
-
-  const getTriggerDescription = (type) => {
-    switch (type) {
-      case 'INACTIVITY':
-        return 'Oyuncu belirli bir süre boyunca pasif kaldığında tetiklenir';
-      case 'EVENT':
-        return 'Belirli bir event gerçekleştiğinde tetiklenir (örn: deposit_failed)';
-      case 'SEGMENT_ENTRY':
-        return 'Oyuncu belirli bir segmente girdiğinde tetiklenir';
-      default:
-        return '';
+  const handleSubmit = (values) => {
+    try {
+      const payload = {
+        name: values.name,
+        description: values.description,
+        isActive: values.isActive,
+        triggerType: values.triggerType,
+        config: values.config,
+        conditions: values.conditions,
+        priority: values.priority,
+        maxExecutionsPerPlayer: values.maxExecutionsPerPlayer,
+        cooldownPeriodDays: values.cooldownPeriodDays,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        activeHours: values.activeHours,
+        activeDaysOfWeek: values.activeDaysOfWeek,
+        conversionGoalEvent: values.conversionGoalEvent,
+        testingEnabled: values.testingEnabled,
+        variants: values.variants.map((v) => ({
+          ...v,
+          actionPayload: typeof v.actionPayload === 'string' 
+            ? JSON.parse(v.actionPayload) 
+            : v.actionPayload,
+        })),
+      };
+      onSave(payload, rule?.id);
+    } catch (e) {
+      alert('Varyant yapılandırması geçersiz JSON formatında.');
     }
   };
 
@@ -171,78 +686,39 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
         <TextInput
           withAsterisk
           label="Varyant Adı"
-          description="Bu varyantı tanımlayan açıklayıcı bir isim"
-          placeholder="Örn: %20 Bonus Teklifi, Hoşgeldin Mesajı"
+          placeholder="Örn: %20 Bonus Teklifi"
           {...form.getInputProps(`variants.${index}.name`)}
         />
 
         <Select
           withAsterisk
           label="Aksiyon Türü"
-          description="Bu varyant hangi aksiyonu gerçekleştirecek?"
-          data={[
-            {
-              value: 'SEND_TELEGRAM_MESSAGE',
-              label: '📱 Telegram Mesajı Gönder',
-            },
-            {
-              value: 'FORWARD_TO_META_ADS',
-              label: '📘 Meta (Facebook) Ads',
-            },
-            {
-              value: 'FORWARD_TO_GOOGLE_ADS',
-              label: '📊 Google Ads',
-            },
-          ]}
+          placeholder="Aksiyon seçin"
+          data={actionTypes}
           {...form.getInputProps(`variants.${index}.actionType`)}
         />
 
-        <JsonInput
-          label="Aksiyon İçeriği (JSON)"
-          description="Aksiyonun detaylarını JSON formatında girin"
-          placeholder='{ "messageTemplate": "Merhaba {playerId}..." }'
-          validationError="Geçersiz JSON formatı"
-          formatOnBlur
-          autosize
-          minRows={4}
-          {...form.getInputProps(`variants.${index}.actionPayload`)}
+        <NumberInput
+          label="Ağırlık"
+          description="Yüksek ağırlık = daha çok seçilir"
+          placeholder="1"
+          min={1}
+          {...form.getInputProps(`variants.${index}.weight`)}
         />
 
-        {/* JSON Örnekleri */}
-        <Accordion variant="contained">
-          <Accordion.Item value="examples">
-            <Accordion.Control icon={<IconInfoCircle size={16} />}>
-              📝 JSON Örnekleri
-            </Accordion.Control>
-            <Accordion.Panel>
-              <Stack spacing="xs">
-                <Text size="xs" weight={500}>
-                  Telegram Mesajı:
-                </Text>
-                <Code block>
-                  {`{
-  "messageTemplate": "Merhaba {playerId}, %20 bonus için son şansın!"
-}`}
-                </Code>
-                <Text size="xs" weight={500} mt="sm">
-                  Meta Ads:
-                </Text>
-                <Code block>
-                  {`{
-  "eventName": "Purchase",
-  "value": 100,
-  "currency": "TRY"
-}`}
-                </Code>
-              </Stack>
-            </Accordion.Panel>
-          </Accordion.Item>
-        </Accordion>
+        <JsonInput
+          withAsterisk
+          label="Aksiyon Parametreleri"
+          description="JSON formatında aksiyon detayları"
+          placeholder='{ "messageTemplate": "Merhaba!" }'
+          minRows={4}
+          formatOnBlur
+          autosize
+          {...form.getInputProps(`variants.${index}.actionPayload`)}
+        />
       </Stack>
     </Paper>
   ));
-
-  const TriggerIcon = getTriggerIcon(form.values.triggerType);
 
   return (
     <Modal
@@ -253,126 +729,76 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
           <ThemeIcon size="lg" radius="md" variant="light" color="blue">
             <IconRocket size={20} />
           </ThemeIcon>
-          <div>
-            <Text size="lg" weight={600}>
-              {rule ? 'Kuralı Düzenle' : 'Yeni Kural Oluştur'}
-            </Text>
-            <Text size="xs" color="dimmed">
-              Otomatik kampanya ve A/B testi
-            </Text>
-          </div>
+          <Text size="lg" weight={600}>
+            {rule ? 'Kuralı Düzenle' : 'Yeni Kural Oluştur'}
+          </Text>
         </Group>
       }
       size="xl"
-      padding="xl"
+      closeOnClickOutside={false}
     >
       <form onSubmit={form.onSubmit(handleSubmit)}>
-        <Stepper active={active} onStepClick={setActive} breakpoint="sm">
-          {/* Step 1: Temel Ayarlar */}
+        <Stepper active={active} breakpoint="sm">
+          {/* Step 1: Temel Bilgiler */}
           <Stepper.Step
-            label="Temel Ayarlar"
-            description="Kural bilgileri"
-            icon={<IconInfoCircle size={18} />}
+            label="Temel Bilgiler"
+            description="Kural detayları"
+            icon={<IconTarget size={18} />}
           >
             <Stack spacing="md" mt="xl">
-              <Alert icon={<IconInfoCircle size={16} />} color="blue" variant="light">
-                Kural'a açıklayıcı bir isim verin ve tetikleyici tipini seçin.
-              </Alert>
-
               <TextInput
                 withAsterisk
                 label="Kural Adı"
-                description="Bu kuralı tanımlayan açıklayıcı bir isim"
-                placeholder="Örn: Pasif Oyuncu Geri Kazanımı, İlk Yatırım Bonusu"
+                placeholder="Örn: Pasif Oyuncu Geri Kazanımı"
                 icon={<IconTarget size={16} />}
                 {...form.getInputProps('name')}
               />
 
-              <Switch
-                label="Kural Aktif"
-                description="Kapalıysa kural çalışmaz"
-                {...form.getInputProps('isActive', { type: 'checkbox' })}
+              <Textarea
+                label="Açıklama"
+                placeholder="Bu kuralın ne yaptığını açıklayın..."
+                minRows={2}
+                {...form.getInputProps('description')}
               />
+
+              <Group grow>
+                <Switch
+                  label="Kural Aktif"
+                  {...form.getInputProps('isActive', { type: 'checkbox' })}
+                />
+                <NumberInput
+                  label="Öncelik"
+                  description="Yüksek öncelikli kurallar önce çalışır"
+                  placeholder="0"
+                  min={0}
+                  {...form.getInputProps('priority')}
+                />
+              </Group>
+
+              <Divider label="Tetikleyici" labelPosition="center" />
 
               <Select
                 withAsterisk
                 label="Tetikleyici Türü"
-                description="Kural ne zaman çalışsın?"
-                data={[
-                  {
-                    value: 'INACTIVITY',
-                    label: '⏰ Oyuncu Pasifleştiğinde',
-                  },
-                  {
-                    value: 'EVENT',
-                    label: '⚡ Belirli Bir Eylem Gerçekleştiğinde',
-                  },
-                  {
-                    value: 'SEGMENT_ENTRY',
-                    label: '👥 Oyuncu Grubuna Girdiğinde',
-                  },
-                ]}
+                placeholder="Kural ne zaman çalışsın?"
+                data={triggerTypes.flatMap(group => 
+                  group.items.map(item => ({
+                    value: item.value,
+                    label: item.label,
+                    group: group.group
+                  }))
+                )}
                 {...form.getInputProps('triggerType')}
               />
 
-              {/* Tetikleyici Detayları */}
               {form.values.triggerType && (
                 <Paper p="md" radius="md" withBorder bg="blue.0">
-                  <Group spacing="sm" mb="xs">
-                    <ThemeIcon size="sm" radius="xl" variant="light" color="blue">
-                      <TriggerIcon size={16} />
-                    </ThemeIcon>
-                    <Text size="sm" weight={500}>
-                      Seçilen Tetikleyici
-                    </Text>
-                  </Group>
-                  <Text size="xs" color="dimmed">
-                    {getTriggerDescription(form.values.triggerType)}
+                  <Text size="sm" weight={500} mb="xs">
+                    Tetikleyici Yapılandırması
                   </Text>
+                  {getTriggerConfigFields()}
                 </Paper>
               )}
-
-              {form.values.triggerType === 'INACTIVITY' && (
-                <NumberInput
-                  label="Pasiflik Süresi (Gün)"
-                  description="Kaç gün boyunca giriş yapmazsa tetiklensin?"
-                  placeholder="Örn: 14"
-                  min={1}
-                  icon={<IconClock size={16} />}
-                  {...form.getInputProps('config_inactivity_days')}
-                />
-              )}
-
-              {form.values.triggerType === 'EVENT' && (
-                <TextInput
-                  withAsterisk
-                  label="İzlenecek Eylemin Adı"
-                  description="Hangi event gerçekleştiğinde tetiklensin?"
-                  placeholder="Örn: deposit_failed, registration_completed"
-                  icon={<IconBolt size={16} />}
-                  {...form.getInputProps('config_event_eventName')}
-                />
-              )}
-
-              {form.values.triggerType === 'SEGMENT_ENTRY' && (
-                <Select
-                  withAsterisk
-                  label="Hedef Oyuncu Grubu"
-                  description="Hangi segmente girince tetiklensin?"
-                  placeholder="Bir segment seçin"
-                  data={segments}
-                  icon={<IconUsers size={16} />}
-                  {...form.getInputProps('config_segment_entry_segmentId')}
-                />
-              )}
-
-              <TextInput
-                label="Dönüşüm Hedefi (A/B Testi için)"
-                description="Hangi event başarı sayılsın? (opsiyonel)"
-                placeholder="Örn: deposit_successful, login_successful"
-                icon={<IconTarget size={16} />}
-                {...form.getInputProps('conversionGoalEvent')}
-              />
 
               <Group position="right" mt="xl">
                 <Button onClick={nextStep}>İlerle</Button>
@@ -380,57 +806,204 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
             </Stack>
           </Stepper.Step>
 
-          {/* Step 2: Varyantlar */}
+          {/* Step 2: Gelişmiş Ayarlar */}
+          <Stepper.Step
+            label="Gelişmiş Ayarlar"
+            description="Koşullar ve zamanlama"
+            icon={<IconClock size={18} />}
+          >
+            <Stack spacing="md" mt="xl">
+              <Accordion variant="separated">
+                {/* Sıklık Kontrolü */}
+                <Accordion.Item value="frequency">
+                  <Accordion.Control icon={<IconClock size={20} />}>
+                    Sıklık Kontrolü
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Stack spacing="md">
+                      <NumberInput
+                        label="Oyuncu Başına Maksimum Çalışma"
+                        description="Aynı oyuncu için kaç kez çalışabilir?"
+                        placeholder="Sınırsız"
+                        min={1}
+                        {...form.getInputProps('maxExecutionsPerPlayer')}
+                      />
+                      <NumberInput
+                        label="Bekleme Süresi (Gün)"
+                        description="Aynı oyuncu için tekrar çalışma süresi"
+                        placeholder="Bekleme yok"
+                        min={1}
+                        {...form.getInputProps('cooldownPeriodDays')}
+                      />
+                    </Stack>
+                  </Accordion.Panel>
+                </Accordion.Item>
+
+                {/* Zamanlama */}
+                <Accordion.Item value="scheduling">
+                  <Accordion.Control icon={<IconCalendar size={20} />}>
+                    Zamanlama
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Stack spacing="md">
+                      <DateInput
+                        label="Başlangıç Tarihi"
+                        placeholder="Kural ne zaman aktif olsun?"
+                        {...form.getInputProps('startDate')}
+                      />
+                      <DateInput
+                        label="Bitiş Tarihi"
+                        placeholder="Kural ne zaman sona ersin?"
+                        {...form.getInputProps('endDate')}
+                      />
+                      <MultiSelect
+                        label="Aktif Saatler"
+                        description="Hangi saatlerde çalışsın?"
+                        placeholder="Tüm gün"
+                        data={Array.from({ length: 24 }, (_, i) => ({
+                          value: i.toString(),
+                          label: `${i}:00`
+                        }))}
+                        {...form.getInputProps('activeHours')}
+                      />
+                      <MultiSelect
+                        label="Aktif Günler"
+                        description="Hangi günlerde çalışsın?"
+                        placeholder="Her gün"
+                        data={[
+                          { value: '1', label: 'Pazartesi' },
+                          { value: '2', label: 'Salı' },
+                          { value: '3', label: 'Çarşamba' },
+                          { value: '4', label: 'Perşembe' },
+                          { value: '5', label: 'Cuma' },
+                          { value: '6', label: 'Cumartesi' },
+                          { value: '0', label: 'Pazar' }
+                        ]}
+                        {...form.getInputProps('activeDaysOfWeek')}
+                      />
+                    </Stack>
+                  </Accordion.Panel>
+                </Accordion.Item>
+
+                {/* Koşullar */}
+                <Accordion.Item value="conditions">
+                  <Accordion.Control icon={<IconUsers size={20} />}>
+                    Hedefleme ve Koşullar
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Stack spacing="md">
+                      <MultiSelect
+                        label="Ülkeler"
+                        description="Hangi ülkelerdeki oyuncular için?"
+                        placeholder="Tüm ülkeler"
+                        data={[
+                          { value: 'TR', label: '🇹🇷 Türkiye' },
+                          { value: 'DE', label: '🇩🇪 Almanya' },
+                          { value: 'GB', label: '🇬🇧 İngiltere' },
+                          { value: 'US', label: '🇺🇸 ABD' }
+                        ]}
+                        {...form.getInputProps('conditions.countries')}
+                      />
+                      <MultiSelect
+                        label="VIP Seviyeleri"
+                        placeholder="Tüm seviyeler"
+                        data={[
+                          { value: 'bronze', label: '🥉 Bronze' },
+                          { value: 'silver', label: '🥈 Silver' },
+                          { value: 'gold', label: '🥇 Gold' },
+                          { value: 'platinum', label: '💎 Platinum' }
+                        ]}
+                        {...form.getInputProps('conditions.vipTiers')}
+                      />
+                      <MultiSelect
+                        label="Cihaz Türleri"
+                        placeholder="Tüm cihazlar"
+                        data={[
+                          { value: 'mobile', label: '📱 Mobil' },
+                          { value: 'tablet', label: '📱 Tablet' },
+                          { value: 'desktop', label: '💻 Masaüstü' }
+                        ]}
+                        {...form.getInputProps('conditions.deviceTypes')}
+                      />
+                      <NumberInput
+                        label="Minimum Yaş"
+                        placeholder="Yaş sınırı yok"
+                        min={18}
+                        {...form.getInputProps('conditions.minAge')}
+                      />
+                      <Switch
+                        label="Sadece İlk Yatırım Yapanlar"
+                        {...form.getInputProps('conditions.firstDepositOnly', { type: 'checkbox' })}
+                      />
+                    </Stack>
+                  </Accordion.Panel>
+                </Accordion.Item>
+
+                {/* A/B Test */}
+                <Accordion.Item value="abtest">
+                  <Accordion.Control icon={<IconTarget size={20} />}>
+                    A/B Test Ayarları
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <Stack spacing="md">
+                      <Switch
+                        label="A/B Test Aktif"
+                        description="Varyant performansı ölçülsün mü?"
+                        {...form.getInputProps('testingEnabled', { type: 'checkbox' })}
+                      />
+                      {form.values.testingEnabled && (
+                        <TextInput
+                          label="Dönüşüm Hedefi"
+                          description="Hangi event başarı sayılsın?"
+                          placeholder="Örn: deposit_successful"
+                          {...form.getInputProps('conversionGoalEvent')}
+                        />
+                      )}
+                    </Stack>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+
+              <Group position="apart" mt="xl">
+                <Button variant="default" onClick={prevStep}>
+                  Geri
+                </Button>
+                <Button onClick={nextStep}>İlerle</Button>
+              </Group>
+            </Stack>
+          </Stepper.Step>
+
+          {/* Step 3: Varyantlar */}
           <Stepper.Step
             label="Varyantlar"
-            description="A/B test aksiyonları"
+            description="Aksiyonlar"
             icon={<IconRocket size={18} />}
           >
             <Stack spacing="md" mt="xl">
               <Alert icon={<IconInfoCircle size={16} />} color="blue" variant="light">
                 <Text size="sm" weight={500} mb={4}>
-                  A/B Test Varyantları Ekleyin
+                  Aksiyon Varyantları
                 </Text>
                 <Text size="xs" color="dimmed">
-                  Farklı aksiyonları test edin. Her varyant rastgele dağıtılacaktır.
+                  Farklı aksiyonları test edin. Her varyant ağırlığına göre dağıtılır.
                 </Text>
               </Alert>
 
-              {/* Varyant Listesi */}
               {variantFields.length > 0 ? (
-                <Box>
-                  <Text size="sm" weight={500} mb="xs">
-                    Eklenen Varyantlar ({variantFields.length})
-                  </Text>
-                  {variantFields}
-                </Box>
+                <>{variantFields}</>
               ) : (
-                <Paper
-                  p="xl"
-                  radius="md"
-                  withBorder
-                  style={{ textAlign: 'center' }}
-                >
-                  <ThemeIcon
-                    size="xl"
-                    radius="xl"
-                    variant="light"
-                    color="gray"
-                    mx="auto"
-                    mb="md"
-                  >
-                    <IconRocket size={24} />
-                  </ThemeIcon>
-                  <Text size="sm" color="dimmed" mb="md">
-                    Henüz varyant eklenmedi
-                  </Text>
-                  <Text size="xs" color="dimmed">
-                    En az bir varyant ekleyerek başlayın
-                  </Text>
+                <Paper p="xl" radius="md" withBorder>
+                  <Stack align="center" spacing="md">
+                    <ThemeIcon size="xl" radius="xl" variant="light" color="gray">
+                      <IconRocket size={24} />
+                    </ThemeIcon>
+                    <Text size="sm" color="dimmed" align="center">
+                      Henüz varyant eklenmedi
+                    </Text>
+                  </Stack>
                 </Paper>
               )}
 
-              {/* Varyant Ekle Butonu */}
               <Button
                 leftSection={<IconPlus size={18} />}
                 variant="light"
@@ -439,124 +1012,20 @@ function RuleForm({ isOpen, onClose, onSave, rule }) {
                   form.insertListItem('variants', {
                     name: '',
                     actionType: '',
+                    weight: 1,
                     actionPayload: '{}',
                   })
                 }
               >
-                Yeni Varyant Ekle
+                Varyant Ekle
               </Button>
 
               <Group position="apart" mt="xl">
                 <Button variant="default" onClick={prevStep}>
                   Geri
                 </Button>
-                <Button
-                  onClick={nextStep}
-                  disabled={form.values.variants.length === 0}
-                >
-                  İlerle
-                </Button>
-              </Group>
-            </Stack>
-          </Stepper.Step>
-
-          {/* Step 3: Özet */}
-          <Stepper.Step
-            label="Özet"
-            description="Kontrol edin"
-            icon={<IconCheck size={18} />}
-          >
-            <Stack spacing="md" mt="xl">
-              <Alert icon={<IconCheck size={16} />} color="green" variant="light">
-                Kural oluşturuluyor! Son bir kez kontrol edin.
-              </Alert>
-
-              <Paper p="md" radius="md" withBorder>
-                <Group position="apart" mb="md">
-                  <Text size="sm" weight={500} color="dimmed">
-                    Kural Adı
-                  </Text>
-                  <Badge color={form.values.isActive ? 'green' : 'gray'}>
-                    {form.values.isActive ? 'Aktif' : 'Pasif'}
-                  </Badge>
-                </Group>
-                <Text size="lg" weight={700}>
-                  {form.values.name || 'Belirlenmedi'}
-                </Text>
-              </Paper>
-
-              <Paper p="md" radius="md" withBorder>
-                <Text size="sm" weight={500} color="dimmed" mb="md">
-                  Tetikleyici
-                </Text>
-                <Group spacing="sm">
-                  <ThemeIcon size="md" radius="md" variant="light" color="blue">
-                    <TriggerIcon size={18} />
-                  </ThemeIcon>
-                  <Stack spacing={4}>
-                    <Text size="sm" weight={500}>
-                      {form.values.triggerType === 'INACTIVITY' && 'Pasiflik'}
-                      {form.values.triggerType === 'EVENT' && 'Event'}
-                      {form.values.triggerType === 'SEGMENT_ENTRY' &&
-                        'Segment Girişi'}
-                    </Text>
-                    <Text size="xs" color="dimmed">
-                      {form.values.triggerType === 'INACTIVITY' &&
-                        `${form.values.config_inactivity_days} gün pasif`}
-                      {form.values.triggerType === 'EVENT' &&
-                        form.values.config_event_eventName}
-                      {form.values.triggerType === 'SEGMENT_ENTRY' &&
-                        segments.find(
-                          (s) =>
-                            s.value === form.values.config_segment_entry_segmentId
-                        )?.label}
-                    </Text>
-                  </Stack>
-                </Group>
-              </Paper>
-
-              {form.values.conversionGoalEvent && (
-                <Paper p="md" radius="md" withBorder>
-                  <Text size="sm" weight={500} color="dimmed" mb={4}>
-                    Dönüşüm Hedefi
-                  </Text>
-                  <Code>{form.values.conversionGoalEvent}</Code>
-                </Paper>
-              )}
-
-              <Paper p="md" radius="md" withBorder>
-                <Text size="sm" weight={500} color="dimmed" mb="md">
-                  Varyantlar ({form.values.variants.length})
-                </Text>
-                <Stack spacing="xs">
-                  {form.values.variants.map((variant, index) => (
-                    <Group key={index} spacing="xs">
-                      <Badge
-                        size="sm"
-                        variant="gradient"
-                        gradient={{ from: 'blue', to: 'cyan' }}
-                      >
-                        {String.fromCharCode(65 + index)}
-                      </Badge>
-                      <Text size="sm" weight={500}>
-                        {variant.name}
-                      </Text>
-                      <Text size="xs" color="dimmed">
-                        ({variant.actionType})
-                      </Text>
-                    </Group>
-                  ))}
-                </Stack>
-              </Paper>
-
-              <Divider my="md" />
-
-              <Group position="apart">
-                <Button variant="default" onClick={prevStep}>
-                  Geri
-                </Button>
                 <Button type="submit" leftSection={<IconCheck size={18} />}>
-                  {rule ? 'Güncelle' : 'Oluştur'}
+                  Kaydet
                 </Button>
               </Group>
             </Stack>
