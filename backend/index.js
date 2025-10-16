@@ -179,7 +179,7 @@ app.get('/scripts/:scriptId.js', async (req, res) => {
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
-            backendUrl: `http://${req.get('host')}/v1/events`,
+            backendUrl: `http://37.27.72.40:3000/v1/events`,
             domConfig: customer.domConfig || {}
         };
         
