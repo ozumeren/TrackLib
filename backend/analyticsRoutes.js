@@ -282,10 +282,26 @@ function getEventMetadata(eventName, parameters) {
             metadata.color = 'red';
             metadata.label = 'Yatırma Başarısız';
             break;
-        case 'withdrawal_successful':
+        case 'withdrawal_requested':
             metadata.icon = '💸';
             metadata.color = 'yellow';
-            metadata.label = 'Para Çekme';
+            metadata.label = 'Para Çekme Talebi';
+            if (parameters?.amount) {
+                metadata.value = `${parameters.amount} ${parameters.currency || 'TRY'}`;
+            }
+            break;
+        case 'withdrawal_successful':
+            metadata.icon = '✅';
+            metadata.color = 'green';
+            metadata.label = 'Para Çekme Başarılı';
+            if (parameters?.amount) {
+                metadata.value = `${parameters.amount} ${parameters.currency || 'TRY'}`;
+            }
+            break;
+        case 'withdrawal_failed':
+            metadata.icon = '❌';
+            metadata.color = 'red';
+            metadata.label = 'Para Çekme Başarısız';
             if (parameters?.amount) {
                 metadata.value = `${parameters.amount} ${parameters.currency || 'TRY'}`;
             }
