@@ -1,16 +1,18 @@
-// frontend/src/pages/AdminCustomerDetailPage.jsx - İyileştirilmiş UX/UI
+// frontend/src/pages/AdminCustomerDetailPage.jsx - DomConfig Builder ile
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../AuthContext';
+import DomConfigBuilder from '../components/DomConfigBuilder';
 import {
-  Title, Card, Loader, Alert, Group, Text, Stack, JsonInput,
-  Button, Paper, ThemeIcon, Badge, Divider, Accordion, Code,
-  Center, Box, Tabs
+  Title, Card, Loader, Alert, Group, Text, Stack,
+  Button, Paper, ThemeIcon, Badge, Divider, Code,
+  Center, Box, Tabs, CopyButton, ActionIcon, Tooltip
 } from '@mantine/core';
 import {
   IconAlertCircle, IconCheck, IconArrowLeft, IconCode,
-  IconSettings, IconInfoCircle, IconDeviceFloppy, IconBuilding
+  IconSettings, IconInfoCircle, IconDeviceFloppy, IconBuilding,
+  IconKey, IconCopy, IconWand
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 
@@ -33,9 +35,10 @@ function AdminCustomerDetailPage() {
         });
         setCustomer(response.data);
         setDomConfig(
-          JSON.stringify(response.data.domConfig || {}, null, 2)
+          JSON.stringify(response.data.domConfig || { rules: [] }, null, 2)
         );
       } catch (err) {
+        console.error('Customer fetch error:', err);
         setError('Müşteri detayları çekilemedi.');
       } finally {
         setLoading(false);
@@ -55,14 +58,14 @@ function AdminCustomerDetailPage() {
       );
       notifications.show({
         title: 'Başarılı!',
-        message: 'Yapılandırma kaydedildi.',
+        message: 'DOM yapılandırması kaydedildi.',
         color: 'teal',
         icon: <IconCheck size={16} />,
       });
     } catch (err) {
       notifications.show({
         title: 'Hata!',
-        message: 'JSON formatını kontrol edin.',
+        message: 'JSON formatını kontrol edin veya geçersiz yapılandırma.',
         color: 'red',
         icon: <IconAlertCircle size={16} />,
       });
@@ -86,8 +89,16 @@ function AdminCustomerDetailPage() {
 
   if (error) {
     return (
-      <Alert icon={<IconAlertCircle size={16} />} title="Hata!" color="red">
+      <Alert icon={<IconAlertCircle size={16} />} title="Hata!" color="red" radius="md">
         {error}
+      </Alert>
+    );
+  }
+
+  if (!customer) {
+    return (
+      <Alert icon={<IconAlertCircle size={16} />} title="Bulunamadı" color="yellow" radius="md">
+        Müşteri bulunamadı.
       </Alert>
     );
   }
@@ -96,275 +107,212 @@ function AdminCustomerDetailPage() {
     <Stack spacing="xl">
       {/* Header */}
       <Group position="apart">
-        <Group spacing="sm">
-          <Button
+        <Group spacing="md">
+          <ActionIcon
+            size="lg"
             variant="light"
-            leftSection={<IconArrowLeft size={18} />}
             onClick={() => navigate('/admin/customers')}
           >
-            Geri
-          </Button>
-          <ThemeIcon size="lg" radius="md" variant="light" color="blue">
-            <IconBuilding size={20} />
-          </ThemeIcon>
+            <IconArrowLeft size={20} />
+          </ActionIcon>
           <div>
-            <Title order={1} size="h2" weight={700}>
-              {customer?.name}
-            </Title>
+            <Group spacing="xs" mb={4}>
+              <ThemeIcon size="md" radius="md" variant="light" color="blue">
+                <IconBuilding size={20} />
+              </ThemeIcon>
+              <Title order={1} size="h2">
+                {customer.name}
+              </Title>
+            </Group>
             <Text size="sm" color="dimmed">
-              Müşteri Yapılandırması
+              Müşteri Yapılandırma Paneli
             </Text>
           </div>
         </Group>
-        <Badge size="lg" variant="dot" color="blue">
-          Müşteri #{id}
-        </Badge>
+
+        <Button
+          leftSection={<IconDeviceFloppy size={18} />}
+          onClick={handleSave}
+          loading={saving}
+          size="md"
+        >
+          Kaydet
+        </Button>
       </Group>
 
-      <Tabs defaultValue="config">
-        <Tabs.List>
-          <Tabs.Tab value="config" leftSection={<IconSettings size={16} />}>
-            DOM Yapılandırması
-          </Tabs.Tab>
-          <Tabs.Tab value="info" leftSection={<IconInfoCircle size={16} />}>
-            Bilgi & Örnekler
-          </Tabs.Tab>
-        </Tabs.List>
+      {/* Müşteri Bilgileri */}
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Text size="lg" weight={600} mb="md">
+          Müşteri Bilgileri
+        </Text>
 
-        {/* Configuration Tab */}
-        <Tabs.Panel value="config" pt="md">
-          <Stack spacing="md">
-            <Alert icon={<IconInfoCircle size={16} />} color="blue" variant="light">
-              <Text size="sm" weight={500} mb={4}>
-                🎯 DOM Gözlemci Yapılandırması
-              </Text>
-              <Text size="xs" color="dimmed">
-                Frontend tracker script'inin hangi DOM elementlerini izleyeceğini ve
-                hangi event'leri tetikleyeceğini belirleyin.
-              </Text>
-            </Alert>
+        <Stack spacing="md">
+          {/* API Key */}
+          <Paper p="md" radius="sm" withBorder>
+            <Group position="apart">
+              <div>
+                <Group spacing="xs" mb={4}>
+                  <IconKey size={16} />
+                  <Text size="sm" weight={500}>API Key</Text>
+                </Group>
+                <Code style={{ fontSize: 12 }}>{customer.apiKey}</Code>
+              </div>
+              <CopyButton value={customer.apiKey}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? 'Kopyalandı!' : 'Kopyala'}>
+                    <ActionIcon
+                      color={copied ? 'teal' : 'gray'}
+                      variant="light"
+                      onClick={copy}
+                    >
+                      {copied ? <IconCheck size={18} /> : <IconCopy size={18} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+          </Paper>
 
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <JsonInput
-                label="DOM Config (JSON)"
-                description="Tracker script için özel DOM izleme kuralları"
-                placeholder='{ "rules": [...] }'
-                validationError="Geçersiz JSON formatı"
-                formatOnBlur
-                autosize
-                minRows={15}
-                value={domConfig}
-                onChange={setDomConfig}
-                styles={{
-                  input: {
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  },
-                }}
-              />
+          {/* Script ID */}
+          <Paper p="md" radius="sm" withBorder>
+            <Group position="apart">
+              <div>
+                <Group spacing="xs" mb={4}>
+                  <IconCode size={16} />
+                  <Text size="sm" weight={500}>Script ID</Text>
+                </Group>
+                <Code style={{ fontSize: 12 }}>{customer.scriptId}</Code>
+              </div>
+              <CopyButton value={customer.scriptId}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? 'Kopyalandı!' : 'Kopyala'}>
+                    <ActionIcon
+                      color={copied ? 'teal' : 'gray'}
+                      variant="light"
+                      onClick={copy}
+                    >
+                      {copied ? <IconCheck size={18} /> : <IconCopy size={18} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+          </Paper>
 
-              <Group position="right" mt="xl">
-                <Button variant="default" onClick={() => navigate('/admin/customers')}>
-                  İptal
-                </Button>
-                <Button
-                  leftSection={<IconDeviceFloppy size={18} />}
-                  onClick={handleSave}
-                  loading={saving}
-                >
-                  Kaydet
-                </Button>
-              </Group>
-            </Card>
-          </Stack>
-        </Tabs.Panel>
+          {/* Script URL */}
+          <Paper p="md" radius="sm" withBorder>
+            <Group position="apart">
+              <div>
+                <Group spacing="xs" mb={4}>
+                  <IconCode size={16} />
+                  <Text size="sm" weight={500}>Tracker Script URL</Text>
+                </Group>
+                <Code style={{ fontSize: 11 }}>
+                  {`https://${window.location.host}/scripts/${customer.scriptId}.js`}
+                </Code>
+              </div>
+              <CopyButton value={`https://${window.location.host}/scripts/${customer.scriptId}.js`}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? 'Kopyalandı!' : 'Kopyala'}>
+                    <ActionIcon
+                      color={copied ? 'teal' : 'gray'}
+                      variant="light"
+                      onClick={copy}
+                    >
+                      {copied ? <IconCheck size={18} /> : <IconCopy size={18} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+          </Paper>
 
-        {/* Info & Examples Tab */}
-        <Tabs.Panel value="info" pt="md">
-          <Stack spacing="md">
-            {/* Nedir? */}
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group spacing="sm" mb="md">
-                <ThemeIcon size="md" radius="md" variant="light" color="blue">
-                  <IconInfoCircle size={18} />
-                </ThemeIcon>
-                <Text size="md" weight={600}>
-                  DOM Config Nedir?
-                </Text>
-              </Group>
-              <Text size="sm" color="dimmed">
-                DOM Config, tracker script'inin müşterinin web sitesinde hangi
-                elementleri izleyeceğini ve hangi olaylarda event göndereceğini
-                tanımlar. Bu sayede kod yazmadan özel tracking kuralları
-                oluşturabilirsiniz.
-              </Text>
-            </Card>
-
-            {/* Örnek 1: Button Click */}
-            <Paper p="md" radius="md" withBorder>
-              <Text size="sm" weight={600} mb="md">
-                📌 Örnek 1: Buton Tıklama Tracking
-              </Text>
-              <Text size="xs" color="dimmed" mb="md">
-                "Para Yatır" butonuna tıklanınca deposit_page_view event'i gönder
-              </Text>
-              <Code block>
-                {`{
-  "rules": [
-    {
-      "eventName": "deposit_page_view",
-      "selector": "button.deposit-btn",
-      "trigger": "click",
-      "parameters": {
-        "page": "deposit"
-      }
-    }
-  ]
-}`}
-              </Code>
-            </Paper>
-
-            {/* Örnek 2: Form Submit */}
-            <Paper p="md" radius="md" withBorder>
-              <Text size="sm" weight={600} mb="md">
-                📌 Örnek 2: Form Gönderimi
-              </Text>
-              <Text size="xs" color="dimmed" mb="md">
-                Kayıt formu gönderilince registration_started event'i gönder
-              </Text>
-              <Code block>
-                {`{
-  "rules": [
-    {
-      "eventName": "registration_started",
-      "selector": "#registration-form",
-      "trigger": "submit",
-      "parameters": {
-        "form_type": "registration"
-      }
-    }
-  ]
-}`}
-              </Code>
-            </Paper>
-
-            {/* Örnek 3: Page Load */}
-            <Paper p="md" radius="md" withBorder>
-              <Text size="sm" weight={600} mb="md">
-                📌 Örnek 3: Sayfa Yükleme
-              </Text>
-              <Text size="xs" color="dimmed" mb="md">
-                Bonus sayfası yüklenince page_view event'i gönder
-              </Text>
-              <Code block>
-                {`{
-  "rules": [
-    {
-      "eventName": "page_view",
-      "selector": "body.bonus-page",
-      "trigger": "load",
-      "parameters": {
-        "page_type": "bonus"
-      }
-    }
-  ]
-}`}
-              </Code>
-            </Paper>
-
-            {/* Karmaşık Örnek */}
-            <Paper p="md" radius="md" withBorder>
-              <Text size="sm" weight={600} mb="md">
-                📌 Örnek 4: Çoklu Kural
-              </Text>
-              <Text size="xs" color="dimmed" mb="md">
-                Birden fazla tracking kuralı tanımlama
-              </Text>
-              <Code block>
-                {`{
-  "rules": [
-    {
-      "eventName": "deposit_page_view",
-      "selector": "button.deposit",
-      "trigger": "click"
-    },
-    {
-      "eventName": "withdrawal_page_view",
-      "selector": "button.withdraw",
-      "trigger": "click"
-    },
-    {
-      "eventName": "game_started",
-      "selector": ".game-tile",
-      "trigger": "click",
-      "parameters": {
-        "game_id": "data-game-id"
-      }
-    }
-  ]
-}`}
-              </Code>
-            </Paper>
-
-            {/* Parametreler Açıklaması */}
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Text size="md" weight={600} mb="md">
-                📚 Parametre Açıklamaları
-              </Text>
-              <Stack spacing="xs">
-                <Box>
-                  <Code>eventName</Code>
-                  <Text size="xs" color="dimmed" mt={4}>
-                    Gönderilecek event'in adı (örn: deposit_successful)
-                  </Text>
-                </Box>
-                <Divider />
-                <Box>
-                  <Code>selector</Code>
-                  <Text size="xs" color="dimmed" mt={4}>
-                    CSS selector (örn: button.deposit-btn, #form-id, .class-name)
-                  </Text>
-                </Box>
-                <Divider />
-                <Box>
-                  <Code>trigger</Code>
-                  <Text size="xs" color="dimmed" mt={4}>
-                    Tetikleyici olay: click, submit, load, change, focus
-                  </Text>
-                </Box>
-                <Divider />
-                <Box>
-                  <Code>parameters</Code>
-                  <Text size="xs" color="dimmed" mt={4}>
-                    Event ile birlikte gönderilecek ek bilgiler (opsiyonel)
-                  </Text>
-                </Box>
-              </Stack>
-            </Card>
-
-            {/* Best Practices */}
-            <Alert icon={<IconInfoCircle size={16} />} color="yellow" variant="light">
-              <Text size="sm" weight={500} mb={4}>
-                💡 En İyi Uygulamalar
+          {/* Kullanıcılar */}
+          {customer.users && customer.users.length > 0 && (
+            <Paper p="md" radius="sm" withBorder>
+              <Text size="sm" weight={500} mb="xs">
+                Kullanıcılar ({customer.users.length})
               </Text>
               <Stack spacing={4}>
-                <Text size="xs">
-                  ✓ Benzersiz ve açıklayıcı selector'ler kullanın
-                </Text>
-                <Text size="xs">
-                  ✓ Event isimlerini tutarlı tutun (snake_case)
-                </Text>
-                <Text size="xs">
-                  ✓ Gereksiz tracking'den kaçının (performans)
-                </Text>
-                <Text size="xs">
-                  ✓ Test ortamında önce test edin
-                </Text>
+                {customer.users.map((user) => (
+                  <Group key={user.id} spacing="xs">
+                    <Badge size="sm" variant="dot" color={user.role === 'admin' ? 'red' : 'blue'}>
+                      {user.email}
+                    </Badge>
+                    {user.role === 'admin' && (
+                      <Badge size="xs" color="red">Admin</Badge>
+                    )}
+                  </Group>
+                ))}
               </Stack>
-            </Alert>
-          </Stack>
-        </Tabs.Panel>
-      </Tabs>
+            </Paper>
+          )}
+        </Stack>
+      </Card>
+
+      {/* DOM Config Builder */}
+      <Stack spacing="md">
+        <Group spacing="xs">
+          <ThemeIcon size="md" radius="md" variant="light" color="violet">
+            <IconWand size={20} />
+          </ThemeIcon>
+          <div>
+            <Text size="lg" weight={600}>
+              DOM Yapılandırması
+            </Text>
+            <Text size="sm" color="dimmed">
+              Tracker script'inin hangi elementleri izleyeceğini tanımlayın
+            </Text>
+          </div>
+        </Group>
+
+        <DomConfigBuilder
+          value={domConfig}
+          onChange={setDomConfig}
+        />
+      </Stack>
+
+      {/* Kullanım Talimatları */}
+      <Card shadow="sm" padding="lg" radius="md" withBorder bg="blue.0">
+        <Group spacing="md" mb="md">
+          <ThemeIcon size="lg" radius="md" variant="light" color="blue">
+            <IconInfoCircle size={24} />
+          </ThemeIcon>
+          <Text size="md" weight={600}>Kullanım Talimatları</Text>
+        </Group>
+
+        <Stack spacing="md">
+          <div>
+            <Text size="sm" weight={500} mb={4}>1. Tracker Script'i Web Sitenize Ekleyin:</Text>
+            <Code block style={{ fontSize: 11 }}>
+              {`<script src="https://${window.location.host}/scripts/${customer.scriptId}.js" async defer></script>`}
+            </Code>
+          </div>
+
+          <div>
+            <Text size="sm" weight={500} mb={4}>2. Oyuncu Kimliğini Bildirin (Giriş Sonrası):</Text>
+            <Code block style={{ fontSize: 11 }}>
+              {`<script>
+  // Oyuncu giriş yaptıktan sonra
+  window.igamingTracker.identify('PLAYER_ID_123');
+</script>`}
+            </Code>
+          </div>
+
+          <div>
+            <Text size="sm" weight={500} mb={4}>3. Manuel Event Gönderimi (Opsiyonel):</Text>
+            <Code block style={{ fontSize: 11 }}>
+              {`<script>
+  // Para yatırma başarılı
+  window.igamingTracker.deposit(100, 'TRY', 'credit_card');
+  
+  // Para çekme
+  window.igamingTracker.withdrawal(50, 'TRY', 'bank_transfer');
+</script>`}
+            </Code>
+          </div>
+        </Stack>
+      </Card>
     </Stack>
   );
 }
