@@ -31,7 +31,6 @@ router.get('/', protectWithJWT, async (req, res) => {
     try {
         const segments = await prisma.segment.findMany({
             where: { customerId },
-            include: { _count: { select: { players: true } } },
             orderBy: { name: 'asc' },
         });
         

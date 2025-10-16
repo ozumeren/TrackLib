@@ -1,59 +1,79 @@
+// backend/adminRoutes.js
 const express = require('express');
+const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { protectWithJWT, isAdmin } = require('./authMiddleware');
 
-const router = express.Router();
 const prisma = new PrismaClient();
 
-// Tüm Müşterileri Listele (Sadece Admin)
+// Tüm müşterileri listele
 router.get('/customers', protectWithJWT, isAdmin, async (req, res) => {
-    try {
-        const customers = await prisma.customer.findMany({
-            orderBy: { name: 'asc' },
-            select: { id: true, name: true, apiKey: true }
-        });
-        res.json(customers);
-    } catch (error) {
-        res.status(500).json({ error: 'Müşteriler listelenemedi.' });
-    }
-});
-
-// Bir Müşterinin Detaylarını ve domConfig'ini Getir (Sadece Admin)
-router.get('/customers/:id', protectWithJWT, isAdmin, async (req, res) => {
-    const customerId = parseInt(req.params.id, 10);
-    try {
-        const customer = await prisma.customer.findUnique({
-            where: { id: customerId },
-            select: { id: true, name: true, domConfig: true }
-        });
-        if (!customer) {
-            return res.status(404).json({ error: 'Müşteri bulunamadı.' });
+  try {
+    const customers = await prisma.customer.findMany({
+      include: {
+        _count: {
+          select: { users: true }
         }
-        res.json(customer);
-    } catch (error) {
-        res.status(500).json({ error: 'Müşteri detayları alınamadı.' });
-    }
+      }
+    });
+    
+    const customersWithCount = customers.map(c => ({
+      ...c,
+      userCount: c._count.users
+    }));
+    
+    res.json(customersWithCount);
+  } catch (error) {
+    console.error('Admin customers list error:', error);
+    res.status(500).json({ error: 'Müşteri listesi alınamadı' });
+  }
 });
 
-// Bir Müşterinin domConfig'ini Güncelle (Sadece Admin)
+// Tek müşteri detayı
+router.get('/customers/:id', protectWithJWT, isAdmin, async (req, res) => {
+  try {
+    const id = req.params.id; // String - parseInt kullanma
+    
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        users: {
+          select: {
+            id: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    });
+    
+    if (!customer) {
+      return res.status(404).json({ error: 'Müşteri bulunamadı' });
+    }
+    
+    res.json(customer);
+  } catch (error) {
+    console.error('Customer detail error:', error);
+    res.status(500).json({ error: 'Müşteri detayları alınamadı' });
+  }
+});
+
+// DOM Config güncelle
 router.put('/customers/:id/domconfig', protectWithJWT, isAdmin, async (req, res) => {
-    const customerId = parseInt(req.params.id, 10);
+  try {
+    const id = req.params.id; // String
     const { domConfig } = req.body;
-
-    if (typeof domConfig !== 'object') {
-        return res.status(400).json({ error: 'domConfig geçerli bir JSON objesi olmalıdır.' });
-    }
-
-    try {
-        await prisma.customer.update({
-            where: { id: customerId },
-            data: { domConfig },
-        });
-        res.json({ message: 'Müşteri yapılandırması başarıyla güncellendi.' });
-    } catch (error) {
-        res.status(500).json({ error: 'Müşteri yapılandırması güncellenemedi.' });
-    }
+    
+    await prisma.customer.update({
+      where: { id },
+      data: { domConfig }
+    });
+    
+    res.json({ message: 'Yapılandırma güncellendi' });
+  } catch (error) {
+    console.error('DomConfig update error:', error);
+    res.status(500).json({ error: 'Yapılandırma güncellenemedi' });
+  }
 });
 
 module.exports = router;
-

@@ -1,32 +1,687 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
-    <title>Test Site</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuckyBet Casino - Test Sitesi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px 0;
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .user-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .balance {
+            background: rgba(255, 215, 0, 0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: 2px solid #ffd700;
+            font-weight: bold;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: #333;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        /* Main Content */
+        main {
+            margin-top: 30px;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .section-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #ffd700;
+        }
+
+        /* Login/Register Section */
+        .auth-section {
+            display: none;
+        }
+
+        .auth-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Games Grid */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .game-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .game-card:hover {
+            transform: scale(1.05);
+            border-color: #ffd700;
+        }
+
+        .game-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+
+        .game-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .game-provider {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 30px;
+            cursor: pointer;
+            color: white;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Bonus Banner */
+        .bonus-banner {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            z-index: 2000;
+            border: 2px solid #ffd700;
+        }
+
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .games-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        /* Hidden class */
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
-    <h1>Test Sitesi</h1>
-    <p>Bu testte, oyuncunun "giriş yapmış" olduğunu varsayıyor ve kimliğini sayfa yüklendiğinde bildiriyoruz.</p>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">🎰 LuckyBet Casino</div>
+                <div class="user-info">
+                    <div class="balance" id="balance">Bakiye: ₺0</div>
+                    <button class="btn btn-primary" id="loginBtn">Giriş Yap</button>
+                    <button class="btn btn-success hidden" id="logoutBtn">Çıkış Yap</button>
+                </div>
+            </div>
+        </div>
+    </header>
 
-    <button id="loginBtn">Olay Tetikle (login_successful)</button>
-    <button id="depositBtn">Olay Tetikle (deposit_page_view)</button>
-
-    <!-- 1. Müşterinin ekleyeceği ana script (Bu, kaynak sahiplenmeyi ve olay dinlemeyi otomatik yapar) -->
-    <script src="http://37.27.72.40:3000/tracker/MUSTERI_XXXX_API_ANAHTARI.js" async defer></script>
-
-    <!-- 2. Müşterinin, oyuncu giriş yaptıktan sonra ekleyeceği kimlik bildirme script'i -->
-    <script>
-        const loggedInPlayerId = 'USR-123'; 
-
-        // Ana tracker script'imizin yüklenmesini bekleyelim
-        document.addEventListener('igamingTracker:loaded', function() {
-            console.log(`Test Sayfası: Oyuncu ${loggedInPlayerId} için kimlik bildiriliyor...`);
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Auth Section -->
+        <section class="section auth-section active" id="authSection">
+            <h2 class="section-title">Hoş Geldiniz!</h2>
+            <p style="margin-bottom: 20px;">Test hesabı ile giriş yapın veya kayıt olun.</p>
             
-            if (window.igamingTracker) {
-                window.igamingTracker.identify(loggedInPlayerId);
+            <div class="form-group">
+                <label>Oyuncu ID</label>
+                <input type="text" id="playerIdInput" placeholder="Örn: PLAYER-12345" value="TEST-USER-001">
+            </div>
+
+            <div class="form-group">
+                <label>Email (Opsiyonel)</label>
+                <input type="email" id="emailInput" placeholder="email@example.com">
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="handleLogin()">Giriş Yap / Kayıt Ol</button>
+            </div>
+        </section>
+
+        <!-- Dashboard -->
+        <div class="dashboard" id="dashboard">
+            <!-- Bonus Banner -->
+            <div class="bonus-banner">
+                🎁 Hoş Geldin Bonusu: İlk yatırımınıza %100 bonus!
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Toplam Yatırım</div>
+                    <div class="stat-value" id="totalDeposit">₺0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Toplam Çekim</div>
+                    <div class="stat-value" id="totalWithdrawal">₺0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Oynanan Oyun</div>
+                    <div class="stat-value" id="gamesPlayed">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Bonus Bakiyesi</div>
+                    <div class="stat-value">₺50</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <section class="section">
+                <h2 class="section-title">Hızlı İşlemler</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-success deposit-button" onclick="handleDeposit()">
+                        💰 Para Yatır
+                    </button>
+                    <button class="btn btn-warning withdrawal-button" onclick="handleWithdrawal()">
+                        💸 Para Çek
+                    </button>
+                    <button class="btn btn-primary" onclick="handleBonusRequest()">
+                        🎁 Bonus Al
+                    </button>
+                    <button class="btn btn-danger" onclick="simulateFailedDeposit()">
+                        ❌ Başarısız Yatırım (Test)
+                    </button>
+                </div>
+            </section>
+
+            <!-- Games -->
+            <section class="section">
+                <h2 class="section-title">Popüler Oyunlar</h2>
+                <div class="games-grid">
+                    <div class="game-card game-tile" data-game-id="slot-mega-fortune" onclick="playGame('Mega Fortune', 'slot-mega-fortune')">
+                        <div class="game-icon">🎰</div>
+                        <div class="game-title">Mega Fortune</div>
+                        <div class="game-provider">NetEnt</div>
+                    </div>
+                    <div class="game-card game-tile" data-game-id="slot-book-of-dead" onclick="playGame('Book of Dead', 'slot-book-of-dead')">
+                        <div class="game-icon">📖</div>
+                        <div class="game-title">Book of Dead</div>
+                        <div class="game-provider">Play'n GO</div>
+                    </div>
+                    <div class="game-card game-tile" data-game-id="roulette-european" onclick="playGame('European Roulette', 'roulette-european')">
+                        <div class="game-icon">🎡</div>
+                        <div class="game-title">European Roulette</div>
+                        <div class="game-provider">Evolution</div>
+                    </div>
+                    <div class="game-card game-tile" data-game-id="blackjack-classic" onclick="playGame('Blackjack', 'blackjack-classic')">
+                        <div class="game-icon">🃏</div>
+                        <div class="game-title">Blackjack Classic</div>
+                        <div class="game-provider">Evolution</div>
+                    </div>
+                    <div class="game-card game-tile" data-game-id="slot-starburst" onclick="playGame('Starburst', 'slot-starburst')">
+                        <div class="game-icon">⭐</div>
+                        <div class="game-title">Starburst</div>
+                        <div class="game-provider">NetEnt</div>
+                    </div>
+                    <div class="game-card game-tile" data-game-id="slot-gonzo-quest" onclick="playGame('Gonzo Quest', 'slot-gonzo-quest')">
+                        <div class="game-icon">🗿</div>
+                        <div class="game-title">Gonzo's Quest</div>
+                        <div class="game-provider">NetEnt</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Game Modal -->
+    <div class="modal" id="gameModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h2 id="gameTitle" style="margin-bottom: 20px;">Oyun</h2>
+            <p style="margin-bottom: 20px;">Oyun demo modunda açılıyor...</p>
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="simulateWin()">🎉 Kazandım!</button>
+                <button class="btn btn-danger" onclick="simulateLoss()">😢 Kaybettim</button>
+                <button class="btn btn-primary" onclick="closeModal()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Tracker Script - BURAYA KENDİ SCRIPT ID'NİZİ YAZIN -->
+	<script src="http://37.27.72.40:3000/s/pix_deneme.js"></script>
+    <!-- Main Script -->
+    <script>
+        let currentBalance = 0;
+        let totalDeposit = 0;
+        let totalWithdrawal = 0;
+        let gamesPlayed = 0;
+        let currentGameId = null;
+
+        // Login Handler
+        function handleLogin() {
+            const playerId = document.getElementById('playerIdInput').value;
+            const email = document.getElementById('emailInput').value;
+
+            if (!playerId) {
+                showNotification('❌ Lütfen bir Oyuncu ID girin!', 'error');
+                return;
             }
+
+            // Tracker'a kimlik bildir
+            if (window.igamingTracker) {
+                window.igamingTracker.identify(playerId);
+                
+                // Login eventi gönder
+                window.igamingTracker.track('login_successful', {
+                    email: email || undefined
+                });
+            }
+
+            // UI güncelle
+            document.getElementById('authSection').classList.remove('active');
+            document.getElementById('dashboard').classList.add('active');
+            document.getElementById('loginBtn').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            
+            currentBalance = 1000; // Başlangıç bakiyesi
+            updateBalance();
+
+            showNotification(`✅ Hoş geldin ${playerId}!`, 'success');
+        }
+
+        // Logout Handler
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            if (window.igamingTracker) {
+                window.igamingTracker.track('logout');
+            }
+
+            document.getElementById('authSection').classList.add('active');
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('loginBtn').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+
+            currentBalance = 0;
+            totalDeposit = 0;
+            totalWithdrawal = 0;
+            gamesPlayed = 0;
+            updateBalance();
+            updateStats();
+
+            showNotification('👋 Görüşmek üzere!', 'info');
+        });
+
+        // Deposit Handler
+        function handleDeposit() {
+            const amount = Math.floor(Math.random() * 500) + 100; // 100-600 TL
+            
+            currentBalance += amount;
+            totalDeposit += amount;
+            updateBalance();
+            updateStats();
+
+            if (window.igamingTracker) {
+                window.igamingTracker.deposit(amount, 'TRY', 'credit_card');
+            }
+
+            showNotification(`✅ ${amount} TL yatırıldı!`, 'success');
+        }
+
+        // Withdrawal Handler
+        function handleWithdrawal() {
+            if (currentBalance < 50) {
+                showNotification('❌ Yetersiz bakiye!', 'error');
+                return;
+            }
+
+            const amount = Math.min(Math.floor(Math.random() * 200) + 50, currentBalance);
+            
+            currentBalance -= amount;
+            totalWithdrawal += amount;
+            updateBalance();
+            updateStats();
+
+            if (window.igamingTracker) {
+                window.igamingTracker.withdrawal(amount, 'TRY', 'bank_transfer');
+            }
+
+            showNotification(`✅ ${amount} TL çekim talebi oluşturuldu!`, 'success');
+        }
+
+        // Bonus Request
+        function handleBonusRequest() {
+            if (window.igamingTracker) {
+                window.igamingTracker.track('bonus_requested', {
+                    bonus_type: 'welcome_bonus',
+                    bonus_amount: 50
+                });
+            }
+
+            showNotification('🎁 Bonus talebiniz alındı!', 'success');
+        }
+
+        // Failed Deposit Simulation
+        function simulateFailedDeposit() {
+            if (window.igamingTracker) {
+                window.igamingTracker.track('deposit_failed', {
+                    amount: 100,
+                    currency: 'TRY',
+                    method: 'credit_card',
+                    error_code: 'insufficient_funds'
+                });
+            }
+
+            showNotification('❌ Yatırım başarısız! (Test)', 'error');
+        }
+
+        // Play Game
+        function playGame(gameName, gameId) {
+            currentGameId = gameId;
+            document.getElementById('gameTitle').textContent = gameName;
+            document.getElementById('gameModal').classList.add('active');
+
+            gamesPlayed++;
+            updateStats();
+
+            if (window.igamingTracker) {
+                window.igamingTracker.track('game_started', {
+                    game_id: gameId,
+                    game_name: gameName
+                });
+            }
+        }
+
+        // Simulate Win
+        function simulateWin() {
+            const winAmount = Math.floor(Math.random() * 300) + 50;
+            currentBalance += winAmount;
+            updateBalance();
+
+            if (window.igamingTracker) {
+                window.igamingTracker.track('game_ended', {
+                    game_id: currentGameId,
+                    result: 'win',
+                    amount: winAmount
+                });
+            }
+
+            showNotification(`🎉 ${winAmount} TL kazandınız!`, 'success');
+            closeModal();
+        }
+
+        // Simulate Loss
+        function simulateLoss() {
+            const lossAmount = Math.floor(Math.random() * 100) + 20;
+            currentBalance = Math.max(0, currentBalance - lossAmount);
+            updateBalance();
+
+            if (window.igamingTracker) {
+                window.igamingTracker.track('game_ended', {
+                    game_id: currentGameId,
+                    result: 'loss',
+                    amount: lossAmount
+                });
+            }
+
+            showNotification(`😢 ${lossAmount} TL kaybettiniz`, 'error');
+            closeModal();
+        }
+
+        // Close Modal
+        function closeModal() {
+            document.getElementById('gameModal').classList.remove('active');
+            currentGameId = null;
+        }
+
+        // Update Balance
+        function updateBalance() {
+            document.getElementById('balance').textContent = `Bakiye: ₺${currentBalance}`;
+        }
+
+        // Update Stats
+        function updateStats() {
+            document.getElementById('totalDeposit').textContent = `₺${totalDeposit}`;
+            document.getElementById('totalWithdrawal').textContent = `₺${totalWithdrawal}`;
+            document.getElementById('gamesPlayed').textContent = gamesPlayed;
+        }
+
+        // Show Notification
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Wait for tracker to load
+        document.addEventListener('igamingTracker:loaded', function() {
+            console.log('✅ Tracker yüklendi ve hazır!');
         });
     </script>
 </body>
 </html>
-
-

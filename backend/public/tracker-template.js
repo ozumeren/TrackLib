@@ -1,7 +1,18 @@
 (function() {
   // Config backend tarafından enjekte edilecek
   const config = __CONFIG__;
+  // ✅ Protokolü otomatik belirle veya HTTP zorla
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  const backendUrl = config.backendUrl.replace(/^https?:/, protocol);
   
+  // TrackLib namespace
+  window.TrackLib = window.TrackLib || {
+    config: {
+      scriptId: config.scriptId,
+      apiKey: config.apiKey,
+      backendUrl: backendUrl,  // ✅ Güncellenmiş URL
+      domConfig: config.domConfig || {}
+    },
   if (!config) {
     console.error("TrackLib: Configuration not found");
     return;

@@ -16,7 +16,12 @@ const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const https = require('https');
 
+const httpsOptions = {
+    key: fs.readFileSync('./key.pem'),
+    cert: fs.readFileSync('./cert.pem')
+};
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -24,6 +29,7 @@ const app = express();
 const prisma = new PrismaClient();
 const redis = new Redis();
 const PORT = process.env.PORT || 3000;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const JWT_SECRET = process.env.JWT_SECRET || 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
 
 // ============================================
@@ -139,17 +145,24 @@ async function createPredefinedData(customerId) {
 // ============================================
 
 // YENİ: Script ID bazlı route (pix_ronabet.js gibi)
-app.get('/scripts/:scriptId.js', validateScriptOrigin, async (req, res) => {
+app.get('/scripts/:scriptId.js', async (req, res) => {
     try {
         const { scriptId } = req.params;
         
-        const customer = await prisma.customer.findFirst({ 
-            where: { scriptId: scriptId } 
+        // Script ID formatını kontrol et (güvenlik)
+        if (!/^[a-zA-Z0-9_-]+$/.test(scriptId)) {
+            return res.status(400)
+                .type('application/javascript; charset=utf-8')  // ✅ charset eklendi
+                .send('console.error("TrackLib: Invalid script ID.");');
+        }
+
+        const customer = await prisma.customer.findUnique({ 
+            where: { scriptId } 
         });
         
         if (!customer) {
             return res.status(404)
-                .type('text/javascript')
+                .type('application/javascript; charset=utf-8')  // ✅ charset eklendi
                 .send('console.error("TrackLib: Customer not found. Invalid script ID.");');
         }
 
@@ -157,7 +170,7 @@ app.get('/scripts/:scriptId.js', validateScriptOrigin, async (req, res) => {
         
         if (!fs.existsSync(templatePath)) {
             return res.status(500)
-                .type('text/javascript')
+                .type('application/javascript; charset=utf-8')  // ✅ charset eklendi
                 .send('console.error("TrackLib: Template file not found.");');
         }
 
@@ -166,16 +179,19 @@ app.get('/scripts/:scriptId.js', validateScriptOrigin, async (req, res) => {
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
-            backendUrl: `https://${req.get('host')}/v1/events`,
+            backendUrl: `http://${req.get('host')}/v1/events`,
             domConfig: customer.domConfig || {}
         };
         
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
         
-        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 saat cache
+        // ✅ DOĞRU HEADER SIRALAMASI
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET');
+        // ✅ X-Content-Type-Options kaldırıldı veya doğru ayarlandı
+        res.removeHeader('X-Content-Type-Options');
         
         res.send(scriptContent);
         
@@ -184,11 +200,10 @@ app.get('/scripts/:scriptId.js', validateScriptOrigin, async (req, res) => {
     } catch (error) {
         console.error("Script generation error:", error);
         res.status(500)
-            .type('text/javascript')
+            .type('application/javascript; charset=utf-8')  // ✅ charset eklendi
             .send('console.error("TrackLib: Script generation failed");');
     }
 });
-
 // ESKİ: API Key bazlı route (geriye dönük uyumluluk için)
 app.get('/tracker/:apiKey.js', async (req, res) => {
     try {
@@ -206,7 +221,7 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
         
         const config = {
             apiKey: customer.apiKey,
-            backendUrl: `https://${req.get('host')}/v1/events`,
+            backendUrl: `http://${req.get('host')}/v1/events`,
             domConfig: customer.domConfig || {}
         };
         
@@ -292,7 +307,7 @@ authRoutes.post('/register', async (req, res) => {
             message: 'Müşteri başarıyla oluşturuldu.',
             scriptId: scriptId,
             scriptUrl: `/scripts/${scriptId}.js`,
-            integrationCode: `<script id="${scriptId}" src="https://${req.get('host')}/scripts/${scriptId}.js" async></script>`
+            integrationCode: `<script id="${scriptId}" src="http://${req.get('host')}/scripts/${scriptId}.js" async></script>`
         });
         
         console.log(`✅ New customer registered: ${customerName} (${scriptId})`);
@@ -681,22 +696,46 @@ async function connectToDatabase() {
 // ============================================
 // START SERVER
 // ============================================
+
+// HTTP Server
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`
     ╔════════════════════════════════════════╗
     ║   iGAMING TRACKER - BACKEND SERVER    ║
     ╠════════════════════════════════════════╣
-    ║   Port: ${PORT.toString().padEnd(29)} ║
+    ║   HTTP Port: ${PORT.toString().padEnd(25)} ║
     ║   Environment: ${(process.env.NODE_ENV || 'development').padEnd(22)} ║
     ╚════════════════════════════════════════╝
     `);
     
     await connectToDatabase();
     
-    console.log("\n🚀 Server is ready to accept requests!");
-    console.log(`📝 API Documentation: http://localhost:${PORT}/api`);
-    console.log(`🎯 Script Endpoint: http://localhost:${PORT}/scripts/pix_yourscript.js\n`);
+    console.log("\n🚀 HTTP Server is ready!");
+    console.log(`📝 API Documentation: http://37.27.72.40:${PORT}/api`);
+    console.log(`🎯 Script Endpoint: http://37.27.72.40:${PORT}/s/pix_deneme.js\n`);
 });
+
+// HTTPS Server (opsiyonel - sadece sertifika varsa)
+const certPath = path.join(__dirname, 'cert.pem');
+const keyPath = path.join(__dirname, 'key.pem');
+
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    const httpsOptions = {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath)
+    };
+
+    https.createServer(httpsOptions, app).listen(HTTPS_PORT, '0.0.0.0', () => {
+        console.log(`🔒 HTTPS Server running on port ${HTTPS_PORT}`);
+        console.log(`   https://37.27.72.40:${HTTPS_PORT}`);
+        console.log(`⚠️  Using self-signed certificate\n`);
+    });
+} else {
+    console.log(`\n⚠️  HTTPS disabled - cert.pem and key.pem not found`);
+    console.log(`   To enable HTTPS, run:`);
+    console.log(`   cd /root/tracker/backend`);
+    console.log(`   openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=37.27.72.40"\n`);
+}
 
 // ============================================
 // GRACEFUL SHUTDOWN

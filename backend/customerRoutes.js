@@ -16,7 +16,6 @@ router.get('/me', protectWithJWT, async (req, res) => {
                 name: true, 
                 apiKey: true,
                 scriptId: true,
-                telegramChatId: true,
                 telegramBotToken: true,
                 metaPixelId: true,
                 metaAccessToken: true,
