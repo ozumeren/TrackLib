@@ -72,6 +72,63 @@ function Dashboard() {
     </Alert>
   );
 
+  // ✅ Dinamik performans metrikleri hesapla
+  const calculatePerformanceMetrics = () => {
+    if (!summaryData) return null;
+
+    const {
+      totalDeposits = 0,
+      totalRegistrations = 0,
+      uniquePlayerCount = 0,
+      totalEvents = 0
+    } = summaryData;
+
+    // Conversion Rate: Kayıt / Tekil Oyuncu
+    const conversionRate = uniquePlayerCount > 0 
+      ? ((totalRegistrations / uniquePlayerCount) * 100).toFixed(1)
+      : 0;
+
+    // Deposit Success Rate: Yatırım Yapan / Kayıt Olan
+    const depositSuccessRate = totalRegistrations > 0
+      ? ((totalDeposits / totalRegistrations) * 100).toFixed(1)
+      : 0;
+
+    // Active Sessions: Event Sayısı / Oyuncu Sayısı (engagement)
+    const activeSessionsRatio = uniquePlayerCount > 0
+      ? ((totalEvents / uniquePlayerCount)).toFixed(1)
+      : 0;
+    
+    // 0-100 arası normalize et (max 20 event/user varsayımı)
+    const activeSessionsPercent = Math.min((activeSessionsRatio / 20) * 100, 100).toFixed(0);
+
+    // System Health: Genel sağlık skoru
+    const systemHealth = (
+      (parseFloat(conversionRate) * 0.3) +
+      (parseFloat(depositSuccessRate) * 0.4) +
+      (parseFloat(activeSessionsPercent) * 0.3)
+    ).toFixed(0);
+
+    return {
+      conversionRate: parseFloat(conversionRate),
+      depositSuccessRate: parseFloat(depositSuccessRate),
+      activeSessionsPercent: parseFloat(activeSessionsPercent),
+      activeSessionsRatio: parseFloat(activeSessionsRatio),
+      systemHealth: parseFloat(systemHealth)
+    };
+  };
+
+  const metrics = calculatePerformanceMetrics();
+
+  // Health status text
+  const getHealthStatus = (score) => {
+    if (score >= 80) return { text: 'Mükemmel', color: 'teal' };
+    if (score >= 60) return { text: 'İyi', color: 'blue' };
+    if (score >= 40) return { text: 'Orta', color: 'yellow' };
+    return { text: 'Düşük', color: 'red' };
+  };
+
+  const healthStatus = metrics ? getHealthStatus(metrics.systemHealth) : { text: 'Bilinmiyor', color: 'gray' };
+
   const stats = [
     {
       title: 'Toplam Olaylar',
@@ -271,62 +328,91 @@ function Dashboard() {
             )}
           </Card>
 
-          {/* Quick Stats */}
+          {/* ✅ DİNAMİK Performans Özeti */}
           <Card shadow="sm" p="lg" radius="md" withBorder>
             <Group position="apart" mb="md">
               <div>
                 <Text size="lg" weight={600}>Performans Özeti</Text>
-                <Text size="sm" color="dimmed">Genel sistem durumu</Text>
+                <Text size="sm" color="dimmed">Gerçek zamanlı metrikler</Text>
               </div>
               <ThemeIcon size="md" radius="md" variant="light" color="blue">
                 <IconChartBar size={18} />
               </ThemeIcon>
             </Group>
             
-            <Stack spacing="md">
-              <Box>
-                <Group position="apart" mb={8}>
-                  <Text size="sm">Conversion Rate</Text>
-                  <Text size="sm" weight={600}>12.5%</Text>
-                </Group>
-                <Progress value={12.5} size="lg" radius="xl" color="teal" />
-              </Box>
-
-              <Box>
-                <Group position="apart" mb={8}>
-                  <Text size="sm">Active Sessions</Text>
-                  <Text size="sm" weight={600}>87%</Text>
-                </Group>
-                <Progress value={87} size="lg" radius="xl" color="blue" />
-              </Box>
-
-              <Box>
-                <Group position="apart" mb={8}>
-                  <Text size="sm">Deposit Success Rate</Text>
-                  <Text size="sm" weight={600}>94%</Text>
-                </Group>
-                <Progress value={94} size="lg" radius="xl" color="yellow" />
-              </Box>
-
-              <Paper p="md" radius="md" withBorder bg="gray.0">
-                <Group position="apart">
-                  <div>
-                    <Text size="xs" color="dimmed" mb={4}>System Health</Text>
-                    <Text size="lg" weight={700} color="teal">Excellent</Text>
-                  </div>
-                  <RingProgress
-                    size={60}
-                    thickness={6}
-                    sections={[{ value: 98, color: 'teal' }]}
-                    label={
-                      <Center>
-                        <Text size="xs" weight={700}>98%</Text>
-                      </Center>
-                    }
+            {metrics ? (
+              <Stack spacing="md">
+                <Box>
+                  <Group position="apart" mb={8}>
+                    <Text size="sm">Conversion Rate</Text>
+                    <Tooltip label="Kayıt olan / Tekil oyuncu oranı">
+                      <Text size="sm" weight={600}>{metrics.conversionRate}%</Text>
+                    </Tooltip>
+                  </Group>
+                  <Progress 
+                    value={metrics.conversionRate} 
+                    size="lg" 
+                    radius="xl" 
+                    color="teal" 
                   />
-                </Group>
-              </Paper>
-            </Stack>
+                </Box>
+
+                <Box>
+                  <Group position="apart" mb={8}>
+                    <Text size="sm">Engagement Score</Text>
+                    <Tooltip label={`Ortalama ${metrics.activeSessionsRatio} event/oyuncu`}>
+                      <Text size="sm" weight={600}>{metrics.activeSessionsPercent}%</Text>
+                    </Tooltip>
+                  </Group>
+                  <Progress 
+                    value={metrics.activeSessionsPercent} 
+                    size="lg" 
+                    radius="xl" 
+                    color="blue" 
+                  />
+                </Box>
+
+                <Box>
+                  <Group position="apart" mb={8}>
+                    <Text size="sm">Deposit Success Rate</Text>
+                    <Tooltip label="Yatırım yapan / Kayıt olan oranı">
+                      <Text size="sm" weight={600}>{metrics.depositSuccessRate}%</Text>
+                    </Tooltip>
+                  </Group>
+                  <Progress 
+                    value={metrics.depositSuccessRate} 
+                    size="lg" 
+                    radius="xl" 
+                    color="yellow" 
+                  />
+                </Box>
+
+                <Paper p="md" radius="md" withBorder bg="gray.0">
+                  <Group position="apart">
+                    <div>
+                      <Text size="xs" color="dimmed" mb={4}>System Health</Text>
+                      <Text size="lg" weight={700} color={healthStatus.color}>
+                        {healthStatus.text}
+                      </Text>
+                    </div>
+                    <RingProgress
+                      size={60}
+                      thickness={6}
+                      sections={[{ value: metrics.systemHealth, color: healthStatus.color }]}
+                      label={
+                        <Center>
+                          <Text size="xs" weight={700}>{metrics.systemHealth}%</Text>
+                        </Center>
+                      }
+                    />
+                  </Group>
+                </Paper>
+              </Stack>
+            ) : (
+              <Center py="xl">
+                <Text size="sm" color="dimmed">Veri hesaplanıyor...</Text>
+              </Center>
+            )}
           </Card>
         </Stack>
       </SimpleGrid>
