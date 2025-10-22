@@ -252,8 +252,8 @@ function Dashboard() {
             <Text size="sm" color="dimmed">Son 7 günlük event akışı</Text>
           </div>
           <Group spacing="xs">
-            <Badge variant="dot" color="blue">Events</Badge>
-            <Badge variant="dot" color="teal">Players</Badge>
+            <Badge variant="dot" color="blue">Olaylar</Badge>
+            <Badge variant="dot" color="teal">Oyuncular</Badge>
           </Group>
         </Group>
         <DashboardChart data={chartData} />
@@ -344,7 +344,7 @@ function Dashboard() {
               <Stack spacing="md">
                 <Box>
                   <Group position="apart" mb={8}>
-                    <Text size="sm">Conversion Rate</Text>
+                    <Text size="sm">Dönüşüm Oranı</Text>
                     <Tooltip label="Kayıt olan / Tekil oyuncu oranı">
                       <Text size="sm" weight={600}>{metrics.conversionRate}%</Text>
                     </Tooltip>
@@ -359,7 +359,7 @@ function Dashboard() {
 
                 <Box>
                   <Group position="apart" mb={8}>
-                    <Text size="sm">Engagement Score</Text>
+                    <Text size="sm">Etkileşim Skoru</Text>
                     <Tooltip label={`Ortalama ${metrics.activeSessionsRatio} event/oyuncu`}>
                       <Text size="sm" weight={600}>{metrics.activeSessionsPercent}%</Text>
                     </Tooltip>
@@ -374,7 +374,7 @@ function Dashboard() {
 
                 <Box>
                   <Group position="apart" mb={8}>
-                    <Text size="sm">Deposit Success Rate</Text>
+                    <Text size="sm">Yatırım Başarı Oranı</Text>
                     <Tooltip label="Yatırım yapan / Kayıt olan oranı">
                       <Text size="sm" weight={600}>{metrics.depositSuccessRate}%</Text>
                     </Tooltip>
