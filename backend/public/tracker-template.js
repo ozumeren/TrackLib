@@ -377,8 +377,10 @@
     sendEvent('session_end', { duration_seconds: sessionDuration });
   });
 
-  // Expose to window
+  // Expose to window (her iki isimle de)
   window.TrackLib = tracker;
+  window.tracker = tracker;  // Geriye dönük uyumluluk için
   
   console.log('✓ TrackLib initialized successfully with amount tracking');
+  console.log('✓ Available as: window.TrackLib and window.tracker');
 })();
