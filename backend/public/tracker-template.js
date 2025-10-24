@@ -7,7 +7,7 @@
     return;
   }
 
-  console.log(`TrackLib v2.0 Advanced initialized for ${config.scriptId}`);
+  console.log(`TrackLib v3.0 ODIN Edition initialized for ${config.scriptId}`);
 
   // ============================================
   // CORE VARIABLES
@@ -22,6 +22,7 @@
   let currentFormData = {}; // Geçici form verileri
   let pendingTransactions = new Map(); // Bekleyen işlemler
   let lastKnownBalances = new Map(); // Bakiye takibi
+  let depositModalProcessed = new Set(); // İşlenmiş modal'ları takip et
 
   // ============================================
   // SESSION MANAGEMENT
@@ -71,7 +72,7 @@
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Script-Version': '2.0'
+          'X-Script-Version': '3.0-ODIN'
         },
         body: JSON.stringify(payload),
         keepalive: true
@@ -142,17 +143,19 @@
   });
 
   // ============================================
-  // 🆕 NETWORK REQUEST INTERCEPTION
+  // 🆕 NETWORK REQUEST INTERCEPTION (ODIN API)
   // ============================================
   function interceptNetworkRequests() {
     // Fetch API interception
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
+      const url = args[0];
+      const options = args[1] || {};
+      
       return originalFetch.apply(this, args).then(response => {
         if (response.ok) {
-          const url = args[0];
           response.clone().json().then(data => {
-            analyzeNetworkResponse(url, data);
+            analyzeNetworkResponse(url, data, options);
           }).catch(() => {});
         }
         return response;
@@ -174,7 +177,7 @@
         if (this.status >= 200 && this.status < 300) {
           try {
             const data = JSON.parse(this.responseText);
-            analyzeNetworkResponse(this._url, data);
+            analyzeNetworkResponse(this._url, data, { method: this._method });
           } catch (e) {}
         }
       });
@@ -182,22 +185,255 @@
     };
   }
 
-  function analyzeNetworkResponse(url, data) {
+  function analyzeNetworkResponse(url, data, options = {}) {
     if (!url || !data) return;
 
-    // Bakiye güncellemesi tespiti
-    if (url.includes('/balance') || url.includes('/wallet') || url.includes('/accounts')) {
+    const urlStr = url.toString().toLowerCase();
+
+    // 1. ODIN Balance API (get_accounts)
+    if (urlStr.includes('/odin/api/user/accounts/get_accounts') || 
+        urlStr.includes('/get_accounts')) {
+      handleOdinBalanceUpdate(data);
+    }
+
+    // 2. ODIN Pending Transactions
+    if (urlStr.includes('/transaction/getCustomerNewOrPendingTransactions')) {
+      handleOdinPendingTransactions(data);
+    }
+
+    // 3. ODIN Withdrawal Request
+    if (urlStr.includes('/payment/manualTransfer/withdraw')) {
+      console.log('💸 Para çekme talebi gönderildi');
+      sendEvent('withdrawal_initiated', {
+        method: 'manual_transfer'
+      });
+    }
+
+    // 4. Fallback: Genel bakiye ve işlem endpoint'leri
+    if (urlStr.includes('/balance') || urlStr.includes('/wallet')) {
       handleBalanceUpdate(data);
     }
 
-    // İşlem onayı tespiti
-    if (url.includes('/transaction') || url.includes('/payment')) {
+    if (urlStr.includes('/transaction') || urlStr.includes('/payment')) {
       handleTransactionUpdate(data);
     }
   }
 
+  // ============================================
+  // 🆕 ODIN BALANCE API HANDLER
+  // ============================================
+  function handleOdinBalanceUpdate(data) {
+    if (!data.success || !Array.isArray(data.data)) return;
+
+    console.log('🔄 ODIN get_accounts API yanıtı alındı');
+
+    data.data.forEach(account => {
+      const accountCode = account.accountType?.code;
+      if (!accountCode) return;
+
+      const balance = account.balance || 0;
+      const lockedBalance = account.lockedBalance || 0;
+      const availableBalance = balance - lockedBalance;
+      
+      // Ana bakiye takibi (Sport Real Balance)
+      if (accountCode === 'SRB') {
+        const lastBalance = lastKnownBalances.get('SRB') || 0;
+        const lastLocked = lastKnownBalances.get('SRB_locked') || 0;
+
+        // Balance değişimi
+        if (balance !== lastBalance) {
+          const balanceChange = balance - lastBalance;
+          lastKnownBalances.set('SRB', balance);
+          
+          console.log(`💰 Sport Real Balance değişti: ${lastBalance} → ${balance} (${balanceChange > 0 ? '+' : ''}${balanceChange})`);
+          
+          // Locked balance yoksa ve balance azaldıysa -> withdrawal successful
+          if (balanceChange < 0 && lockedBalance === 0) {
+            matchPendingTransaction(Math.abs(balanceChange), 'withdrawal');
+          }
+          
+          // Locked balance yoksa ve balance arttıysa -> deposit successful
+          if (balanceChange > 0 && lockedBalance === 0) {
+            matchPendingTransaction(Math.abs(balanceChange), 'deposit');
+          }
+
+          sendEvent('balance_updated', {
+            account_type: 'Sport Real Balance',
+            previous_balance: lastBalance,
+            new_balance: balance,
+            change: balanceChange,
+            locked_balance: lockedBalance,
+            available_balance: availableBalance
+          });
+        }
+
+        // Locked balance değişimi
+        if (lockedBalance !== lastLocked) {
+          const lockedChange = lockedBalance - lastLocked;
+          lastKnownBalances.set('SRB_locked', lockedBalance);
+          
+          console.log(`🔒 Kilitli bakiye değişti: ${lastLocked} → ${lockedBalance} (${lockedChange > 0 ? '+' : ''}${lockedChange})`);
+          
+          // Locked balance arttıysa -> withdrawal request confirmed
+          if (lockedChange > 0) {
+            sendEvent('balance_locked', {
+              locked_amount: lockedChange,
+              total_locked: lockedBalance,
+              available_balance: availableBalance
+            });
+          }
+          
+          // Locked balance azaldıysa -> withdrawal cancelled or completed
+          if (lockedChange < 0) {
+            sendEvent('balance_unlocked', {
+              unlocked_amount: Math.abs(lockedChange),
+              total_locked: lockedBalance,
+              available_balance: availableBalance
+            });
+          }
+        }
+      }
+
+      // Diğer hesap tiplerini de kaydet
+      lastKnownBalances.set(accountCode, balance);
+    });
+  }
+
+  // ============================================
+  // 🆕 ODIN PENDING TRANSACTIONS HANDLER
+  // ============================================
+  function handleOdinPendingTransactions(data) {
+    if (!data.success || !Array.isArray(data.data)) return;
+
+    console.log(`📋 ${data.data.length} pending transaction bulundu`);
+
+    data.data.forEach(tx => {
+      const txId = tx.transactionId?.toString();
+      if (!txId) return;
+
+      // Sadece yeni transaction'ları işle
+      if (pendingTransactions.has(txId)) return;
+
+      // Withdrawal transaction (masterCode: "W")
+      if (tx.masterCode === 'W' && tx.status === 'N') {
+        pendingTransactions.set(txId, {
+          type: 'withdrawal',
+          amount: tx.amount,
+          currency: tx.transactionCurrency?.currencyCode || 'TRY',
+          method: tx.transactionTypeName || 'unknown',
+          status: 'pending',
+          timestamp: tx.transactionDate,
+          isCancelable: tx.isCancelable
+        });
+
+        console.log(`💸 Yeni para çekme talebi: ${tx.amount} ${tx.transactionCurrency?.currencySymbol}`);
+
+        sendEvent('withdrawal_requested', {
+          transaction_id: txId,
+          amount: tx.amount,
+          currency: tx.transactionCurrency?.currencyCode || 'TRY',
+          method: tx.transactionTypeName || 'unknown',
+          is_cancelable: tx.isCancelable
+        });
+      }
+
+      // Deposit transaction (masterCode: "D" - muhtemelen)
+      if (tx.masterCode === 'D' && tx.status === 'N') {
+        pendingTransactions.set(txId, {
+          type: 'deposit',
+          amount: tx.amount,
+          currency: tx.transactionCurrency?.currencyCode || 'TRY',
+          method: tx.transactionTypeName || 'unknown',
+          status: 'pending',
+          timestamp: tx.transactionDate
+        });
+
+        console.log(`💳 Yeni para yatırma talebi: ${tx.amount} ${tx.transactionCurrency?.currencySymbol}`);
+      }
+    });
+  }
+
+  // ============================================
+  // 🆕 DEPOSIT SUCCESS MODAL MONITOR (ODIN)
+  // ============================================
+  function monitorDepositSuccessModal() {
+    const observer = new MutationObserver(() => {
+      const modal = document.querySelector('#PaymentFormModal.modal.open');
+      
+      if (modal && 
+          modal.style.display === 'block' && 
+          modal.style.opacity === '1') {
+        
+        // Sadece bir kez işle
+        const modalContent = modal.innerHTML;
+        const modalHash = simpleHash(modalContent);
+        
+        if (depositModalProcessed.has(modalHash)) return;
+        depositModalProcessed.add(modalHash);
+        
+        // Miktar çıkar
+        const amountEl = modal.querySelector('.rslt-mdl h5 > span');
+        const amountText = amountEl?.textContent || '';
+        const amount = parseFloat(amountText.replace(/[^\d.,]/g, '').replace(',', '.'));
+        
+        // Ödeme yöntemi
+        const iconImg = modal.querySelector('payment-icon img');
+        const paymentClass = iconImg?.className || '';
+        const paymentMethod = paymentClass
+          .replace('-deposit', '')
+          .replace(/-/g, ' ')
+          .trim();
+        
+        if (amount && amount > 0) {
+          console.log(`💰 Deposit pop-up açıldı: ${amount} TL (${paymentMethod})`);
+          
+          // Pending transaction ekle
+          const txId = `deposit_${Date.now()}`;
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: amount,
+            method: paymentMethod || 'unknown',
+            status: 'pending',
+            timestamp: Date.now()
+          });
+          
+          sendEvent('deposit_initiated', {
+            transaction_id: txId,
+            amount: amount,
+            payment_method: paymentMethod || 'unknown',
+            currency: 'TRY'
+          });
+        }
+      }
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    });
+  }
+
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
+  function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString();
+  }
+
+  function generateTempId() {
+    return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Fallback balance handler (ODIN olmayan sistemler için)
   function handleBalanceUpdate(data) {
-    // Farklı API formatları için balance tespiti
     const balance = data.balance || data.amount || data.wallet?.balance || null;
     
     if (balance === null || balance === undefined) return;
@@ -211,14 +447,12 @@
 
       console.log(`💰 Bakiye değişti: ${lastBalance} → ${balance} (${change > 0 ? '+' : ''}${change})`);
 
-      // Pending transaction ile eşleştir
-      matchPendingTransaction(Math.abs(change));
+      matchPendingTransaction(Math.abs(change), change > 0 ? 'deposit' : 'withdrawal');
 
       sendEvent('balance_updated', {
         previous_balance: lastBalance,
         new_balance: balance,
-        change: change,
-        timestamp: Date.now()
+        change: change
       });
     }
   }
@@ -228,37 +462,40 @@
       const amount = data.amount || data.value || null;
       
       if (amount) {
-        matchPendingTransaction(amount);
+        matchPendingTransaction(amount, 'unknown');
       }
     }
   }
 
-  function matchPendingTransaction(amount) {
+  function matchPendingTransaction(amount, type = 'unknown') {
     let matched = false;
 
     for (let [txId, tx] of pendingTransactions.entries()) {
-      // %5 tolerans ile miktar eşleşmesi
-      const tolerance = Math.abs(tx.amount) * 0.05;
+      // Tip kontrolü
+      if (type !== 'unknown' && tx.type !== type) continue;
+
+      // Miktar toleransı: 0.1 TL
+      const amountMatch = Math.abs(Math.abs(amount) - tx.amount) < 0.1;
       
-      if (Math.abs(Math.abs(amount) - tx.amount) <= tolerance) {
-        console.log(`✅ İşlem eşleştirildi: ${txId}`, tx);
+      if (amountMatch) {
+        console.log(`✅ Transaction matched: ${txId}`, tx);
         
-        // Başarılı deposit/withdrawal eventi gönder
+        // Başarılı event gönder
         if (tx.type === 'deposit') {
           sendEvent('deposit_successful', {
-            amount: tx.amount,
-            currency: 'TRY',
-            payment_method: tx.method,
             transaction_id: txId,
-            duration_seconds: Math.floor((Date.now() - tx.initiatedAt) / 1000)
+            amount: tx.amount,
+            currency: tx.currency || 'TRY',
+            payment_method: tx.method,
+            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         } else if (tx.type === 'withdrawal') {
           sendEvent('withdrawal_successful', {
-            amount: tx.amount,
-            currency: 'TRY',
-            payment_method: tx.method,
             transaction_id: txId,
-            duration_seconds: Math.floor((Date.now() - tx.initiatedAt) / 1000)
+            amount: tx.amount,
+            currency: tx.currency || 'TRY',
+            payment_method: tx.method,
+            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         }
 
@@ -269,7 +506,7 @@
     }
 
     if (!matched && amount > 0) {
-      console.warn(`⚠️  Eşleştirilemeyen bakiye değişikliği: ${amount}`);
+      console.warn(`⚠️  Eşleştirilemeyen işlem: ${amount} TL (${type})`);
     }
   }
 
@@ -284,7 +521,7 @@
       const text = target.textContent.trim();
       const classList = Array.from(target.classList).join(' ');
       
-      // Hızlı tutar butonları (100₺, 500₺, vs)
+      // Hızlı tutar butonları
       if (isQuickAmountButton(target, text)) {
         const amount = extractAmountFromButton(text);
         if (amount) {
@@ -298,7 +535,7 @@
         }
       }
       
-      // "Yatırımı Yaptım" butonu (Manuel Transfer)
+      // "Yatırımı Yaptım" butonu
       else if (isDepositConfirmButton(target, text, classList)) {
         console.log('✅ "Yatırımı Yaptım" butonuna tıklandı');
         
@@ -312,8 +549,7 @@
             amount: amount,
             method: 'manual_transfer',
             status: 'pending',
-            initiatedAt: Date.now(),
-            buttonType: 'yatirim_yaptim'
+            timestamp: Date.now()
           });
           
           console.log(`💳 Manuel yatırım kaydedildi: ${amount} ₺`);
@@ -326,62 +562,34 @@
         }
       }
       
-      // "İşlemi Başlat" butonu (Otomatik Gateway)
+      // "İşlemi Başlat" butonu (Gateway)
       else if (isStartTransactionButton(target, text, classList)) {
         console.log('🚀 "İşlemi Başlat" butonuna tıklandı');
         
         const amount = currentFormData.amount || getAmountFromInput();
         
         if (amount) {
-          const txId = generateTempId();
-          
-          pendingTransactions.set(txId, {
-            type: 'deposit',
-            amount: amount,
-            method: 'gateway',
-            status: 'pending',
-            initiatedAt: Date.now(),
-            buttonType: 'islemi_baslat'
-          });
-          
-          console.log(`💳 Gateway yatırımı başlatıldı: ${amount} ₺`);
-          
           sendEvent('deposit_gateway_initiated', {
-            transaction_id: txId,
             amount: amount,
-            method: 'gateway'
+            method: 'payment_gateway'
           });
-        } else {
-          console.warn('⚠️ İşlemi Başlat butonuna tıklandı ama miktar bulunamadı');
         }
       }
       
-      // "Onayla" butonu
-      else if (isConfirmButton(target, text, classList)) {
-        console.log('✔️ "Onayla" butonuna tıklandı');
-        
-        sendEvent('confirm_button_clicked', {
-          button_text: text
-        });
-      }
-      
-      // Bakiye güncelleme butonu
+      // Bakiye yenileme butonu
       else if (isBalanceRefreshButton(target, text, classList)) {
         console.log('🔄 Bakiye güncelleme butonuna tıklandı');
         
         sendEvent('balance_refresh_clicked', {
-          button_text: text
+          timestamp: Date.now()
         });
       }
-      
-    }, true); // capture phase
+    });
   }
 
-  // ============================================
-  // 🆕 BUTTON DETECTION FUNCTIONS
-  // ============================================
+  // Button detection helpers
   function isQuickAmountButton(button, text) {
-    return /[\d.,]+\s*₺/.test(text) && button.type === 'button';
+    return /\d+\s*₺/.test(text) && button.type === 'button';
   }
 
   function isDepositConfirmButton(button, text, classList) {
@@ -391,7 +599,6 @@
       button.type === 'submit' ||
       normalizedText.includes('yatırımıyaptım') ||
       normalizedText.includes('yatırımyap') ||
-      normalizedText.includes('depozitoyap') ||
       classList.includes('pymnt-frm-btn')
     );
   }
@@ -402,20 +609,7 @@
     return (
       normalizedText.includes('işlemibaşlat') ||
       normalizedText.includes('başlat') ||
-      normalizedText.includes('start') ||
       classList.includes('start-transaction')
-    );
-  }
-
-  function isConfirmButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-    
-    return (
-      normalizedText === 'onayla' ||
-      normalizedText === 'confirm' ||
-      normalizedText === 'approve' ||
-      classList.includes('sgn-btn') ||
-      classList.includes('confirm-btn')
     );
   }
 
@@ -431,9 +625,7 @@
     );
   }
 
-  // ============================================
-  // 🆕 AMOUNT EXTRACTION FUNCTIONS
-  // ============================================
+  // Amount extraction helpers
   function extractAmountFromButton(text) {
     const match = text.match(/[\d.,]+/);
     if (match) {
@@ -447,7 +639,6 @@
     const input = document.querySelector('#mntNpt') || 
                  document.querySelector('input[placeholder*="Yatırım"]') ||
                  document.querySelector('input[placeholder*="Tutar"]') ||
-                 document.querySelector('input[placeholder*="Miktar"]') ||
                  document.querySelector('input[name*="amount"]');
     
     if (input && input.value) {
@@ -462,12 +653,9 @@
     
     const cleaned = value.replace(/[^\d.,]/g, '');
     
-    // Türkçe format: 1.234,56
     if (cleaned.includes(',')) {
       return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-    }
-    // İngilizce format: 1,234.56
-    else {
+    } else {
       return parseFloat(cleaned.replace(/,/g, ''));
     }
   }
@@ -478,7 +666,6 @@
   function monitorFormInputs() {
     attachInputListeners();
 
-    // Dinamik olarak eklenen input'ları yakala (popup'lar için)
     const observer = new MutationObserver((mutations) => {
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
@@ -501,14 +688,10 @@
       'input[name*="miktar"]',
       'input[placeholder*="miktar"]',
       'input[placeholder*="amount"]',
-      'input[placeholder*="tutar"]',
       'input[id*="amount"]',
-      'input[id*="miktar"]',
       'input[id="mntNpt"]',
       'input[type="number"]',
-      '.amount-input',
-      '.deposit-amount',
-      '.withdrawal-amount'
+      '.amount-input'
     ];
 
     amountInputSelectors.forEach(selector => {
@@ -518,41 +701,19 @@
         
         input.dataset.trackerAttached = 'true';
 
-        input.addEventListener('input', (e) => {
-          const amount = extractAmountFromInputValue(e.target.value);
-          if (amount) {
-            currentFormData.amount = amount;
-            console.log(`💰 Input'a miktar girildi: ${amount} ₺`);
-            
-            sendEvent('amount_input_changed', {
-              amount: amount,
-              input_id: e.target.id || 'unknown'
-            });
-          }
-        });
-
         input.addEventListener('blur', (e) => {
           const amount = extractAmountFromInputValue(e.target.value);
           if (amount) {
             currentFormData.amount = amount;
-            console.log(`💰 Miktar onaylandı: ${amount} ₺`);
-            
-            sendEvent('amount_input_confirmed', {
-              amount: amount,
-              input_id: e.target.id || 'unknown'
-            });
+            console.log(`💰 Miktar girildi: ${amount} ₺`);
           }
         });
-
-        if (input.placeholder) {
-          console.log(`📝 Input field bulundu, placeholder: "${input.placeholder}"`);
-        }
       });
     });
   }
 
   // ============================================
-  // AMOUNT EXTRACTION HELPER (DOM Config için)
+  // AMOUNT EXTRACTION HELPER (DOM Config)
   // ============================================
   function extractAmount(selector) {
     if (!selector) return null;
@@ -630,7 +791,6 @@
 
             let parameters = { ...(rule.parameters || {}) };
 
-            // Miktar çıkarma
             if (rule.extractAmount && rule.amountSelector) {
               const amount = extractAmount(rule.amountSelector);
               
@@ -642,7 +802,6 @@
               }
             }
 
-            // Data attributes'tan dinamik parametreler
             Object.keys(parameters).forEach(key => {
               const value = parameters[key];
               if (typeof value === 'string' && value.startsWith('data-')) {
@@ -662,13 +821,6 @@
         console.error(`TrackLib: Error setting up rule ${index}:`, error);
       }
     });
-  }
-
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
-  function generateTempId() {
-    return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   // ============================================
@@ -745,10 +897,11 @@
     });
   };
 
-  // 🆕 Debug fonksiyonları
+  // Debug functions
   tracker.extractAmount = extractAmount;
   tracker.getStatus = function() {
     return {
+      version: '3.0-ODIN',
       currentFormData: currentFormData,
       pendingTransactions: Array.from(pendingTransactions.entries()),
       lastBalances: Array.from(lastKnownBalances.entries()),
@@ -771,11 +924,12 @@
       page_url: window.location.href
     });
     
-    // 🆕 Gelişmiş tracking özelliklerini başlat
+    // Initialize all tracking features
     setupDomTracking();
     setupAdvancedDOMListeners();
     monitorFormInputs();
-    interceptNetworkRequests();
+    monitorDepositSuccessModal(); // ODIN deposit modal
+    interceptNetworkRequests(); // ODIN API interception
     
     processQueue();
   });
@@ -790,12 +944,13 @@
   window.TrackLib = tracker;
   window.tracker = tracker;
   
-  // 🆕 Debug komutları
+  // Debug commands
   window.getTrackerStatus = () => tracker.getStatus();
   window.clearPendingTx = () => tracker.clearPendingTransactions();
   window.getCurrentFormData = () => currentFormData;
   
-  console.log('✓ TrackLib Advanced v2.0 initialized successfully');
+  console.log('✓ TrackLib v3.0 ODIN Edition initialized successfully');
   console.log('✓ Available as: window.TrackLib and window.tracker');
+  console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking');
   console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx()');
 })();

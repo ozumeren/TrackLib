@@ -249,9 +249,9 @@ authRoutes.post('/register', async (req, res) => {
     }
 
     // Script ID formatı kontrolü
-    if (!/^pix_[a-z0-9_]+$/.test(scriptId)) {
+    if (!/^tracklib_[a-z0-9_]+$/.test(scriptId)) {
         return res.status(400).json({ 
-            error: 'Script ID "pix_" ile başlamalı ve sadece küçük harf, rakam ve alt çizgi içerebilir.' 
+            error: 'Script ID "tracklib_" ile başlamalı ve sadece küçük harf, rakam ve alt çizgi içerebilir.' 
         });
     }
 
