@@ -1,4 +1,4 @@
-// backend/prisma/schema.prisma - EKSIKSIZ VERSIYON
+// backend/prisma/schema.prisma - EKSIKSIZ VERSIYON (User.name field'ı ile)
 
 generator client {
   provider = "prisma-client-js"
@@ -92,8 +92,9 @@ model Customer {
 model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
+  name       String
   password   String
-  role       String   @default("user")
+  role       String   @default("MEMBER")
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
   createdAt  DateTime @default(now())
@@ -115,6 +116,9 @@ model Event {
   @@index([customerId, playerId])
   @@index([eventName])
   @@index([createdAt])
+  @@index([customerId, playerId, eventName])
+  @@index([customerId, eventName, createdAt])
+  @@index([sessionId])
 }
 
 model Player {
@@ -125,6 +129,7 @@ model Player {
   telegramConnections   TelegramConnection[]
 
   @@unique([playerId, customerId])
+  @@index([customerId, playerId])
 }
 
 model TelegramConnection {
