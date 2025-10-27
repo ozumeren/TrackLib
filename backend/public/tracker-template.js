@@ -24,6 +24,11 @@
   let lastKnownBalances = new Map(); // Bakiye takibi
   let depositModalProcessed = new Set(); // İşlenmiş modal'ları takip et
 
+  // 🎰 TRUVABET GAME TRACKING VARIABLES
+  let activeGameSession = null;
+  let lastKnownBalance = null;
+  let balanceCheckInterval = null;
+
   // ============================================
   // SESSION MANAGEMENT
   // ============================================
@@ -143,524 +148,6 @@
   });
 
   // ============================================
-  // 🆕 NETWORK REQUEST INTERCEPTION (ODIN API)
-  // ============================================
-  function interceptNetworkRequests() {
-    // Fetch API interception
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-      const url = args[0];
-      const options = args[1] || {};
-      
-      return originalFetch.apply(this, args).then(response => {
-        if (response.ok) {
-          response.clone().json().then(data => {
-            analyzeNetworkResponse(url, data, options);
-          }).catch(() => {});
-        }
-        return response;
-      });
-    };
-
-    // XMLHttpRequest interception
-    const originalOpen = XMLHttpRequest.prototype.open;
-    const originalSend = XMLHttpRequest.prototype.send;
-
-    XMLHttpRequest.prototype.open = function(method, url) {
-      this._url = url;
-      this._method = method;
-      return originalOpen.apply(this, arguments);
-    };
-
-    XMLHttpRequest.prototype.send = function() {
-      this.addEventListener('load', function() {
-        if (this.status >= 200 && this.status < 300) {
-          try {
-            const data = JSON.parse(this.responseText);
-            analyzeNetworkResponse(this._url, data, { method: this._method });
-          } catch (e) {}
-        }
-      });
-      return originalSend.apply(this, arguments);
-    };
-  }
-
-  function analyzeNetworkResponse(url, data, options = {}) {
-    if (!url || !data) return;
-
-    const urlStr = url.toString().toLowerCase();
-
-    // 1. ODIN Balance API (get_accounts)
-    if (urlStr.includes('/odin/api/user/accounts/get_accounts') || 
-        urlStr.includes('/get_accounts')) {
-      handleOdinBalanceUpdate(data);
-    }
-
-    // 2. ODIN Pending Transactions
-    if (urlStr.includes('/transaction/getCustomerNewOrPendingTransactions')) {
-      handleOdinPendingTransactions(data);
-    }
-
-    // 3. ODIN Withdrawal Request
-    if (urlStr.includes('/payment/manualTransfer/withdraw')) {
-      console.log('💸 Para çekme talebi gönderildi');
-      sendEvent('withdrawal_initiated', {
-        method: 'manual_transfer'
-      });
-    }
-
-    // 4. Fallback: Genel bakiye ve işlem endpoint'leri
-    if (urlStr.includes('/balance') || urlStr.includes('/wallet')) {
-      handleBalanceUpdate(data);
-    }
-
-    if (urlStr.includes('/transaction') || urlStr.includes('/payment')) {
-      handleTransactionUpdate(data);
-    }
-  }
-
-  // ============================================
-  // 🆕 ODIN BALANCE API HANDLER
-  // ============================================
-  function handleOdinBalanceUpdate(data) {
-    if (!data.success || !Array.isArray(data.data)) return;
-
-    console.log('🔄 ODIN get_accounts API yanıtı alındı');
-
-    data.data.forEach(account => {
-      const accountCode = account.accountType?.code;
-      if (!accountCode) return;
-
-      const balance = account.balance || 0;
-      const lockedBalance = account.lockedBalance || 0;
-      const availableBalance = balance - lockedBalance;
-      
-      // Ana bakiye takibi (Sport Real Balance)
-      if (accountCode === 'SRB') {
-        const lastBalance = lastKnownBalances.get('SRB') || 0;
-        const lastLocked = lastKnownBalances.get('SRB_locked') || 0;
-
-        // Balance değişimi
-        if (balance !== lastBalance) {
-          const balanceChange = balance - lastBalance;
-          lastKnownBalances.set('SRB', balance);
-          
-          console.log(`💰 Sport Real Balance değişti: ${lastBalance} → ${balance} (${balanceChange > 0 ? '+' : ''}${balanceChange})`);
-          
-          // Locked balance yoksa ve balance azaldıysa -> withdrawal successful
-          if (balanceChange < 0 && lockedBalance === 0) {
-            matchPendingTransaction(Math.abs(balanceChange), 'withdrawal');
-          }
-          
-          // Locked balance yoksa ve balance arttıysa -> deposit successful
-          if (balanceChange > 0 && lockedBalance === 0) {
-            matchPendingTransaction(Math.abs(balanceChange), 'deposit');
-          }
-
-          sendEvent('balance_updated', {
-            account_type: 'Sport Real Balance',
-            previous_balance: lastBalance,
-            new_balance: balance,
-            change: balanceChange,
-            locked_balance: lockedBalance,
-            available_balance: availableBalance
-          });
-        }
-
-        // Locked balance değişimi
-        if (lockedBalance !== lastLocked) {
-          const lockedChange = lockedBalance - lastLocked;
-          lastKnownBalances.set('SRB_locked', lockedBalance);
-          
-          console.log(`🔒 Kilitli bakiye değişti: ${lastLocked} → ${lockedBalance} (${lockedChange > 0 ? '+' : ''}${lockedChange})`);
-          
-          // Locked balance arttıysa -> withdrawal request confirmed
-          if (lockedChange > 0) {
-            sendEvent('balance_locked', {
-              locked_amount: lockedChange,
-              total_locked: lockedBalance,
-              available_balance: availableBalance
-            });
-          }
-          
-          // Locked balance azaldıysa -> withdrawal cancelled or completed
-          if (lockedChange < 0) {
-            sendEvent('balance_unlocked', {
-              unlocked_amount: Math.abs(lockedChange),
-              total_locked: lockedBalance,
-              available_balance: availableBalance
-            });
-          }
-        }
-      }
-
-      // Diğer hesap tiplerini de kaydet
-      lastKnownBalances.set(accountCode, balance);
-    });
-  }
-
-  // ============================================
-  // 🆕 ODIN PENDING TRANSACTIONS HANDLER
-  // ============================================
-  function handleOdinPendingTransactions(data) {
-    if (!data.success || !Array.isArray(data.data)) return;
-
-    console.log(`📋 ${data.data.length} pending transaction bulundu`);
-
-    data.data.forEach(tx => {
-      const txId = tx.transactionId?.toString();
-      if (!txId) return;
-
-      // Sadece yeni transaction'ları işle
-      if (pendingTransactions.has(txId)) return;
-
-      // Withdrawal transaction (masterCode: "W")
-      if (tx.masterCode === 'W' && tx.status === 'N') {
-        pendingTransactions.set(txId, {
-          type: 'withdrawal',
-          amount: tx.amount,
-          currency: tx.transactionCurrency?.currencyCode || 'TRY',
-          method: tx.transactionTypeName || 'unknown',
-          status: 'pending',
-          timestamp: tx.transactionDate,
-          isCancelable: tx.isCancelable
-        });
-
-        console.log(`💸 Yeni para çekme talebi: ${tx.amount} ${tx.transactionCurrency?.currencySymbol}`);
-
-        sendEvent('withdrawal_requested', {
-          transaction_id: txId,
-          amount: tx.amount,
-          currency: tx.transactionCurrency?.currencyCode || 'TRY',
-          method: tx.transactionTypeName || 'unknown',
-          is_cancelable: tx.isCancelable
-        });
-      }
-
-      // Deposit transaction (masterCode: "D" - muhtemelen)
-      if (tx.masterCode === 'D' && tx.status === 'N') {
-        pendingTransactions.set(txId, {
-          type: 'deposit',
-          amount: tx.amount,
-          currency: tx.transactionCurrency?.currencyCode || 'TRY',
-          method: tx.transactionTypeName || 'unknown',
-          status: 'pending',
-          timestamp: tx.transactionDate
-        });
-
-        console.log(`💳 Yeni para yatırma talebi: ${tx.amount} ${tx.transactionCurrency?.currencySymbol}`);
-      }
-    });
-  }
-
-  // ============================================
-  // 🆕 DEPOSIT SUCCESS MODAL MONITOR (ODIN)
-  // ============================================
-  function monitorDepositSuccessModal() {
-    const observer = new MutationObserver(() => {
-      const modal = document.querySelector('#PaymentFormModal.modal.open');
-      
-      if (modal && 
-          modal.style.display === 'block' && 
-          modal.style.opacity === '1') {
-        
-        // Sadece bir kez işle
-        const modalContent = modal.innerHTML;
-        const modalHash = simpleHash(modalContent);
-        
-        if (depositModalProcessed.has(modalHash)) return;
-        depositModalProcessed.add(modalHash);
-        
-        // Miktar çıkar
-        const amountEl = modal.querySelector('.rslt-mdl h5 > span');
-        const amountText = amountEl?.textContent || '';
-        const amount = parseFloat(amountText.replace(/[^\d.,]/g, '').replace(',', '.'));
-        
-        // Ödeme yöntemi
-        const iconImg = modal.querySelector('payment-icon img');
-        const paymentClass = iconImg?.className || '';
-        const paymentMethod = paymentClass
-          .replace('-deposit', '')
-          .replace(/-/g, ' ')
-          .trim();
-        
-        if (amount && amount > 0) {
-          console.log(`💰 Deposit pop-up açıldı: ${amount} TL (${paymentMethod})`);
-          
-          // Pending transaction ekle
-          const txId = `deposit_${Date.now()}`;
-          pendingTransactions.set(txId, {
-            type: 'deposit',
-            amount: amount,
-            method: paymentMethod || 'unknown',
-            status: 'pending',
-            timestamp: Date.now()
-          });
-          
-          sendEvent('deposit_initiated', {
-            transaction_id: txId,
-            amount: amount,
-            payment_method: paymentMethod || 'unknown',
-            currency: 'TRY'
-          });
-        }
-      }
-    });
-    
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'class']
-    });
-  }
-
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
-  function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return hash.toString();
-  }
-
-  function generateTempId() {
-    return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  // Fallback balance handler (ODIN olmayan sistemler için)
-  function handleBalanceUpdate(data) {
-    const balance = data.balance || data.amount || data.wallet?.balance || null;
-    
-    if (balance === null || balance === undefined) return;
-
-    const accountKey = 'main';
-    const lastBalance = lastKnownBalances.get(accountKey) || 0;
-    
-    if (lastBalance !== balance) {
-      const change = balance - lastBalance;
-      lastKnownBalances.set(accountKey, balance);
-
-      console.log(`💰 Bakiye değişti: ${lastBalance} → ${balance} (${change > 0 ? '+' : ''}${change})`);
-
-      matchPendingTransaction(Math.abs(change), change > 0 ? 'deposit' : 'withdrawal');
-
-      sendEvent('balance_updated', {
-        previous_balance: lastBalance,
-        new_balance: balance,
-        change: change
-      });
-    }
-  }
-
-  function handleTransactionUpdate(data) {
-    if (data.status === 'approved' || data.status === 'confirmed' || data.status === 'success') {
-      const amount = data.amount || data.value || null;
-      
-      if (amount) {
-        matchPendingTransaction(amount, 'unknown');
-      }
-    }
-  }
-
-  function matchPendingTransaction(amount, type = 'unknown') {
-    let matched = false;
-
-    for (let [txId, tx] of pendingTransactions.entries()) {
-      // Tip kontrolü
-      if (type !== 'unknown' && tx.type !== type) continue;
-
-      // Miktar toleransı: 0.1 TL
-      const amountMatch = Math.abs(Math.abs(amount) - tx.amount) < 0.1;
-      
-      if (amountMatch) {
-        console.log(`✅ Transaction matched: ${txId}`, tx);
-        
-        // Başarılı event gönder
-        if (tx.type === 'deposit') {
-          sendEvent('deposit_successful', {
-            transaction_id: txId,
-            amount: tx.amount,
-            currency: tx.currency || 'TRY',
-            payment_method: tx.method,
-            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
-          });
-        } else if (tx.type === 'withdrawal') {
-          sendEvent('withdrawal_successful', {
-            transaction_id: txId,
-            amount: tx.amount,
-            currency: tx.currency || 'TRY',
-            payment_method: tx.method,
-            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
-          });
-        }
-
-        pendingTransactions.delete(txId);
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched && amount > 0) {
-      console.warn(`⚠️  Eşleştirilemeyen işlem: ${amount} TL (${type})`);
-    }
-  }
-
-  // ============================================
-  // 🆕 ADVANCED DOM LISTENERS
-  // ============================================
-  function setupAdvancedDOMListeners() {
-    document.addEventListener('click', (e) => {
-      const target = e.target.closest('button, a, [role="button"]');
-      if (!target) return;
-
-      const text = target.textContent.trim();
-      const classList = Array.from(target.classList).join(' ');
-      
-      // Hızlı tutar butonları
-      if (isQuickAmountButton(target, text)) {
-        const amount = extractAmountFromButton(text);
-        if (amount) {
-          currentFormData.amount = amount;
-          console.log(`💰 Hızlı tutar seçildi: ${amount} ₺`);
-          
-          sendEvent('quick_amount_selected', {
-            amount: amount,
-            button_text: text
-          });
-        }
-      }
-      
-      // "Yatırımı Yaptım" butonu
-      else if (isDepositConfirmButton(target, text, classList)) {
-        console.log('✅ "Yatırımı Yaptım" butonuna tıklandı');
-        
-        const amount = currentFormData.amount || getAmountFromInput();
-        
-        if (amount) {
-          const txId = generateTempId();
-          
-          pendingTransactions.set(txId, {
-            type: 'deposit',
-            amount: amount,
-            method: 'manual_transfer',
-            status: 'pending',
-            timestamp: Date.now()
-          });
-          
-          console.log(`💳 Manuel yatırım kaydedildi: ${amount} ₺`);
-          
-          sendEvent('deposit_manual_confirmed', {
-            transaction_id: txId,
-            amount: amount,
-            method: 'manual_transfer'
-          });
-        }
-      }
-      
-      // "İşlemi Başlat" butonu (Gateway)
-      else if (isStartTransactionButton(target, text, classList)) {
-        console.log('🚀 "İşlemi Başlat" butonuna tıklandı');
-        
-        const amount = currentFormData.amount || getAmountFromInput();
-        
-        if (amount) {
-          sendEvent('deposit_gateway_initiated', {
-            amount: amount,
-            method: 'payment_gateway'
-          });
-        }
-      }
-      
-      // Bakiye yenileme butonu
-      else if (isBalanceRefreshButton(target, text, classList)) {
-        console.log('🔄 Bakiye güncelleme butonuna tıklandı');
-        
-        sendEvent('balance_refresh_clicked', {
-          timestamp: Date.now()
-        });
-      }
-    });
-  }
-
-  // Button detection helpers
-  function isQuickAmountButton(button, text) {
-    return /\d+\s*₺/.test(text) && button.type === 'button';
-  }
-
-  function isDepositConfirmButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-    
-    return (
-      button.type === 'submit' ||
-      normalizedText.includes('yatırımıyaptım') ||
-      normalizedText.includes('yatırımyap') ||
-      classList.includes('pymnt-frm-btn')
-    );
-  }
-
-  function isStartTransactionButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-    
-    return (
-      normalizedText.includes('işlemibaşlat') ||
-      normalizedText.includes('başlat') ||
-      classList.includes('start-transaction')
-    );
-  }
-
-  function isBalanceRefreshButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-    
-    return (
-      normalizedText.includes('bakiye') ||
-      normalizedText.includes('güncelle') ||
-      normalizedText.includes('refresh') ||
-      normalizedText.includes('yenile') ||
-      classList.includes('refresh-balance')
-    );
-  }
-
-  // Amount extraction helpers
-  function extractAmountFromButton(text) {
-    const match = text.match(/[\d.,]+/);
-    if (match) {
-      const cleaned = match[0].replace(/\./g, '').replace(',', '.');
-      return parseFloat(cleaned);
-    }
-    return null;
-  }
-
-  function getAmountFromInput() {
-    const input = document.querySelector('#mntNpt') || 
-                 document.querySelector('input[placeholder*="Yatırım"]') ||
-                 document.querySelector('input[placeholder*="Tutar"]') ||
-                 document.querySelector('input[name*="amount"]');
-    
-    if (input && input.value) {
-      return extractAmountFromInputValue(input.value);
-    }
-    
-    return null;
-  }
-
-  function extractAmountFromInputValue(value) {
-    if (!value) return null;
-    
-    const cleaned = value.replace(/[^\d.,]/g, '');
-    
-    if (cleaned.includes(',')) {
-      return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-    } else {
-      return parseFloat(cleaned.replace(/,/g, ''));
-    }
-  }
-
-  // ============================================
   // 🆕 INPUT FIELD MONITORING
   // ============================================
   function monitorFormInputs() {
@@ -710,6 +197,18 @@
         });
       });
     });
+  }
+
+  function extractAmountFromInputValue(value) {
+    if (!value) return null;
+    
+    const cleaned = value.replace(/[^\d.,]/g, '');
+    
+    if (cleaned.includes(',')) {
+      return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+    } else {
+      return parseFloat(cleaned.replace(/,/g, ''));
+    }
   }
 
   // ============================================
@@ -822,6 +321,722 @@
       }
     });
   }
+// ============================================
+// 🎯 TRUVABET PAYMENT METHOD DETECTION
+// ============================================
+const PAYMENT_METHOD_MAP = {
+  'banka_havalesi': 'bank_transfer',
+  'bank_transfer': 'bank_transfer',
+  'havale': 'bank_transfer',
+  'eft': 'bank_transfer',
+  
+  'bitcoin': 'bitcoin',
+  'btc': 'bitcoin',
+  
+  'kredi_kartı': 'credit_card',
+  'credit_card': 'credit_card',
+  'visa': 'credit_card',
+  'mastercard': 'credit_card',
+  
+  'mefete': 'mefete',
+  'papara': 'papara',
+  'parazula': 'parazula',
+  'payco': 'payco',
+  'payfix': 'payfix',
+  'paypay': 'paypay',
+  
+  'qr_kod': 'qr_code',
+  'qr': 'qr_code',
+  
+  'tether': 'usdt',
+  'usdt': 'usdt',
+  'trc20': 'trc20',
+  'erc20': 'erc20',
+  
+  'ethereum': 'ethereum',
+  'eth': 'ethereum',
+  
+  'crypto': 'crypto',
+  'kripto': 'crypto'
+};
+
+function detectPaymentMethod() {
+  // 1. Modal içindeki aktif ödeme yöntemini kontrol et
+  const activePaymentTab = document.querySelector('.payment-tab.active, .pymnt-mdl .active');
+  if (activePaymentTab) {
+    const text = activePaymentTab.textContent.toLowerCase().trim();
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAP)) {
+      if (text.includes(key)) return value;
+    }
+  }
+  
+  // 2. URL'den çıkar
+  const url = window.location.href.toLowerCase();
+  for (const [key, value] of Object.entries(PAYMENT_METHOD_MAP)) {
+    if (url.includes(key)) return value;
+  }
+  
+  // 3. Son tıklanan payment button'dan
+  const lastClickedPayment = document.querySelector('[data-payment-method]');
+  if (lastClickedPayment) {
+    return lastClickedPayment.dataset.paymentMethod;
+  }
+  
+  return 'unknown';
+}
+
+// Deposit initiated event'inde kullan:
+sendEvent('deposit_initiated', {
+  transaction_id: txId,
+  amount: amount,
+  currency: 'TRY',
+  method: detectPaymentMethod() // ✅ Artık "unknown" değil, gerçek method
+});
+  // ============================================
+  // 🆕 ADVANCED DOM LISTENERS
+  // ============================================
+  function setupAdvancedDOMListeners() {
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('button, a, [role="button"]');
+      if (!target) return;
+
+      const text = target.textContent.trim();
+      const classList = Array.from(target.classList).join(' ');
+      
+      // Hızlı tutar butonları (100 ₺, 250 ₺, vb.)
+      if (isQuickAmountButton(target, text)) {
+        const amount = extractAmountFromButton(text);
+        if (amount) {
+          currentFormData.amount = amount;
+          console.log(`💰 Hızlı tutar seçildi: ${amount} ₺`);
+        }
+      }
+      
+      // "Yatırımı Yaptım" butonu
+      else if (isDepositConfirmButton(target, text, classList)) {
+        console.log('💳 "Yatırımı Yaptım" butonuna tıklandı');
+        
+        const amount = currentFormData.amount || getAmountFromInput();
+        
+        if (amount) {
+          const txId = `tx_${Date.now()}`;
+          
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: amount,
+            timestamp: Date.now(),
+            currency: 'TRY',
+            method: 'unknown'
+          });
+
+          sendEvent('deposit_initiated', {
+            transaction_id: txId,
+            amount: amount,
+            currency: 'TRY',
+            method: 'manual'
+          });
+
+          console.log(`📝 Bekleyen para yatırma işlemi: ${txId} - ${amount} ₺`);
+        }
+      }
+      
+      // "İşlemi Başlat" butonu
+      else if (isStartTransactionButton(target, text, classList)) {
+        console.log('🚀 "İşlemi Başlat" butonuna tıklandı');
+        
+        const amount = currentFormData.amount || getAmountFromInput();
+        
+        if (amount) {
+          sendEvent('deposit_gateway_initiated', {
+            amount: amount,
+            method: 'payment_gateway'
+          });
+        }
+      }
+      
+      // Bakiye yenileme butonu
+      else if (isBalanceRefreshButton(target, text, classList)) {
+        console.log('🔄 Bakiye güncelleme butonuna tıklandı');
+        
+        sendEvent('balance_refresh_clicked', {
+          timestamp: Date.now()
+        });
+      }
+    });
+  }
+
+  // Button detection helpers
+  function isQuickAmountButton(button, text) {
+    return /\d+\s*₺/.test(text) && button.type === 'button';
+  }
+
+  function isDepositConfirmButton(button, text, classList) {
+    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+    
+    return (
+      button.type === 'submit' ||
+      normalizedText.includes('yatırımıyaptım') ||
+      normalizedText.includes('yatırımyap') ||
+      classList.includes('pymnt-frm-btn')
+    );
+  }
+
+  function isStartTransactionButton(button, text, classList) {
+    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+    
+    return (
+      normalizedText.includes('işlemibaşlat') ||
+      normalizedText.includes('başlat') ||
+      classList.includes('start-transaction')
+    );
+  }
+
+  function isBalanceRefreshButton(button, text, classList) {
+    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+    
+    return (
+      normalizedText.includes('bakiye') ||
+      normalizedText.includes('güncelle') ||
+      normalizedText.includes('refresh') ||
+      normalizedText.includes('yenile') ||
+      classList.includes('refresh-balance')
+    );
+  }
+
+  // Amount extraction helpers
+  function extractAmountFromButton(text) {
+    const match = text.match(/[\d.,]+/);
+    if (match) {
+      const cleaned = match[0].replace(/\./g, '').replace(',', '.');
+      return parseFloat(cleaned);
+    }
+    return null;
+  }
+
+  function getAmountFromInput() {
+    const input = document.querySelector('#mntNpt') || 
+                 document.querySelector('input[placeholder*="Yatırım"]') ||
+                 document.querySelector('input[placeholder*="Tutar"]') ||
+                 document.querySelector('input[name*="amount"]');
+    
+    if (input && input.value) {
+      return extractAmountFromInputValue(input.value);
+    }
+    
+    return null;
+  }
+
+  // ============================================
+  // 🆕 ODIN BALANCE API HANDLER
+  // ============================================
+  function handleOdinBalanceUpdate(data) {
+    if (!data.success || !Array.isArray(data.data)) return;
+
+    console.log('🔄 ODIN get_accounts API yanıtı alındı');
+
+    data.data.forEach(account => {
+      const accountCode = account.accountType?.code;
+      if (!accountCode) return;
+
+      const balance = account.balance || 0;
+      const lockedBalance = account.lockedBalance || 0;
+      const availableBalance = balance - lockedBalance;
+      
+      // Ana bakiye takibi (Sport Real Balance)
+      if (accountCode === 'SRB') {
+        const lastBalance = lastKnownBalances.get('SRB') || 0;
+        const lastLocked = lastKnownBalances.get('SRB_locked') || 0;
+
+        // Balance değişimi
+        if (balance !== lastBalance) {
+          const balanceChange = balance - lastBalance;
+          lastKnownBalances.set('SRB', balance);
+          
+          console.log(`💰 Sport Real Balance değişti: ${lastBalance} → ${balance} (${balanceChange > 0 ? '+' : ''}${balanceChange})`);
+          
+          // Locked balance yoksa ve balance azaldıysa -> withdrawal successful
+          if (balanceChange < 0 && lockedBalance === 0) {
+            matchPendingTransaction(Math.abs(balanceChange), 'withdrawal');
+          }
+          
+          // Locked balance yoksa ve balance arttıysa -> deposit successful
+          if (balanceChange > 0 && lockedBalance === 0) {
+            matchPendingTransaction(Math.abs(balanceChange), 'deposit');
+          }
+
+          sendEvent('balance_updated', {
+            account_type: 'Sport Real Balance',
+            previous_balance: lastBalance,
+            new_balance: balance,
+            change: balanceChange,
+            locked_balance: lockedBalance,
+            available_balance: availableBalance
+          });
+        }
+
+        // Locked balance değişimi
+        if (lockedBalance !== lastLocked) {
+          const lockedChange = lockedBalance - lastLocked;
+          lastKnownBalances.set('SRB_locked', lockedBalance);
+          
+          console.log(`🔒 Kilitli bakiye değişti: ${lastLocked} → ${lockedBalance} (${lockedChange > 0 ? '+' : ''}${lockedChange})`);
+        }
+      }
+    });
+  }
+
+  // ============================================
+  // 🆕 ODIN PENDING TRANSACTIONS HANDLER
+  // ============================================
+  function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString();
+  }
+
+  function handleOdinPendingTransactions(data) {
+    if (!data.success || !Array.isArray(data.data)) return;
+
+    data.data.forEach(tx => {
+      const txType = tx.transactionType?.code;
+      
+      // Para yatırma işlemi
+      if (txType === 'D' || txType === 'Deposit') {
+        const txId = `odin_${tx.id}`;
+        
+        if (!pendingTransactions.has(txId)) {
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: tx.amount,
+            currency: tx.transactionCurrency?.currencyCode || 'TRY',
+            method: tx.transactionTypeName || 'unknown',
+            status: 'pending',
+            timestamp: tx.transactionDate
+          });
+
+          console.log(`💳 Yeni para yatırma talebi: ${tx.amount} ${tx.transactionCurrency?.currencySymbol}`);
+        }
+      }
+    });
+  }
+
+  // ============================================
+  // 🆕 DEPOSIT SUCCESS MODAL MONITOR (ODIN)
+  // ============================================
+  function monitorDepositSuccessModal() {
+    const observer = new MutationObserver(() => {
+      const modal = document.querySelector('#PaymentFormModal.modal.open');
+      
+      if (modal && 
+          modal.style.display === 'block' && 
+          modal.style.opacity === '1') {
+        
+        // Sadece bir kez işle
+        const modalContent = modal.innerHTML;
+        const modalHash = simpleHash(modalContent);
+        
+        if (depositModalProcessed.has(modalHash)) return;
+        depositModalProcessed.add(modalHash);
+        
+        // Miktar çıkar
+        const amountEl = modal.querySelector('.rslt-mdl h5 > span');
+        const amountText = amountEl?.textContent || '';
+        const amount = parseFloat(amountText.replace(/[^\d.,]/g, '').replace(',', '.'));
+        
+        if (amount && amount > 0) {
+          matchPendingTransaction(amount, 'deposit');
+          
+          console.log(`✅ Deposit success modal detected: ${amount} ₺`);
+          
+          setTimeout(() => {
+            depositModalProcessed.delete(modalHash);
+          }, 10000);
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    });
+  }
+
+  // ============================================
+  // BALANCE & TRANSACTION HANDLERS
+  // ============================================
+  function handleBalanceUpdate(data) {
+    const balance = data.balance || data.amount || data.value;
+    
+    if (balance !== null && balance !== undefined) {
+      const lastBalance = lastKnownBalances.get('generic') || 0;
+      lastKnownBalances.set('generic', balance);
+      
+      const change = balance - lastBalance;
+      
+      if (change !== 0 && lastBalance > 0) {
+        console.log(`💰 Balance updated: ${lastBalance} → ${balance} (${change > 0 ? '+' : ''}${change})`);
+
+        matchPendingTransaction(Math.abs(change), change > 0 ? 'deposit' : 'withdrawal');
+
+        sendEvent('balance_updated', {
+          previous_balance: lastBalance,
+          new_balance: balance,
+          change: change
+        });
+      }
+    }
+  }
+
+  function handleTransactionUpdate(data) {
+    if (data.status === 'approved' || data.status === 'confirmed' || data.status === 'success') {
+      const amount = data.amount || data.value || null;
+      
+      if (amount) {
+        matchPendingTransaction(amount, 'unknown');
+      }
+    }
+  }
+
+  function matchPendingTransaction(amount, type = 'unknown') {
+    let matched = false;
+
+    for (let [txId, tx] of pendingTransactions.entries()) {
+      // Tip kontrolü
+      if (type !== 'unknown' && tx.type !== type) continue;
+
+      // Miktar toleransı: 0.1 TL
+      const amountMatch = Math.abs(Math.abs(amount) - tx.amount) < 0.1;
+      
+      if (amountMatch) {
+        console.log(`✅ Transaction matched: ${txId}`, tx);
+        
+        // Başarılı event gönder
+        if (tx.type === 'deposit') {
+          sendEvent('deposit_successful', {
+            transaction_id: txId,
+            amount: tx.amount,
+            currency: tx.currency || 'TRY',
+            payment_method: tx.method,
+            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
+          });
+        } else if (tx.type === 'withdrawal') {
+          sendEvent('withdrawal_successful', {
+            transaction_id: txId,
+            amount: tx.amount,
+            currency: tx.currency || 'TRY',
+            payment_method: tx.method,
+            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
+          });
+        }
+
+        pendingTransactions.delete(txId);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched && amount > 0) {
+      console.warn(`⚠️  Eşleştirilemeyen işlem: ${amount} TL (${type})`);
+    }
+  }
+
+  // ============================================
+  // 🎮 TRUVABET GAME TRACKING
+  // ============================================
+
+  // BALANCE EXTRACTION - TRUVABET SPECIFIC
+  function extractTruvabetBalance() {
+    // Öncelik 1: Header'daki ana bakiye
+    const mainBalanceSelectors = [
+      '.balance-dropdown-main span[title="Ana Bakiye"] span',
+      '.balance-dropdown-main .left > span > span',
+    ];
+    
+    for (const selector of mainBalanceSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent || element.innerText;
+        const match = text.match(/([\d.,]+)/);
+        if (match) {
+          const balance = parseFloat(match[1].replace(',', ''));
+          if (!isNaN(balance)) {
+            return balance;
+          }
+        }
+      }
+    }
+    
+    // Öncelik 2: Dropdown içindeki "Bakiye"
+    const dropdownBalance = document.querySelector('.balance-dropdropdown .blance-text.blc-color:nth-of-type(2) span span');
+    if (dropdownBalance) {
+      const text = dropdownBalance.textContent || dropdownBalance.innerText;
+      const match = text.match(/([\d.,]+)/);
+      if (match) {
+        const balance = parseFloat(match[1].replace(',', ''));
+        if (!isNaN(balance)) {
+          return balance;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // GAME URL PATTERN DETECTION
+  function extractGameInfoFromURL(url) {
+    const patterns = [
+      {
+        regex: /\/games\/detail\/casino\/normal\/(\d+)/,
+        type: 'casino'
+      },
+      {
+        regex: /\/games\/livecasino\/detail\/normal\/(\d+)/,
+        type: 'live_casino'
+      },
+      {
+        regex: /\/games\/casino\/detail\/normal\/(\d+)/,
+        type: 'casino'
+      },
+      {
+        regex: /\/games\/poker/,
+        type: 'poker'
+      },
+      {
+        regex: /\/games\/bingo\/(\d+)/,
+        type: 'bingo'
+      }
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern.regex);
+      if (match) {
+        return {
+          gameId: match[1] || 'unknown',
+          gameType: pattern.type,
+          gameName: extractGameNameFromTitle()
+        };
+      }
+    }
+    
+    return null;
+  }
+
+  function extractGameNameFromTitle() {
+    const title = document.title;
+    const match = title.match(/^([^|]+)/);
+    return match ? match[1].trim() : 'Unknown Game';
+  }
+
+  // GAME SESSION HANDLERS
+  function handleTruvabetGameStart(gameInfo) {
+    if (activeGameSession) {
+      handleTruvabetGameEnd();
+    }
+    
+    const balanceBefore = extractTruvabetBalance();
+    
+    activeGameSession = {
+      gameId: gameInfo.gameId,
+      gameName: gameInfo.gameName,
+      gameType: gameInfo.gameType,
+      gameUrl: window.location.href,
+      startTime: Date.now(),
+      balanceBefore: balanceBefore
+    };
+    
+    sendEvent('game_started', {
+      game_id: gameInfo.gameId,
+      game_name: gameInfo.gameName,
+      game_type: gameInfo.gameType,
+      game_url: window.location.href,
+      balance_before: balanceBefore,
+      currency: 'TRY'
+    });
+    
+    startTruvabetBalanceMonitoring();
+    
+    console.log(`🎮 Game started: ${gameInfo.gameName} (Balance: ${balanceBefore} TRY)`);
+  }
+
+  function handleTruvabetGameEnd() {
+    if (!activeGameSession) return;
+    
+    stopTruvabetBalanceMonitoring();
+    
+    const balanceAfter = extractTruvabetBalance();
+    const duration = Math.floor((Date.now() - activeGameSession.startTime) / 1000);
+    
+    let balanceChange = null;
+    let result = 'unknown';
+    
+    if (activeGameSession.balanceBefore !== null && balanceAfter !== null) {
+      balanceChange = balanceAfter - activeGameSession.balanceBefore;
+      result = balanceChange > 0 ? 'win' : (balanceChange < 0 ? 'loss' : 'neutral');
+    }
+    
+    sendEvent('game_ended', {
+      game_id: activeGameSession.gameId,
+      game_name: activeGameSession.gameName,
+      game_type: activeGameSession.gameType,
+      game_url: activeGameSession.gameUrl,
+      balance_before: activeGameSession.balanceBefore,
+      balance_after: balanceAfter,
+      balance_change: balanceChange,
+      duration_seconds: duration,
+      result: result,
+      currency: 'TRY'
+    });
+    
+    console.log(`🏁 Game ended: ${activeGameSession.gameName} | Duration: ${duration}s | Balance: ${activeGameSession.balanceBefore} → ${balanceAfter} (${balanceChange > 0 ? '+' : ''}${balanceChange})`);
+    
+    activeGameSession = null;
+  }
+
+  // BALANCE MONITORING (During Game)
+  function startTruvabetBalanceMonitoring() {
+    stopTruvabetBalanceMonitoring();
+    
+    lastKnownBalance = extractTruvabetBalance();
+    
+    balanceCheckInterval = setInterval(() => {
+      const currentBalance = extractTruvabetBalance();
+      
+      if (currentBalance !== null && lastKnownBalance !== null && currentBalance !== lastKnownBalance) {
+        const change = currentBalance - lastKnownBalance;
+        
+        // Sadece önemli değişimleri logla (10 TL üzeri)
+        if (Math.abs(change) > 10) {
+          sendEvent('in_game_balance_change', {
+            game_id: activeGameSession?.gameId,
+            game_name: activeGameSession?.gameName,
+            balance_before: lastKnownBalance,
+            balance_after: currentBalance,
+            balance_change: change,
+            currency: 'TRY'
+          });
+        }
+        
+        lastKnownBalance = currentBalance;
+      }
+    }, 10000); // Her 10 saniyede bir kontrol
+  }
+
+  function stopTruvabetBalanceMonitoring() {
+    if (balanceCheckInterval) {
+      clearInterval(balanceCheckInterval);
+      balanceCheckInterval = null;
+    }
+  }
+
+  // URL CHANGE DETECTION (SPA Navigation)
+  function setupTruvabetGameDetection() {
+    let lastUrl = location.href;
+    
+    // İlk yükleme kontrolü
+    const initialGameInfo = extractGameInfoFromURL(lastUrl);
+    if (initialGameInfo) {
+      setTimeout(() => handleTruvabetGameStart(initialGameInfo), 2000);
+    }
+    
+    // URL değişikliklerini izle
+    const urlObserver = new MutationObserver(() => {
+      const currentUrl = location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        
+        const gameInfo = extractGameInfoFromURL(currentUrl);
+        
+        if (gameInfo) {
+          setTimeout(() => handleTruvabetGameStart(gameInfo), 2000);
+        } else if (activeGameSession && !currentUrl.includes('/games/')) {
+          handleTruvabetGameEnd();
+        }
+      }
+    });
+    
+    urlObserver.observe(document, { subtree: true, childList: true });
+    
+    console.log('✅ Truvabet game detection setup complete');
+  }
+
+  // BALANCE REFRESH BUTTON TRACKING
+  function setupTruvabetBalanceRefreshTracking() {
+    const refreshButton = document.querySelector('.refresh-icon');
+    if (refreshButton && !refreshButton.dataset.trackerBound) {
+      refreshButton.addEventListener('click', () => {
+        setTimeout(() => {
+          const newBalance = extractTruvabetBalance();
+          if (newBalance !== null && newBalance !== lastKnownBalance) {
+            sendEvent('balance_refreshed', {
+              balance_before: lastKnownBalance,
+              balance_after: newBalance,
+              balance_change: newBalance - (lastKnownBalance || 0),
+              currency: 'TRY',
+              triggered_by: 'user_click'
+            });
+            lastKnownBalance = newBalance;
+          }
+        }, 1000);
+      });
+      refreshButton.dataset.trackerBound = 'true';
+    }
+  }
+
+  // Periyodik olarak refresh butonunu kontrol et
+  setInterval(setupTruvabetBalanceRefreshTracking, 3000);
+
+  // IFRAME GAME DETECTION
+  function setupTruvabetIframeDetection() {
+    const iframeObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.tagName === 'IFRAME') {
+            const src = node.src || '';
+            
+            if (src.includes('game') || src.includes('play') || 
+                src.includes('pragmatic') || src.includes('evolution') ||
+                src.includes('provider') || src.includes('casino')) {
+              
+              const currentUrl = window.location.href;
+              const gameInfo = extractGameInfoFromURL(currentUrl);
+              
+              if (gameInfo && !activeGameSession) {
+                console.log(`🎮 Game iframe detected: ${gameInfo.gameName}`);
+                handleTruvabetGameStart(gameInfo);
+              }
+              
+              const removalObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                  mutation.removedNodes.forEach((removedNode) => {
+                    if (removedNode === node) {
+                      console.log(`🏁 Game iframe removed`);
+                      handleTruvabetGameEnd();
+                      removalObserver.disconnect();
+                    }
+                  });
+                });
+              });
+              
+              if (node.parentNode) {
+                removalObserver.observe(node.parentNode, { childList: true });
+              }
+            }
+          }
+        });
+      });
+    });
+    
+    iframeObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
 
   // ============================================
   // PUBLIC API
@@ -870,22 +1085,6 @@
     });
   };
 
-  tracker.bet = function(amount, currency, game) {
-    sendEvent('bet_placed', {
-      amount: parseFloat(amount),
-      currency: currency || 'TRY',
-      game: game || 'unknown'
-    });
-  };
-
-  tracker.win = function(amount, currency, game) {
-    sendEvent('win', {
-      amount: parseFloat(amount),
-      currency: currency || 'TRY',
-      game: game || 'unknown'
-    });
-  };
-
   tracker.gameStart = function(gameName) {
     sendEvent('game_started', { game_name: gameName });
   };
@@ -899,14 +1098,20 @@
 
   // Debug functions
   tracker.extractAmount = extractAmount;
+  tracker.getTruvabetBalance = extractTruvabetBalance;
+  tracker.getTruvabetGameSession = () => activeGameSession;
+  tracker.endTruvabetGame = handleTruvabetGameEnd;
+  
   tracker.getStatus = function() {
     return {
-      version: '3.0-ODIN',
+      version: '3.0-ODIN-TRUVABET',
       currentFormData: currentFormData,
       pendingTransactions: Array.from(pendingTransactions.entries()),
       lastBalances: Array.from(lastKnownBalances.entries()),
       sessionId: sessionId,
-      playerId: playerId
+      playerId: playerId,
+      activeGameSession: activeGameSession,
+      lastKnownBalance: lastKnownBalance
     };
   };
 
@@ -928,8 +1133,12 @@
     setupDomTracking();
     setupAdvancedDOMListeners();
     monitorFormInputs();
-    monitorDepositSuccessModal(); // ODIN deposit modal
-    interceptNetworkRequests(); // ODIN API interception
+    monitorDepositSuccessModal();
+    
+    // 🎮 Initialize Truvabet game tracking
+    setupTruvabetGameDetection();
+    setupTruvabetIframeDetection();
+    setupTruvabetBalanceRefreshTracking();
     
     processQueue();
   });
@@ -937,6 +1146,12 @@
   let sessionStartTime = Date.now();
   window.addEventListener('beforeunload', () => {
     const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
+    
+    // Aktif oyun varsa kapat
+    if (activeGameSession) {
+      handleTruvabetGameEnd();
+    }
+    
     sendEvent('session_end', { duration_seconds: sessionDuration });
   });
 
@@ -949,8 +1164,9 @@
   window.clearPendingTx = () => tracker.clearPendingTransactions();
   window.getCurrentFormData = () => currentFormData;
   
-  console.log('✓ TrackLib v3.0 ODIN Edition initialized successfully');
+  console.log('✓ TrackLib v3.0 ODIN-TRUVABET Edition initialized successfully');
   console.log('✓ Available as: window.TrackLib and window.tracker');
-  console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking');
+  console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking, Game Tracking');
+  console.log('✓ Game Tracking: Truvabet-specific (NO provider API interception)');
   console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx()');
 })();
