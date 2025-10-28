@@ -1100,8 +1100,8 @@ function setupBonusButtonTracking() {
             amount: tx.amount,
             currency: tx.currency || 'TRY',
             payment_method: tx.method,
-            payment_category: tx.category,
-            payment_type: tx.paymentType,
+            payment_category: tx.category || 'unknown',
+            payment_type: tx.paymentType || 'unknown',
             duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         } else if (tx.type === 'withdrawal') {
