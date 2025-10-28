@@ -53,7 +53,7 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
             amount: e.parameters?.amount || 0,
             currency: e.parameters?.currency || 'TRY',
             date: e.createdAt,
-            method: e.parameters?.withdrawal_method || 'unknown'
+            method: e.parameters?.payment_method || 'unknown'
         }));
 
         const totalWithdrawal = withdrawals.reduce((sum, w) => sum + w.amount, 0);
