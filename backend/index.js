@@ -16,10 +16,9 @@ const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-const https = require('https');
 const segmentEvaluator = require('./services/segmentEvaluator');
-const RuleEngine = require('./services/ruleEngine');
-
+const ruleEngine = require('./services/ruleEngine');
+const https = require('https');
 
 const httpsOptions = {
     key: fs.readFileSync('./key.pem'),
@@ -31,7 +30,6 @@ const httpsOptions = {
 const app = express();
 const prisma = new PrismaClient();
 const redis = new Redis();
-const ruleEngine = new RuleEngine();
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const JWT_SECRET = process.env.JWT_SECRET || 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
