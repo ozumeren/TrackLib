@@ -960,13 +960,13 @@
 
         // Payment Methods
         function selectPaymentMethod(element) {
-            // Remove selection from all
+        // Remove selection from all
             element.parentElement.querySelectorAll('.payment-method').forEach(pm => {
-                pm.classList.remove('selected');
-            });
-            // Select current
+            pm.classList.remove('selected');
+        });
+        // Select current
             element.classList.add('selected');
-            selectedPaymentMethod = element.dataset.method;
+            selectedPaymentMethod = element.dataset.method;  // ✅ Bu satır önemli!
             console.log('💳 Payment method selected:', selectedPaymentMethod);
         }
 
@@ -1012,7 +1012,7 @@
             const amount = parseFloat(document.getElementById('withdrawAmount').value);
 
             if (amount > currentBalance) {
-                showNotification('❌ Yetersiz bakiye!', 'error');
+                showNotification('❌ Yetersiz bakiye! Çekim yapılamadı.', 'error');
                 return;
             }
 
@@ -1034,7 +1034,7 @@
             }
 
             closeModal('withdrawModal');
-            showNotification(`💸 ${amount}₺ çekim talebi oluşturuldu!`, 'success');
+            showNotification(`✅ ${amount}₺ başarıyla çekildi!`, 'success');
 
             // Reset form
             document.getElementById('withdrawForm').reset();
