@@ -351,7 +351,42 @@
       return originalSend.apply(this, arguments);
     };
   }
-
+// ============================================
+// 🎁 BONUS TRACKING
+// ============================================
+function analyzeBonusResponse(url, data) {
+  if (!url || !data) return;
+  
+  const urlStr = url.toString().toLowerCase();
+  
+  // Bonus API: truvabonus-api.gorselpanel.com/api/NewFrames/Index
+  if (urlStr.includes('truvabonus-api.gorselpanel.com') || 
+      urlStr.includes('/newframes/index')) {
+    
+    // En son bonus talebi (process)
+    if (data.process && data.process.name) {
+      const bonus = data.process;
+      
+      sendEvent('bonus_requested', {
+        bonus_id: bonus.id || 0,
+        bonus_name: bonus.name,
+        request_date: bonus.date,
+        status: bonus.status ? 'approved' : 'pending',
+        message: bonus.message || 'Beklemede'
+      });
+      
+      console.log(`🎁 Bonus talebi: ${bonus.name} (${bonus.status ? 'Onaylandı' : 'Beklemede'})`);
+    }
+    
+    // Bonus talep geçmişi analizi
+    if (data.requests && Array.isArray(data.requests)) {
+      const approvedBonuses = data.requests.filter(r => r.status === true);
+      const rejectedBonuses = data.requests.filter(r => r.status === false);
+      
+      console.log(`📊 Bonus geçmişi: ${approvedBonuses.length} onaylı, ${rejectedBonuses.length} reddedildi`);
+    }
+  }
+}
   function analyzeNetworkResponse(url, data, options = {}) {
     if (!url || !data) return;
 
@@ -404,16 +439,17 @@
 
     // 4. ODIN Withdrawal Request
     if (urlStr.includes('/payment/') && urlStr.includes('/withdraw')) {
-      console.log('💸 Para çekme talebi gönderildi');
-      
-      const withdrawalPaymentInfo = detectPaymentMethodFromAPI(urlStr);
-      
-      sendEvent('withdrawal_initiated', {
-        payment_method: withdrawalPaymentInfo?.displayName || 'unknown',
-        payment_category: withdrawalPaymentInfo?.category || 'unknown',
-        payment_type: withdrawalPaymentInfo?.type || 'unknown'
-      });
-    }
+    console.log('💸 Para çekme talebi gönderildi');
+    
+    const withdrawalPaymentInfo = detectPaymentMethodFromAPI(urlStr);
+    
+    sendEvent('withdrawal_initiated', {
+      payment_method: withdrawalPaymentInfo?.displayName || 'unknown',
+      payment_category: withdrawalPaymentInfo?.category || 'unknown',
+      payment_type: withdrawalPaymentInfo?.type || 'unknown'
+    });
+  }
+  analyzeBonusResponse(url, data);
   }
 
   window.addEventListener('online', () => {
@@ -744,6 +780,37 @@ sendEvent('deposit_initiated', {
       }
     });
   }
+
+  // ============================================
+// 🎁 BONUS BUTTON CLICK TRACKING
+// ============================================
+function setupBonusButtonTracking() {
+  document.addEventListener('click', (e) => {
+    const target = e.target.closest('button, a, [role="button"]');
+    if (!target) return;
+    
+    const text = target.textContent.trim().toLowerCase();
+    
+    // "Talep Et" butonu
+    if (text.includes('talep et') || text.includes('bonus al')) {
+      // Bonus kartını bul
+      const bonusCard = target.closest('.bonus-card, [class*="bonus"]');
+      if (bonusCard) {
+        const bonusName = bonusCard.querySelector('h3, h4, .bonus-title, .name')?.textContent?.trim();
+        const bonusDesc = bonusCard.querySelector('.description, .desc, p')?.textContent?.trim();
+        
+        if (bonusName) {
+          sendEvent('bonus_claim_clicked', {
+            bonus_name: bonusName,
+            bonus_description: bonusDesc || 'N/A'
+          });
+          
+          console.log(`🎁 Bonus talep butonu tıklandı: ${bonusName}`);
+        }
+      }
+    }
+  });
+}
 
   // Button detection helpers
   function isQuickAmountButton(button, text) {
@@ -1449,6 +1516,7 @@ sendEvent('deposit_initiated', {
     setupAdvancedDOMListeners();
     monitorFormInputs();
     monitorDepositSuccessModal();
+    setupBonusButtonTracking(); 
     
     // 🎮 Initialize Truvabet game tracking
     setupTruvabetGameDetection();
