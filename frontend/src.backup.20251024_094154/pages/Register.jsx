@@ -52,7 +52,7 @@ function RegisterPage() {
     try {
       await axios.post('/api/auth/register', {
         ...values,
-        scriptId: `tracklib_${values.scriptId}`
+        scriptId: `pix_${values.scriptId}`
       });
       
       setStep(3); // Success step
@@ -168,7 +168,7 @@ function RegisterPage() {
                           label="Script ID"
                           placeholder="ronabet"
                           icon={<IconCode size={18} />}
-                          description="tracklib_ öneki otomatik eklenecek (tracklib_ronabet)"
+                          description="pix_ öneki otomatik eklenecek (pix_ronabet)"
                           {...form.getInputProps('scriptId')}
                         />
 

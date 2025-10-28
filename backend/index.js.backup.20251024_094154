@@ -144,7 +144,7 @@ async function createPredefinedData(customerId) {
 // SCRIPT SERVING ROUTES
 // ============================================
 
-// YENİ: Script ID bazlı route (tracklib_ronabet.js gibi)
+// YENİ: Script ID bazlı route (pix_ronabet.js gibi)
 app.get('/scripts/:scriptId.js', async (req, res) => {
     try {
         const { scriptId } = req.params;
@@ -249,9 +249,9 @@ authRoutes.post('/register', async (req, res) => {
     }
 
     // Script ID formatı kontrolü
-    if (!/^tracklib_[a-z0-9_]+$/.test(scriptId)) {
+    if (!/^pix_[a-z0-9_]+$/.test(scriptId)) {
         return res.status(400).json({ 
-            error: 'Script ID "tracklib_" ile başlamalı ve sadece küçük harf, rakam ve alt çizgi içerebilir.' 
+            error: 'Script ID "pix_" ile başlamalı ve sadece küçük harf, rakam ve alt çizgi içerebilir.' 
         });
     }
 
@@ -712,7 +712,7 @@ app.listen(PORT, '0.0.0.0', async () => {
     
     console.log("\n🚀 HTTP Server is ready!");
     console.log(`📝 API Documentation: http://37.27.72.40:${PORT}/api`);
-    console.log(`🎯 Script Endpoint: http://37.27.72.40:${PORT}/s/tracklib_deneme.js\n`);
+    console.log(`🎯 Script Endpoint: http://37.27.72.40:${PORT}/s/pix_deneme.js\n`);
 });
 
 // HTTPS Server (opsiyonel - sadece sertifika varsa)
