@@ -144,7 +144,8 @@ async function createPredefinedData(customerId) {
 // SCRIPT SERVING ROUTES
 // ============================================
 
-// YENİ: Script ID bazlı route (pix_ronabet.js gibi)
+// YENİ: Script ID bazlı route
+
 app.get('/scripts/:scriptId.js', async (req, res) => {
     try {
         const { scriptId } = req.params;
@@ -201,6 +202,63 @@ app.get('/scripts/:scriptId.js', async (req, res) => {
         console.error("Script generation error:", error);
         res.status(500)
             .type('application/javascript; charset=utf-8')  // ✅ charset eklendi
+            .send('console.error("TrackLib: Script generation failed");');
+    }
+});
+app.get('/s/:scriptId.js', async (req, res) => {
+    try {
+        const { scriptId } = req.params;
+        
+        // Script ID formatını kontrol et (güvenlik)
+        if (!/^[a-zA-Z0-9_-]+$/.test(scriptId)) {
+            return res.status(400)
+                .type('application/javascript; charset=utf-8')
+                .send('console.error("TrackLib: Invalid script ID.");');
+        }
+
+        const customer = await prisma.customer.findUnique({ 
+            where: { scriptId } 
+        });
+        
+        if (!customer) {
+            return res.status(404)
+                .type('application/javascript; charset=utf-8')
+                .send('console.error("TrackLib: Customer not found. Invalid script ID.");');
+        }
+
+        const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
+        
+        if (!fs.existsSync(templatePath)) {
+            return res.status(500)
+                .type('application/javascript; charset=utf-8')
+                .send('console.error("TrackLib: Template file not found.");');
+        }
+
+        let scriptContent = fs.readFileSync(templatePath, 'utf8');
+        
+        const config = {
+            scriptId: scriptId,
+            apiKey: customer.apiKey,
+            backendUrl: `http://37.27.72.40:3000/v1/events`,
+            domConfig: customer.domConfig || {}
+        };
+        
+        scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
+        
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        res.removeHeader('X-Content-Type-Options');
+        
+        res.send(scriptContent);
+        
+        console.log(`✅ Script served: ${scriptId} from ${req.get('origin') || 'direct'}`);
+        
+    } catch (error) {
+        console.error("Script generation error:", error);
+        res.status(500)
+            .type('application/javascript; charset=utf-8')
             .send('console.error("TrackLib: Script generation failed");');
     }
 });

@@ -3,7 +3,1667 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LuckyBet Casino - Test Sitesi</title>
+    <title>LuckyBet Casino - Gelişmiş Test Sitesi</title>
+    (function() {
+  // Config backend tarafından enjekte edilecek
+  const config = __CONFIG__;
+  
+  if (!config) {
+    console.error("TrackLib: Configuration not found");
+    return;
+  }
+
+  console.log(`TrackLib v3.0 ODIN Edition initialized for ${config.scriptId}`);
+
+  // ============================================
+  // CORE VARIABLES
+  // ============================================
+  const tracker = {};
+  let sessionId = getOrCreateSessionId();
+  let playerId = null;
+  let eventQueue = [];
+  let isOnline = navigator.onLine;
+  
+  // 🆕 ADVANCED TRACKING VARIABLES
+  let currentFormData = {}; // Geçici form verileri
+  let pendingTransactions = new Map(); // Bekleyen işlemler
+  let lastKnownBalances = new Map(); // Bakiye takibi
+  let depositModalProcessed = new Set(); // İşlenmiş modal'ları takip et
+
+  // ============================================
+  // 💳 PAYMENT METHOD MAPPING
+  // ============================================
+  const PAYMENT_METHOD_MAPPING = {
+    vevopay: {
+      category: 'ÖZEL',
+      displayName: 'VevoPay',
+      type: 'gateway',
+      identifiers: ['vevopay', 'vevopay-havale', 'deposit-1548']
+    },
+    havale_fast: {
+      category: 'HAVALE/FAST',
+      displayName: 'Havale/EFT/Fast',
+      type: 'gateway',
+      identifiers: ['havale', 'eft', 'fast', 'bank_transfer', 'banka_havalesi']
+    },
+    manuel_havale: {
+      category: 'MANUEL HAVALE',
+      displayName: 'Manuel Havale',
+      type: 'manual',
+      identifiers: ['manuel', 'manuel_havale', 'manuel_transfer']
+    },
+    papara: {
+      category: 'PAPARA',
+      displayName: 'Papara',
+      type: 'wallet',
+      identifiers: ['papara']
+    },
+    bitcoin: {
+      category: 'KRIPTO',
+      displayName: 'Bitcoin',
+      type: 'crypto',
+      identifiers: ['bitcoin', 'btc']
+    },
+    ethereum: {
+      category: 'KRIPTO',
+      displayName: 'Ethereum',
+      type: 'crypto',
+      identifiers: ['ethereum', 'eth']
+    },
+    tether: {
+      category: 'KRIPTO',
+      displayName: 'Tether (USDT)',
+      type: 'crypto',
+      identifiers: ['tether', 'usdt', 'trc', 'trc20', 'erc20']
+    },
+    payfix: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Payfix',
+      type: 'wallet',
+      identifiers: ['payfix']
+    },
+    parazula: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Parazula',
+      type: 'wallet',
+      identifiers: ['parazula']
+    },
+    mefete: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Mefete',
+      type: 'wallet',
+      identifiers: ['mefete']
+    },
+    payco: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Payco',
+      type: 'wallet',
+      identifiers: ['payco']
+    },
+    paypay: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'PayPay',
+      type: 'wallet',
+      identifiers: ['paypay']
+    },
+    qr_code: {
+      category: 'QR KOD',
+      displayName: 'QR Kod',
+      type: 'gateway',
+      identifiers: ['qr', 'qr_code', 'qr_kod']
+    },
+    credit_card: {
+      category: 'KREDİ KARTI',
+      displayName: 'Kredi Kartı',
+      type: 'gateway',
+      identifiers: ['credit_card', 'kredi_karti', 'kredi_kartı', 'visa', 'mastercard', 'bank_card']
+    }
+  };
+
+  // ============================================
+  // 💳 PAYMENT METHOD DETECTION FUNCTIONS
+  // ============================================
+  
+  /**
+   * API endpoint'inden ödeme yöntemini tespit eder
+   */
+  function detectPaymentMethodFromAPI(url) {
+    if (!url) return null;
+    
+    const match = url.match(/\/odin\/api\/user\/payment\/([^\/]+)\/(deposit|withdraw)/);
+    if (!match) return null;
+
+    const methodName = match[1].toLowerCase().replace(/-/g, '_');
+    const action = match[2];
+
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAPPING)) {
+      if (key === methodName || value.identifiers.some(id => id === methodName)) {
+        return { 
+          ...value, 
+          action, 
+          detectedFrom: 'api_endpoint' 
+        };
+      }
+    }
+
+    return {
+      category: 'UNKNOWN',
+      displayName: methodName,
+      type: 'unknown',
+      action,
+      detectedFrom: 'api_endpoint'
+    };
+  }
+
+  /**
+   * DOM element'inden ödeme yöntemini tespit eder
+   */
+  function detectPaymentMethodFromDOM(element) {
+    if (!element) return null;
+
+    const classList = (element.className || '').toLowerCase();
+    const imgSrc = (element.querySelector('img')?.src || '').toLowerCase();
+    const text = (element.textContent || '').toLowerCase();
+
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAPPING)) {
+      for (const identifier of value.identifiers) {
+        const idLower = identifier.toLowerCase();
+        if (classList.includes(idLower) || 
+            imgSrc.includes(idLower) || 
+            text.includes(idLower)) {
+          return { 
+            ...value, 
+            detectedFrom: 'dom_element' 
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Pop-up HTML içeriğinden ödeme yöntemini tespit eder
+   */
+  function detectPaymentMethodFromPopup(html) {
+    if (!html) return null;
+    
+    const lowerHTML = html.toLowerCase();
+
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAPPING)) {
+      for (const identifier of value.identifiers) {
+        if (lowerHTML.includes(identifier.toLowerCase())) {
+          return { 
+            ...value, 
+            detectedFrom: 'popup_content' 
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // 🎰 TRUVABET GAME TRACKING VARIABLES
+  let activeGameSession = null;
+  let lastKnownBalance = null;
+  let balanceCheckInterval = null;
+
+  // ============================================
+  // SESSION MANAGEMENT
+  // ============================================
+  function getOrCreateSessionId() {
+    const key = 'tracklib_session_id';
+    let sid = localStorage.getItem(key);
+    
+    const lastActivity = localStorage.getItem('tracklib_last_activity');
+    const now = Date.now();
+    
+    if (sid && lastActivity && (now - parseInt(lastActivity)) < 30 * 60 * 1000) {
+      localStorage.setItem('tracklib_last_activity', now.toString());
+      return sid;
+    }
+    
+    sid = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(key, sid);
+    localStorage.setItem('tracklib_last_activity', now.toString());
+    return sid;
+  }
+
+  // ============================================
+  // EVENT SENDING WITH RETRY
+  // ============================================
+  async function sendEvent(eventName, params, retryCount = 0) {
+    const payload = {
+      api_key: config.apiKey,
+      session_id: sessionId,
+      player_id: playerId,
+      event_name: eventName,
+      parameters: {
+        ...params,
+        page_title: document.title,
+        referrer: document.referrer || 'direct',
+        screen_resolution: `${screen.width}x${screen.height}`,
+        viewport_size: `${window.innerWidth}x${window.innerHeight}`,
+        user_agent: navigator.userAgent,
+        language: navigator.language,
+      },
+      url: window.location.href,
+      timestamp_utc: new Date().toISOString()
+    };
+
+    try {
+      const response = await fetch(config.backendUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Script-Version': '3.0-ODIN'
+        },
+        body: JSON.stringify(payload),
+        keepalive: true
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      console.log(`✓ TrackLib: ${eventName} sent`, params);
+      return true;
+
+    } catch (error) {
+      console.error(`✗ TrackLib: ${eventName} failed:`, error.message);
+      
+      if (retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        setTimeout(() => sendEvent(eventName, params, retryCount + 1), delay);
+      } else {
+        saveToQueue(eventName, params);
+      }
+      return false;
+    }
+  }
+
+  // ============================================
+  // OFFLINE QUEUE MANAGEMENT
+  // ============================================
+  function saveToQueue(eventName, params) {
+    try {
+      const queue = JSON.parse(localStorage.getItem('tracklib_queue') || '[]');
+      queue.push({ eventName, params, timestamp: Date.now() });
+      
+      if (queue.length > 50) queue.shift();
+      
+      localStorage.setItem('tracklib_queue', JSON.stringify(queue));
+    } catch (e) {
+      console.error('TrackLib: Queue save failed', e);
+    }
+  }
+
+  function processQueue() {
+    try {
+      const queue = JSON.parse(localStorage.getItem('tracklib_queue') || '[]');
+      if (queue.length === 0) return;
+
+      console.log(`TrackLib: Processing ${queue.length} queued events`);
+      
+      queue.forEach(item => {
+        sendEvent(item.eventName, item.params);
+      });
+      
+      localStorage.removeItem('tracklib_queue');
+    } catch (e) {
+      console.error('TrackLib: Queue process failed', e);
+    }
+  }
+  // ============================================
+  // 🆕 NETWORK REQUEST INTERCEPTION (ODIN API)
+  // ============================================
+  function interceptNetworkRequests() {
+    // Fetch API interception
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      const options = args[1] || {};
+      
+      return originalFetch.apply(this, args).then(response => {
+        if (response.ok) {
+          response.clone().json().then(data => {
+            analyzeNetworkResponse(url, data, options);
+          }).catch(() => {});
+        }
+        return response;
+      });
+    };
+
+    // XMLHttpRequest interception
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url) {
+      this._url = url;
+      this._method = method;
+      return originalOpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send = function() {
+      this.addEventListener('load', function() {
+        if (this.status >= 200 && this.status < 300) {
+          try {
+            const data = JSON.parse(this.responseText);
+            analyzeNetworkResponse(this._url, data, { method: this._method });
+          } catch (e) {}
+        }
+      });
+      return originalSend.apply(this, arguments);
+    };
+  }
+// ============================================
+// 🎁 BONUS TRACKING
+// ============================================
+function analyzeBonusResponse(url, data) {
+  if (!url || !data) return;
+  
+  const urlStr = url.toString().toLowerCase();
+  
+  // Bonus API: truvabonus-api.gorselpanel.com/api/NewFrames/Index
+  if (urlStr.includes('truvabonus-api.gorselpanel.com') || 
+      urlStr.includes('/newframes/index')) {
+    
+    // En son bonus talebi (process)
+    if (data.process && data.process.name) {
+      const bonus = data.process;
+      
+      sendEvent('bonus_requested', {
+        bonus_id: bonus.id || 0,
+        bonus_name: bonus.name,
+        request_date: bonus.date,
+        status: bonus.status ? 'approved' : 'pending',
+        message: bonus.message || 'Beklemede'
+      });
+      
+      console.log(`🎁 Bonus talebi: ${bonus.name} (${bonus.status ? 'Onaylandı' : 'Beklemede'})`);
+    }
+    
+    // Bonus talep geçmişi analizi
+    if (data.requests && Array.isArray(data.requests)) {
+      const approvedBonuses = data.requests.filter(r => r.status === true);
+      const rejectedBonuses = data.requests.filter(r => r.status === false);
+      
+      console.log(`📊 Bonus geçmişi: ${approvedBonuses.length} onaylı, ${rejectedBonuses.length} reddedildi`);
+    }
+  }
+}
+  function analyzeNetworkResponse(url, data, options = {}) {
+    if (!url || !data) return;
+
+    const urlStr = url.toString();
+    
+    // ✅ PAYMENT METHOD DETECTION
+    const paymentInfo = detectPaymentMethodFromAPI(urlStr);
+    if (paymentInfo) {
+      console.log(`💳 API'den ödeme yöntemi tespit edildi:`, paymentInfo);
+    }
+
+    // 1. ODIN Balance API (get_accounts)
+    if (urlStr.includes('/odin/api/user/accounts/get_accounts') || 
+        urlStr.includes('/get_accounts')) {
+      handleOdinBalanceUpdate(data);
+    }
+
+    // 2. ODIN Deposit API
+    if (urlStr.includes('/odin/api/user/payment/') && urlStr.includes('/deposit')) {
+      const amount = data.amount || data.value || null;
+      
+      if (amount && paymentInfo) {
+        const txId = `deposit_${Date.now()}`;
+        pendingTransactions.set(txId, {
+          type: 'deposit',
+          amount: amount,
+          method: paymentInfo.displayName,
+          category: paymentInfo.category,
+          paymentType: paymentInfo.type,
+          currency: 'TRY',
+          status: 'pending',
+          timestamp: Date.now()
+        });
+        
+        sendEvent('deposit_initiated', {
+          transaction_id: txId,
+          amount: amount,
+          payment_method: paymentInfo.displayName,
+          payment_category: paymentInfo.category,
+          payment_type: paymentInfo.type,
+          currency: 'TRY'
+        });
+      }
+    }
+
+    // 3. ODIN Pending Transactions
+    if (urlStr.includes('/transaction/getCustomerNewOrPendingTransactions')) {
+      handleOdinPendingTransactions(data);
+    }
+
+    // 4. ODIN Withdrawal Request
+    if (urlStr.includes('/payment/') && urlStr.includes('/withdraw')) {
+    console.log('💸 Para çekme talebi gönderildi');
+    
+    const withdrawalPaymentInfo = detectPaymentMethodFromAPI(urlStr);
+    
+    sendEvent('withdrawal_initiated', {
+      payment_method: withdrawalPaymentInfo?.displayName || 'unknown',
+      payment_category: withdrawalPaymentInfo?.category || 'unknown',
+      payment_type: withdrawalPaymentInfo?.type || 'unknown'
+    });
+  }
+  analyzeBonusResponse(url, data);
+  }
+
+  window.addEventListener('online', () => {
+    isOnline = true;
+    console.log('TrackLib: Back online, processing queue');
+    processQueue();
+  });
+
+  window.addEventListener('offline', () => {
+    isOnline = false;
+    console.log('TrackLib: Offline mode');
+  });
+
+  // ============================================
+  // 🆕 INPUT FIELD MONITORING
+  // ============================================
+  function monitorFormInputs() {
+    attachInputListeners();
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === 1) {
+            attachInputListeners(node);
+          }
+        });
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  function attachInputListeners(root = document) {
+    const amountInputSelectors = [
+      'input[name*="amount"]',
+      'input[name*="miktar"]',
+      'input[placeholder*="miktar"]',
+      'input[placeholder*="amount"]',
+      'input[id*="amount"]',
+      'input[id="mntNpt"]',
+      'input[type="number"]',
+      '.amount-input'
+    ];
+
+    amountInputSelectors.forEach(selector => {
+      const inputs = root.querySelectorAll(selector);
+      inputs.forEach(input => {
+        if (input.dataset.trackerAttached) return;
+        
+        input.dataset.trackerAttached = 'true';
+
+        input.addEventListener('blur', (e) => {
+          const amount = extractAmountFromInputValue(e.target.value);
+          if (amount) {
+            currentFormData.amount = amount;
+            console.log(`💰 Miktar girildi: ${amount} ₺`);
+          }
+        });
+      });
+    });
+  }
+
+  function extractAmountFromInputValue(value) {
+    if (!value) return null;
+    
+    const cleaned = value.replace(/[^\d.,]/g, '');
+    
+    if (cleaned.includes(',')) {
+      return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+    } else {
+      return parseFloat(cleaned.replace(/,/g, ''));
+    }
+  }
+
+  // ============================================
+  // AMOUNT EXTRACTION HELPER (DOM Config)
+  // ============================================
+  function extractAmount(selector) {
+    if (!selector) return null;
+
+    try {
+      const selectors = selector.split(',').map(s => s.trim());
+      
+      for (const sel of selectors) {
+        const element = document.querySelector(sel);
+        
+        if (!element) continue;
+
+        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+          const value = element.value;
+          if (value) {
+            const amount = parseAmount(value);
+            if (amount !== null) return amount;
+          }
+        }
+        
+        const text = element.textContent || element.innerText;
+        if (text) {
+          const amount = parseAmount(text);
+          if (amount !== null) return amount;
+        }
+      }
+    } catch (error) {
+      console.warn('TrackLib: Amount extraction failed:', error);
+    }
+
+    return null;
+  }
+
+  function parseAmount(value) {
+    if (!value) return null;
+
+    const cleaned = value.toString()
+      .replace(/[^\d.,\-]/g, '')
+      .replace(',', '.');
+
+    const parsed = parseFloat(cleaned);
+    
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  // ============================================
+  // DOM CONFIG RULES SETUP
+  // ============================================
+  function setupDomTracking() {
+    if (!config.domConfig || !config.domConfig.rules || !Array.isArray(config.domConfig.rules)) {
+      console.log('TrackLib: No DOM rules configured');
+      return;
+    }
+
+    config.domConfig.rules.forEach((rule, index) => {
+      if (!rule.selector || !rule.eventName || !rule.trigger) {
+        console.warn(`TrackLib: Invalid rule at index ${index}:`, rule);
+        return;
+      }
+
+      try {
+        const elements = document.querySelectorAll(rule.selector);
+        
+        if (elements.length === 0) {
+          console.warn(`TrackLib: No elements found for selector: ${rule.selector}`);
+          return;
+        }
+
+        elements.forEach(element => {
+          element.addEventListener(rule.trigger, function(event) {
+            console.log(`TrackLib: Event triggered - ${rule.eventName}`, {
+              selector: rule.selector,
+              trigger: rule.trigger
+            });
+
+            let parameters = { ...(rule.parameters || {}) };
+
+            if (rule.extractAmount && rule.amountSelector) {
+              const amount = extractAmount(rule.amountSelector);
+              
+              if (amount !== null) {
+                parameters.amount = amount;
+                console.log(`TrackLib: Amount extracted - ${amount} from ${rule.amountSelector}`);
+              } else {
+                console.warn(`TrackLib: Could not extract amount from ${rule.amountSelector}`);
+              }
+            }
+
+            Object.keys(parameters).forEach(key => {
+              const value = parameters[key];
+              if (typeof value === 'string' && value.startsWith('data-')) {
+                const attrValue = element.getAttribute(value);
+                if (attrValue) {
+                  parameters[key] = attrValue;
+                }
+              }
+            });
+
+            sendEvent(rule.eventName, parameters);
+          });
+        });
+
+        console.log(`✓ TrackLib: Tracking setup for ${rule.eventName} (${elements.length} elements)`);
+      } catch (error) {
+        console.error(`TrackLib: Error setting up rule ${index}:`, error);
+      }
+    });
+  }
+// ============================================
+// 🎯 TRUVABET PAYMENT METHOD DETECTION
+// ============================================
+const PAYMENT_METHOD_MAP = {
+  'banka_havalesi': 'bank_transfer',
+  'bank_transfer': 'bank_transfer',
+  'havale': 'bank_transfer',
+  'eft': 'bank_transfer',
+  
+  'bitcoin': 'bitcoin',
+  'btc': 'bitcoin',
+  
+  'kredi_kartı': 'credit_card',
+  'credit_card': 'credit_card',
+  'visa': 'credit_card',
+  'mastercard': 'credit_card',
+  
+  'mefete': 'mefete',
+  'papara': 'papara',
+  'parazula': 'parazula',
+  'payco': 'payco',
+  'payfix': 'payfix',
+  'paypay': 'paypay',
+  
+  'qr_kod': 'qr_code',
+  'qr': 'qr_code',
+  
+  'tether': 'usdt',
+  'usdt': 'usdt',
+  'trc20': 'trc20',
+  'erc20': 'erc20',
+  
+  'ethereum': 'ethereum',
+  'eth': 'ethereum',
+  
+  'crypto': 'crypto',
+  'kripto': 'crypto'
+};
+
+function detectPaymentMethod() {
+  // 1. Modal içindeki aktif ödeme yöntemini kontrol et
+  const activePaymentTab = document.querySelector('.payment-tab.active, .pymnt-mdl .active');
+  if (activePaymentTab) {
+    const text = activePaymentTab.textContent.toLowerCase().trim();
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAP)) {
+      if (text.includes(key)) return value;
+    }
+  }
+  
+  // 2. URL'den çıkar
+  const url = window.location.href.toLowerCase();
+  for (const [key, value] of Object.entries(PAYMENT_METHOD_MAP)) {
+    if (url.includes(key)) return value;
+  }
+  
+  // 3. Son tıklanan payment button'dan
+  const lastClickedPayment = document.querySelector('[data-payment-method]');
+  if (lastClickedPayment) {
+    return lastClickedPayment.dataset.paymentMethod;
+  }
+  
+  return 'unknown';
+}
+
+// Deposit initiated event'inde kullan:
+sendEvent('deposit_initiated', {
+  transaction_id: txId,
+  amount: amount,
+  currency: 'TRY',
+  method: detectPaymentMethod() // ✅ Artık "unknown" değil, gerçek method
+});
+  // ============================================
+  // 🆕 ADVANCED DOM LISTENERS
+  // ============================================
+  function setupAdvancedDOMListeners() {
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('button, a, [role="button"]');
+      if (!target) return;
+
+      const text = target.textContent.trim();
+      const classList = Array.from(target.classList).join(' ');
+      
+      // Hızlı tutar butonları (100 ₺, 250 ₺, vb.)
+      if (isQuickAmountButton(target, text)) {
+        const amount = extractAmountFromButton(text);
+        if (amount) {
+          currentFormData.amount = amount;
+          console.log(`💰 Hızlı tutar seçildi: ${amount} ₺`);
+        }
+      }
+      
+      // "Yatırımı Yaptım" butonu
+      else if (isDepositConfirmButton(target, text, classList)) {
+        console.log('💳 "Yatırımı Yaptım" butonuna tıklandı');
+        
+        const amount = currentFormData.amount || getAmountFromInput();
+        
+        if (amount) {
+          const txId = `tx_${Date.now()}`;
+          
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: amount,
+            timestamp: Date.now(),
+            currency: 'TRY',
+            method: 'unknown'
+          });
+
+          sendEvent('deposit_initiated', {
+            transaction_id: txId,
+            amount: amount,
+            currency: 'TRY',
+            method: 'manual'
+          });
+
+          console.log(`📝 Bekleyen para yatırma işlemi: ${txId} - ${amount} ₺`);
+        }
+      }
+      
+      // "İşlemi Başlat" butonu
+      else if (isStartTransactionButton(target, text, classList)) {
+        console.log('🚀 "İşlemi Başlat" butonuna tıklandı');
+        
+        const amount = currentFormData.amount || getAmountFromInput();
+        
+        if (amount) {
+          sendEvent('deposit_gateway_initiated', {
+            amount: amount,
+            method: 'payment_gateway'
+          });
+        }
+      }
+      
+      // Bakiye yenileme butonu
+      else if (isBalanceRefreshButton(target, text, classList)) {
+        console.log('🔄 Bakiye güncelleme butonuna tıklandı');
+        
+        sendEvent('balance_refresh_clicked', {
+          timestamp: Date.now()
+        });
+      }
+    });
+  }
+
+  // ============================================
+// 🎁 BONUS BUTTON CLICK TRACKING
+// ============================================
+function setupBonusButtonTracking() {
+  document.addEventListener('click', (e) => {
+    const target = e.target.closest('button, a, [role="button"]');
+    if (!target) return;
+    
+    const text = target.textContent.trim().toLowerCase();
+    
+    // "Talep Et" butonu
+    if (text.includes('talep et') || text.includes('bonus al')) {
+      // Bonus kartını bul
+      const bonusCard = target.closest('.bonus-card, [class*="bonus"]');
+      if (bonusCard) {
+        const bonusName = bonusCard.querySelector('h3, h4, .bonus-title, .name')?.textContent?.trim();
+        const bonusDesc = bonusCard.querySelector('.description, .desc, p')?.textContent?.trim();
+        
+        if (bonusName) {
+          sendEvent('bonus_claim_clicked', {
+            bonus_name: bonusName,
+            bonus_description: bonusDesc || 'N/A'
+          });
+          
+          console.log(`🎁 Bonus talep butonu tıklandı: ${bonusName}`);
+        }
+      }
+    }
+  });
+}
+
+  // Button detection helpers
+  function isQuickAmountButton(button, text) {
+    return /\d+\s*₺/.test(text) && button.type === 'button';
+  }
+
+  function isDepositConfirmButton(button, text, classList) {
+    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+    
+    return (
+      button.type === 'submit' ||
+      normalizedText.includes('yatırımıyaptım') ||
+      normalizedText.includes('yatırımyap') ||
+      classList.includes('pymnt-frm-btn')
+    );
+  }
+
+  function isStartTransactionButton(button, text, classList) {
+    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+    
+    return (
+      normalizedText.includes('işlemibaşlat') ||
+      normalizedText.includes('başlat') ||
+      classList.includes('start-transaction')
+    );
+  }
+
+  function isBalanceRefreshButton(button, text, classList) {
+    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+    
+    return (
+      normalizedText.includes('bakiye') ||
+      normalizedText.includes('güncelle') ||
+      normalizedText.includes('refresh') ||
+      normalizedText.includes('yenile') ||
+      classList.includes('refresh-balance')
+    );
+  }
+
+  // Amount extraction helpers
+  function extractAmountFromButton(text) {
+    const match = text.match(/[\d.,]+/);
+    if (match) {
+      const cleaned = match[0].replace(/\./g, '').replace(',', '.');
+      return parseFloat(cleaned);
+    }
+    return null;
+  }
+
+  function getAmountFromInput() {
+    const input = document.querySelector('#mntNpt') || 
+                 document.querySelector('input[placeholder*="Yatırım"]') ||
+                 document.querySelector('input[placeholder*="Tutar"]') ||
+                 document.querySelector('input[name*="amount"]');
+    
+    if (input && input.value) {
+      return extractAmountFromInputValue(input.value);
+    }
+    
+    return null;
+  }
+
+  // ============================================
+  // 🆕 ODIN BALANCE API HANDLER
+  // ============================================
+  function handleOdinBalanceUpdate(data) {
+    if (!data.success || !Array.isArray(data.data)) return;
+
+    console.log('🔄 ODIN get_accounts API yanıtı alındı');
+
+    data.data.forEach(account => {
+      const accountCode = account.accountType?.code;
+      if (!accountCode) return;
+
+      const balance = account.balance || 0;
+      const lockedBalance = account.lockedBalance || 0;
+      const availableBalance = balance - lockedBalance;
+      
+      // Ana bakiye takibi (Sport Real Balance)
+      if (accountCode === 'SRB') {
+        const lastBalance = lastKnownBalances.get('SRB') || 0;
+        const lastLocked = lastKnownBalances.get('SRB_locked') || 0;
+
+        // Balance değişimi
+        if (balance !== lastBalance) {
+          const balanceChange = balance - lastBalance;
+          lastKnownBalances.set('SRB', balance);
+          
+          console.log(`💰 Sport Real Balance değişti: ${lastBalance} → ${balance} (${balanceChange > 0 ? '+' : ''}${balanceChange})`);
+          
+          // Locked balance yoksa ve balance azaldıysa -> withdrawal successful
+          if (balanceChange < 0 && lockedBalance === 0) {
+            matchPendingTransaction(Math.abs(balanceChange), 'withdrawal');
+          }
+          
+          // Locked balance yoksa ve balance arttıysa -> deposit successful
+          if (balanceChange > 0 && lockedBalance === 0) {
+            matchPendingTransaction(Math.abs(balanceChange), 'deposit');
+          }
+
+          sendEvent('balance_updated', {
+            account_type: 'Sport Real Balance',
+            previous_balance: lastBalance,
+            new_balance: balance,
+            change: balanceChange,
+            locked_balance: lockedBalance,
+            available_balance: availableBalance
+          });
+        }
+
+        // Locked balance değişimi
+        if (lockedBalance !== lastLocked) {
+          const lockedChange = lockedBalance - lastLocked;
+          lastKnownBalances.set('SRB_locked', lockedBalance);
+          
+          console.log(`🔒 Kilitli bakiye değişti: ${lastLocked} → ${lockedBalance} (${lockedChange > 0 ? '+' : ''}${lockedChange})`);
+        }
+      }
+    });
+  }
+
+  // ============================================
+  // 🆕 ODIN PENDING TRANSACTIONS HANDLER
+  // ============================================
+  function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString();
+  }
+
+  function handleOdinPendingTransactions(data) {
+    if (!data.success || !Array.isArray(data.data)) return;
+
+    data.data.forEach(tx => {
+      const txType = tx.transactionType?.code;
+      
+      // Para yatırma işlemi
+      if (txType === 'D' || txType === 'Deposit') {
+        const txId = `odin_${tx.id}`;
+        
+        if (!pendingTransactions.has(txId)) {
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: tx.amount,
+            currency: tx.transactionCurrency?.currencyCode || 'TRY',
+            method: tx.transactionTypeName || 'unknown',
+            status: 'pending',
+            timestamp: tx.transactionDate
+          });
+
+          console.log(`💳 Yeni para yatırma talebi: ${tx.amount} ${tx.transactionCurrency?.currencySymbol}`);
+        }
+      }
+    });
+  }
+
+  // ============================================
+  // 🆕 DEPOSIT SUCCESS MODAL MONITOR (ODIN)
+  // ============================================
+  function monitorDepositSuccessModal() {
+    const observer = new MutationObserver(() => {
+      const modal = document.querySelector('#PaymentFormModal.modal.open');
+      
+      if (modal && 
+          modal.style.display === 'block' && 
+          modal.style.opacity === '1') {
+        
+        // Sadece bir kez işle
+        const modalContent = modal.innerHTML;
+        const modalHash = simpleHash(modalContent);
+        
+        if (depositModalProcessed.has(modalHash)) return;
+        depositModalProcessed.add(modalHash);
+        
+        // Miktar çıkar
+        // ✅ YENİ KOD
+        // Miktar çıkar
+        const amountEl = modal.querySelector('.rslt-mdl h5 > span');
+        const amountText = amountEl?.textContent || '';
+        const amount = parseFloat(amountText.replace(/[^\d.,]/g, '').replace(',', '.'));
+        
+        // ✅ ÖDEME YÖNTEMİ TESPİTİ (YENİ EKLENEN)
+        const modalHTML = modal.innerHTML;
+        const paymentInfo = detectPaymentMethodFromPopup(modalHTML);
+        
+        if (amount && amount > 0) {
+          if (paymentInfo) {
+            console.log(`💳 Ödeme yöntemi: ${paymentInfo.displayName} (${paymentInfo.category})`);
+          }
+          
+          // ✅ Transaction'a payment bilgilerini ekle
+          const txId = `deposit_${Date.now()}`;
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: amount,
+            method: paymentInfo?.displayName || 'unknown',
+            category: paymentInfo?.category || 'unknown',
+            paymentType: paymentInfo?.type || 'unknown',
+            status: 'pending',
+            timestamp: Date.now()
+          });
+          
+          // ✅ Event'e payment bilgilerini ekle
+          sendEvent('deposit_initiated', {
+            transaction_id: txId,
+            amount: amount,
+            payment_method: paymentInfo?.displayName || 'unknown',
+            payment_category: paymentInfo?.category || 'unknown',
+            payment_type: paymentInfo?.type || 'unknown',
+            currency: 'TRY'
+          });
+          
+          console.log(`✅ Deposit success modal detected: ${amount} ₺`);
+          
+          setTimeout(() => {
+            depositModalProcessed.delete(modalHash);
+          }, 10000);
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    });
+  }
+
+  // ============================================
+  // BALANCE & TRANSACTION HANDLERS
+  // ============================================
+  function handleBalanceUpdate(data) {
+    const balance = data.balance || data.amount || data.value;
+    
+    if (balance !== null && balance !== undefined) {
+      const lastBalance = lastKnownBalances.get('generic') || 0;
+      lastKnownBalances.set('generic', balance);
+      
+      const change = balance - lastBalance;
+      
+      if (change !== 0 && lastBalance > 0) {
+        console.log(`💰 Balance updated: ${lastBalance} → ${balance} (${change > 0 ? '+' : ''}${change})`);
+
+        matchPendingTransaction(Math.abs(change), change > 0 ? 'deposit' : 'withdrawal');
+
+        sendEvent('balance_updated', {
+          previous_balance: lastBalance,
+          new_balance: balance,
+          change: change
+        });
+      }
+    }
+  }
+
+  function handleTransactionUpdate(data) {
+    if (data.status === 'approved' || data.status === 'confirmed' || data.status === 'success') {
+      const amount = data.amount || data.value || null;
+      
+      if (amount) {
+        matchPendingTransaction(amount, 'unknown');
+      }
+    }
+  }
+
+  function matchPendingTransaction(amount, type = 'unknown') {
+    let matched = false;
+
+    for (let [txId, tx] of pendingTransactions.entries()) {
+      // Tip kontrolü
+      if (type !== 'unknown' && tx.type !== type) continue;
+
+      // Miktar toleransı: 0.1 TL
+      const amountMatch = Math.abs(Math.abs(amount) - tx.amount) < 0.1;
+      
+      if (amountMatch) {
+        console.log(`✅ Transaction matched: ${txId}`, tx);
+        
+        // Başarılı event gönder
+        if (tx.type === 'deposit') {
+          sendEvent('deposit_successful', {
+            transaction_id: txId,
+            amount: tx.amount,
+            currency: tx.currency || 'TRY',
+            payment_method: tx.method,
+            payment_category: tx.category,        // ✅ EKLE
+            payment_type: tx.paymentType,        // ✅ EKLE
+            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
+          });
+        } else if (tx.type === 'withdrawal') {
+          sendEvent('withdrawal_successful', {
+            transaction_id: txId,
+            amount: tx.amount,
+            currency: tx.currency || 'TRY',
+            payment_method: tx.method,
+            payment_category: tx.category,        // ✅ EKLE
+            payment_type: tx.paymentType,        // ✅ EKLE
+            duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
+          });
+        }
+
+        pendingTransactions.delete(txId);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched && amount > 0) {
+      console.warn(`⚠️  Eşleştirilemeyen işlem: ${amount} TL (${type})`);
+    }
+  }
+
+  // ============================================
+  // 🎮 TRUVABET GAME TRACKING
+  // ============================================
+
+  // BALANCE EXTRACTION - TRUVABET SPECIFIC
+  function extractTruvabetBalance() {
+    // Öncelik 1: Header'daki ana bakiye
+    const mainBalanceSelectors = [
+      '.balance-dropdown-main span[title="Ana Bakiye"] span',
+      '.balance-dropdown-main .left > span > span',
+    ];
+    
+    for (const selector of mainBalanceSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent || element.innerText;
+        const match = text.match(/([\d.,]+)/);
+        if (match) {
+          const balance = parseFloat(match[1].replace(',', ''));
+          if (!isNaN(balance)) {
+            return balance;
+          }
+        }
+      }
+    }
+    
+    // Öncelik 2: Dropdown içindeki "Bakiye"
+    const dropdownBalance = document.querySelector('.balance-dropdropdown .blance-text.blc-color:nth-of-type(2) span span');
+    if (dropdownBalance) {
+      const text = dropdownBalance.textContent || dropdownBalance.innerText;
+      const match = text.match(/([\d.,]+)/);
+      if (match) {
+        const balance = parseFloat(match[1].replace(',', ''));
+        if (!isNaN(balance)) {
+          return balance;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // GAME URL PATTERN DETECTION
+  function extractGameInfoFromURL(url) {
+    const patterns = [
+      {
+        regex: /\/games\/detail\/casino\/normal\/(\d+)/,
+        type: 'casino'
+      },
+      {
+        regex: /\/games\/livecasino\/detail\/normal\/(\d+)/,
+        type: 'live_casino'
+      },
+      {
+        regex: /\/games\/casino\/detail\/normal\/(\d+)/,
+        type: 'casino'
+      },
+      {
+        regex: /\/games\/poker/,
+        type: 'poker'
+      },
+      {
+        regex: /\/games\/bingo\/(\d+)/,
+        type: 'bingo'
+      }
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern.regex);
+      if (match) {
+        return {
+          gameId: match[1] || 'unknown',
+          gameType: pattern.type,
+          gameName: extractGameNameFromTitle()
+        };
+      }
+    }
+    
+    return null;
+  }
+
+  function extractGameNameFromTitle() {
+    const title = document.title;
+    const match = title.match(/^([^|]+)/);
+    return match ? match[1].trim() : 'Unknown Game';
+  }
+
+  // GAME SESSION HANDLERS
+  function handleTruvabetGameStart(gameInfo) {
+    if (activeGameSession) {
+      handleTruvabetGameEnd();
+    }
+    
+    const balanceBefore = extractTruvabetBalance();
+    
+    activeGameSession = {
+      gameId: gameInfo.gameId,
+      gameName: gameInfo.gameName,
+      gameType: gameInfo.gameType,
+      gameUrl: window.location.href,
+      startTime: Date.now(),
+      balanceBefore: balanceBefore
+    };
+    
+    sendEvent('game_started', {
+      game_id: gameInfo.gameId,
+      game_name: gameInfo.gameName,
+      game_type: gameInfo.gameType,
+      game_url: window.location.href,
+      balance_before: balanceBefore,
+      currency: 'TRY'
+    });
+    
+    startTruvabetBalanceMonitoring();
+    
+    console.log(`🎮 Game started: ${gameInfo.gameName} (Balance: ${balanceBefore} TRY)`);
+  }
+
+  function handleTruvabetGameEnd() {
+    if (!activeGameSession) return;
+    
+    stopTruvabetBalanceMonitoring();
+    
+    const balanceAfter = extractTruvabetBalance();
+    const duration = Math.floor((Date.now() - activeGameSession.startTime) / 1000);
+    
+    let balanceChange = null;
+    let result = 'unknown';
+    
+    if (activeGameSession.balanceBefore !== null && balanceAfter !== null) {
+      balanceChange = balanceAfter - activeGameSession.balanceBefore;
+      result = balanceChange > 0 ? 'win' : (balanceChange < 0 ? 'loss' : 'neutral');
+    }
+    
+    sendEvent('game_ended', {
+      game_id: activeGameSession.gameId,
+      game_name: activeGameSession.gameName,
+      game_type: activeGameSession.gameType,
+      game_url: activeGameSession.gameUrl,
+      balance_before: activeGameSession.balanceBefore,
+      balance_after: balanceAfter,
+      balance_change: balanceChange,
+      duration_seconds: duration,
+      result: result,
+      currency: 'TRY'
+    });
+    
+    console.log(`🏁 Game ended: ${activeGameSession.gameName} | Duration: ${duration}s | Balance: ${activeGameSession.balanceBefore} → ${balanceAfter} (${balanceChange > 0 ? '+' : ''}${balanceChange})`);
+    
+    activeGameSession = null;
+  }
+
+  // BALANCE MONITORING (During Game)
+  function startTruvabetBalanceMonitoring() {
+    stopTruvabetBalanceMonitoring();
+    
+    lastKnownBalance = extractTruvabetBalance();
+    
+    balanceCheckInterval = setInterval(() => {
+      const currentBalance = extractTruvabetBalance();
+      
+      if (currentBalance !== null && lastKnownBalance !== null && currentBalance !== lastKnownBalance) {
+        const change = currentBalance - lastKnownBalance;
+        
+        // Sadece önemli değişimleri logla (10 TL üzeri)
+        if (Math.abs(change) > 10) {
+          sendEvent('in_game_balance_change', {
+            game_id: activeGameSession?.gameId,
+            game_name: activeGameSession?.gameName,
+            balance_before: lastKnownBalance,
+            balance_after: currentBalance,
+            balance_change: change,
+            currency: 'TRY'
+          });
+        }
+        
+        lastKnownBalance = currentBalance;
+      }
+    }, 10000); // Her 10 saniyede bir kontrol
+  }
+
+  function stopTruvabetBalanceMonitoring() {
+    if (balanceCheckInterval) {
+      clearInterval(balanceCheckInterval);
+      balanceCheckInterval = null;
+    }
+  }
+
+  // URL CHANGE DETECTION (SPA Navigation)
+  function setupTruvabetGameDetection() {
+    let lastUrl = location.href;
+    
+    // İlk yükleme kontrolü
+    const initialGameInfo = extractGameInfoFromURL(lastUrl);
+    if (initialGameInfo) {
+      setTimeout(() => handleTruvabetGameStart(initialGameInfo), 2000);
+    }
+    
+    // URL değişikliklerini izle
+    const urlObserver = new MutationObserver(() => {
+      const currentUrl = location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        
+        const gameInfo = extractGameInfoFromURL(currentUrl);
+        
+        if (gameInfo) {
+          setTimeout(() => handleTruvabetGameStart(gameInfo), 2000);
+        } else if (activeGameSession && !currentUrl.includes('/games/')) {
+          handleTruvabetGameEnd();
+        }
+      }
+    });
+    
+    urlObserver.observe(document, { subtree: true, childList: true });
+    
+    console.log('✅ Truvabet game detection setup complete');
+  }
+
+  // BALANCE REFRESH BUTTON TRACKING
+  function setupTruvabetBalanceRefreshTracking() {
+    const refreshButton = document.querySelector('.refresh-icon');
+    if (refreshButton && !refreshButton.dataset.trackerBound) {
+      refreshButton.addEventListener('click', () => {
+        setTimeout(() => {
+          const newBalance = extractTruvabetBalance();
+          if (newBalance !== null && newBalance !== lastKnownBalance) {
+            sendEvent('balance_refreshed', {
+              balance_before: lastKnownBalance,
+              balance_after: newBalance,
+              balance_change: newBalance - (lastKnownBalance || 0),
+              currency: 'TRY',
+              triggered_by: 'user_click'
+            });
+            lastKnownBalance = newBalance;
+          }
+        }, 1000);
+      });
+      refreshButton.dataset.trackerBound = 'true';
+    }
+  }
+
+  // Periyodik olarak refresh butonunu kontrol et
+  setInterval(setupTruvabetBalanceRefreshTracking, 3000);
+
+  // IFRAME GAME DETECTION
+  function setupTruvabetIframeDetection() {
+    const iframeObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.tagName === 'IFRAME') {
+            const src = node.src || '';
+            
+            if (src.includes('game') || src.includes('play') || 
+                src.includes('pragmatic') || src.includes('evolution') ||
+                src.includes('provider') || src.includes('casino')) {
+              
+              const currentUrl = window.location.href;
+              const gameInfo = extractGameInfoFromURL(currentUrl);
+              
+              if (gameInfo && !activeGameSession) {
+                console.log(`🎮 Game iframe detected: ${gameInfo.gameName}`);
+                handleTruvabetGameStart(gameInfo);
+              }
+              
+              const removalObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                  mutation.removedNodes.forEach((removedNode) => {
+                    if (removedNode === node) {
+                      console.log(`🏁 Game iframe removed`);
+                      handleTruvabetGameEnd();
+                      removalObserver.disconnect();
+                    }
+                  });
+                });
+              });
+              
+              if (node.parentNode) {
+                removalObserver.observe(node.parentNode, { childList: true });
+              }
+            }
+          }
+        });
+      });
+    });
+    
+    iframeObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  // ============================================
+  // PUBLIC API
+  // ============================================
+  tracker.identify = function(userId) {
+    playerId = userId;
+    sendEvent('player_identified', { player_id: userId });
+  };
+
+  tracker.track = function(eventName, params = {}) {
+    if (!config.apiKey) {
+      console.error('TrackLib: Not initialized');
+      return;
+    }
+    sendEvent(eventName, params);
+  };
+
+  tracker.register = function(userId, email) {
+    playerId = userId;
+    sendEvent('registration_successful', { player_id: userId, email });
+  };
+
+  tracker.login = function(userId) {
+    playerId = userId;
+    sendEvent('login_successful', { player_id: userId });
+  };
+
+  tracker.logout = function() {
+    sendEvent('logout', { player_id: playerId });
+    playerId = null;
+  };
+
+  tracker.deposit = function(amount, currency, method) {
+    sendEvent('deposit_successful', {
+      amount: parseFloat(amount),
+      currency: currency || 'TRY',
+      method: method || 'unknown'
+    });
+  };
+
+  tracker.withdrawal = function(amount, currency, method) {
+    sendEvent('withdrawal_successful', {
+      amount: parseFloat(amount),
+      currency: currency || 'TRY',
+      method: method || 'unknown'
+    });
+  };
+
+  tracker.gameStart = function(gameName) {
+    sendEvent('game_started', { game_name: gameName });
+  };
+
+  tracker.gameEnd = function(gameName, duration) {
+    sendEvent('game_ended', {
+      game_name: gameName,
+      duration_seconds: duration
+    });
+  };
+
+  // Debug functions
+  tracker.extractAmount = extractAmount;
+  tracker.getTruvabetBalance = extractTruvabetBalance;
+  tracker.getTruvabetGameSession = () => activeGameSession;
+  tracker.endTruvabetGame = handleTruvabetGameEnd;
+  
+  tracker.getStatus = function() {
+    return {
+      version: '3.0-ODIN-TRUVABET',
+      currentFormData: currentFormData,
+      pendingTransactions: Array.from(pendingTransactions.entries()),
+      lastBalances: Array.from(lastKnownBalances.entries()),
+      sessionId: sessionId,
+      playerId: playerId,
+      activeGameSession: activeGameSession,
+      lastKnownBalance: lastKnownBalance
+    };
+  };
+
+  tracker.clearPendingTransactions = function() {
+    pendingTransactions.clear();
+    console.log('🗑️ Tüm pending transaction\'lar temizlendi');
+  };
+
+  // ============================================
+  // AUTO TRACKING
+  // ============================================
+  window.addEventListener('load', () => {
+    sendEvent('page_view', {
+      page_path: window.location.pathname,
+      page_url: window.location.href
+    });
+    
+    // Initialize all tracking features
+    interceptNetworkRequests();
+    setupDomTracking();
+    setupAdvancedDOMListeners();
+    monitorFormInputs();
+    monitorDepositSuccessModal();
+    setupBonusButtonTracking(); 
+    
+    // 🎮 Initialize Truvabet game tracking
+    setupTruvabetGameDetection();
+    setupTruvabetIframeDetection();
+    setupTruvabetBalanceRefreshTracking();
+    
+    processQueue();
+  });
+
+  let sessionStartTime = Date.now();
+  window.addEventListener('beforeunload', () => {
+    const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
+    
+    // Aktif oyun varsa kapat
+    if (activeGameSession) {
+      handleTruvabetGameEnd();
+    }
+    
+    sendEvent('session_end', { duration_seconds: sessionDuration });
+  });
+
+  // Expose to window
+  window.TrackLib = tracker;
+  window.tracker = tracker;
+  
+  // Debug commands
+  window.getTrackerStatus = () => tracker.getStatus();
+  window.clearPendingTx = () => tracker.clearPendingTransactions();
+  window.getCurrentFormData = () => currentFormData;
+  
+  console.log('✓ TrackLib v3.0 ODIN-TRUVABET Edition initialized successfully');
+  console.log('✓ Available as: window.TrackLib and window.tracker');
+  console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking, Game Tracking');
+  console.log('✓ Game Tracking: Truvabet-specific (NO provider API interception)');
+  console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx()');
+})();
+    
+    <script>
+        // Initialize tracker immediately (not in IIFE to avoid scope issues)
+        console.log('🚀 Tracker script yükleniyor...');
+        
+        window.tracker = {
+            currentUserId: null,
+            events: [],
+            userProfiles: {},
+                
+                identify: function(userId) {
+                    console.log('📝 Tracker.identify çağrıldı:', userId);
+                    this.currentUserId = userId;
+                    
+                    if (!this.userProfiles[userId]) {
+                        this.userProfiles[userId] = {
+                            userId: userId,
+                            events: [],
+                            createdAt: new Date().toISOString(),
+                            totalDeposit: 0,
+                            totalWithdrawal: 0,
+                            totalGames: 0
+                        };
+                    }
+                    
+                    console.log('✅ Kullanıcı tanımlandı:', userId);
+                    return this.userProfiles[userId];
+                },
+                
+                track: function(eventName, properties) {
+                    console.log('📊 Tracker.track çağrıldı:', eventName, properties);
+                    
+                    const event = {
+                        eventName: eventName,
+                        properties: properties || {},
+                        userId: this.currentUserId,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Global events listesine ekle
+                    this.events.push(event);
+                    
+                    // Kullanıcı profiline ekle ve analiz et
+                    if (this.currentUserId && this.userProfiles[this.currentUserId]) {
+                        const profile = this.userProfiles[this.currentUserId];
+                        profile.events.push(event);
+                        
+                        // Event bazlı profil güncellemeleri
+                        switch(eventName) {
+                            case 'deposit_successful':
+                                profile.totalDeposit = (profile.totalDeposit || 0) + (properties.amount || 0);
+                                profile.lastDepositAmount = properties.amount;
+                                profile.lastDepositMethod = properties.payment_method;
+                                profile.lastDepositDate = event.timestamp;
+                                break;
+                            case 'withdrawal_successful':
+                                profile.totalWithdrawal = (profile.totalWithdrawal || 0) + (properties.amount || 0);
+                                profile.lastWithdrawalAmount = properties.amount;
+                                profile.lastWithdrawalMethod = properties.payment_method;
+                                profile.lastWithdrawalDate = event.timestamp;
+                                break;
+                            case 'game_started':
+                                profile.totalGames = (profile.totalGames || 0) + 1;
+                                break;
+                            case 'bonus_requested':
+                                profile.totalBonuses = (profile.totalBonuses || 0) + 1;
+                                profile.lastBonusType = properties.bonus_type;
+                                profile.lastBonusAmount = properties.bonus_amount;
+                                break;
+                        }
+                        
+                        console.log('👤 Kullanıcı profili güncellendi:', profile);
+                    }
+                    
+                    console.log('✅ Event kaydedildi:', event);
+                    console.log('📦 Toplam event sayısı:', this.events.length);
+                },
+                
+                getProfile: function(userId) {
+                    return this.userProfiles[userId || this.currentUserId];
+                },
+                
+                getAllEvents: function() {
+                    return this.events;
+                },
+                
+                getUserEvents: function(userId) {
+                    const profile = this.getProfile(userId);
+                    return profile ? profile.events : [];
+                },
+                
+                reset: function() {
+                    this.currentUserId = null;
+                    this.events = [];
+                    this.userProfiles = {};
+                    console.log('🔄 Tracker sıfırlandı');
+                }
+            };
+            
+            console.log('✅ Tracker başarıyla yüklendi!');
+            console.log('📋 window.tracker objesi hazır');
+            console.log('💡 Kullanım: window.tracker.identify("user123")');
+            console.log('💡 Kullanım: window.tracker.track("event_name", {data: "value"})');
+    </script>
+    
     <style>
         * {
             margin: 0;
@@ -97,6 +1757,15 @@
             color: white;
         }
 
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn.hidden {
+            display: none;
+        }
+
         /* Main Content */
         main {
             margin-top: 30px;
@@ -136,7 +1805,7 @@
             font-weight: 500;
         }
 
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 12px;
             border-radius: 10px;
@@ -148,6 +1817,95 @@
 
         .form-group input::placeholder {
             color: rgba(255, 255, 255, 0.6);
+        }
+
+        .form-group select option {
+            background: #764ba2;
+            color: white;
+        }
+
+        /* Payment Methods Section */
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .payment-method {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .payment-method:hover {
+            border-color: #ffd700;
+            transform: scale(1.05);
+        }
+
+        .payment-method.selected {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .payment-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .payment-name {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Bonus Section */
+        .bonus-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .bonus-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            transition: all 0.3s;
+        }
+
+        .bonus-card:hover {
+            border-color: #ffd700;
+            transform: translateY(-5px);
+        }
+
+        .bonus-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+
+        .bonus-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+
+        .bonus-description {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .bonus-amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00;
+            margin-bottom: 15px;
         }
 
         /* Games Grid */
@@ -211,9 +1969,11 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 40px;
             border-radius: 20px;
-            max-width: 500px;
+            max-width: 600px;
             width: 90%;
             position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
         .modal-close {
@@ -260,23 +2020,11 @@
             color: rgba(255, 255, 255, 0.7);
         }
 
-        /* Bonus Banner */
-        .bonus-banner {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: #333;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            margin-bottom: 30px;
-            font-weight: bold;
-            font-size: 18px;
-        }
-
-        /* Action Buttons */
+        /* Action Buttons Grid */
         .action-buttons {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            flex-wrap: wrap;
             margin-top: 20px;
         }
 
@@ -287,52 +2035,46 @@
             right: 20px;
             background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
-            display: none;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-weight: bold;
+            transform: translateX(400px);
+            transition: transform 0.3s;
             z-index: 2000;
-            border: 2px solid #ffd700;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
         }
 
         .notification.show {
-            display: block;
-            animation: slideIn 0.3s ease-out;
+            transform: translateX(0);
         }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        /* Test Controls Panel */
+        .test-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #ffd700;
+            max-width: 300px;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .games-grid {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .btn {
-                width: 100%;
-            }
+        .test-controls h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 18px;
         }
 
-        /* Hidden class */
-        .hidden {
-            display: none !important;
+        .test-controls button {
+            width: 100%;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
+    <div id="notification" class="notification"></div>
+
     <header>
         <div class="container">
             <div class="header-content">
@@ -340,164 +2082,261 @@
                 <div class="user-info">
                     <div class="balance" id="balance">Bakiye: ₺0</div>
                     <button class="btn btn-primary" id="loginBtn">Giriş Yap</button>
-                    <button class="btn btn-success hidden" id="logoutBtn">Çıkış Yap</button>
+                    <button class="btn btn-danger hidden" id="logoutBtn">Çıkış</button>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="container">
         <!-- Auth Section -->
-        <section class="section auth-section active" id="authSection">
-            <h2 class="section-title">Hoş Geldiniz!</h2>
-            <p style="margin-bottom: 20px;">Test hesabı ile giriş yapın veya kayıt olun.</p>
-            
-            <div class="form-group">
-                <label>Oyuncu ID</label>
-                <input type="text" id="playerIdInput" placeholder="Örn: PLAYER-12345" value="TEST-USER-001">
+        <div id="authSection" class="auth-section active">
+            <div class="section">
+                <h2 class="section-title">🔐 Giriş Yap / Kayıt Ol</h2>
+                <div class="form-group">
+                    <label>Kullanıcı Adı / Email</label>
+                    <input type="text" id="username" placeholder="Kullanıcı adınızı girin">
+                </div>
+                <div class="form-group">
+                    <label>Şifre</label>
+                    <input type="password" id="password" placeholder="Şifrenizi girin">
+                </div>
+                <button class="btn btn-success" onclick="handleLogin()">🎯 Hemen Başla</button>
             </div>
+        </div>
 
-            <div class="form-group">
-                <label>Email (Opsiyonel)</label>
-                <input type="email" id="emailInput" placeholder="email@example.com">
-            </div>
-
-            <div class="action-buttons">
-                <button class="btn btn-success" onclick="handleLogin()">Giriş Yap / Kayıt Ol</button>
-            </div>
-        </section>
-
-        <!-- Dashboard -->
-        <div class="dashboard" id="dashboard">
-            <!-- Bonus Banner -->
-            <div class="bonus-banner">
-                🎁 Hoş Geldin Bonusu: İlk yatırımınıza %100 bonus!
-            </div>
-
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="dashboard">
             <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Toplam Yatırım</div>
-                    <div class="stat-value" id="totalDeposit">₺0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Toplam Çekim</div>
-                    <div class="stat-value" id="totalWithdrawal">₺0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Oynanan Oyun</div>
-                    <div class="stat-value" id="gamesPlayed">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Bonus Bakiyesi</div>
-                    <div class="stat-value">₺50</div>
+            <div class="section">
+                <h2 class="section-title">📊 İstatistikler</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">💰 Toplam Yatırım</div>
+                        <div class="stat-value" id="totalDeposit">₺0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">💸 Toplam Çekim</div>
+                        <div class="stat-value" id="totalWithdrawal">₺0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🎮 Oynanan Oyun</div>
+                        <div class="stat-value" id="gamesPlayed">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🎁 Alınan Bonus</div>
+                        <div class="stat-value" id="totalBonuses">0</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Action Buttons -->
-            <section class="section">
-                <h2 class="section-title">Hızlı İşlemler</h2>
-                <div class="action-buttons">
-                    <button class="btn btn-success deposit-button" onclick="handleDeposit()">
-                        💰 Para Yatır
-                    </button>
-                    <button class="btn btn-warning" onclick="handleWithdrawalRequested()">
-                        💸 Para Çekim Talebi
-                    </button>
-                    <button class="btn btn-success" onclick="handleWithdrawalSuccessful()">
-                        ✅ Para Çekim Başarılı
-                    </button>
-                    <button class="btn btn-danger" onclick="handleWithdrawalFailed()">
-                        ❌ Para Çekim Başarısız
-                    </button>
-                    <button class="btn btn-primary" onclick="handleBonusRequest()">
-                        🎁 Bonus Al
-                    </button>
-                    <button class="btn btn-danger" onclick="simulateFailedDeposit()">
-                        ❌ Başarısız Yatırım (Test)
-                    </button>
+            <!-- Bonuses -->
+            <div class="section">
+                <h2 class="section-title">🎁 Bonus Fırsatları</h2>
+                <div class="bonus-cards">
+                    <div class="bonus-card">
+                        <div class="bonus-icon">🎉</div>
+                        <div class="bonus-title">Hoş Geldin Bonusu</div>
+                        <div class="bonus-description">İlk üyeliğe özel %100 bonus</div>
+                        <div class="bonus-amount">₺500</div>
+                        <button class="btn btn-warning" onclick="requestBonus('welcome_bonus', 500, '100% İlk Yatırım Bonusu')">Talep Et</button>
+                    </div>
+                    <div class="bonus-card">
+                        <div class="bonus-icon">🔄</div>
+                        <div class="bonus-title">Kayıp Bonusu</div>
+                        <div class="bonus-description">Kayıplarının %10'u geri</div>
+                        <div class="bonus-amount">%10</div>
+                        <button class="btn btn-warning" onclick="requestBonus('cashback_bonus', 100, 'Haftalık Kayıp Bonusu')">Talep Et</button>
+                    </div>
+                    <div class="bonus-card">
+                        <div class="bonus-icon">🎰</div>
+                        <div class="bonus-title">Bedava Spin</div>
+                        <div class="bonus-description">50 adet bedava çevirme</div>
+                        <div class="bonus-amount">50 Spin</div>
+                        <button class="btn btn-warning" onclick="requestBonus('free_spins', 50, '50 Bedava Spin')">Talep Et</button>
+                    </div>
+                    <div class="bonus-card">
+                        <div class="bonus-icon">💎</div>
+                        <div class="bonus-title">VIP Bonus</div>
+                        <div class="bonus-description">Sadakat programı bonusu</div>
+                        <div class="bonus-amount">₺1000</div>
+                        <button class="btn btn-warning" onclick="requestBonus('loyalty_bonus', 1000, 'VIP Sadakat Bonusu')">Talep Et</button>
+                    </div>
                 </div>
-            </section>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="section">
+                <h2 class="section-title">⚡ Hızlı İşlemler</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="openDepositModal()">💰 Para Yatır</button>
+                    <button class="btn btn-info" onclick="openWithdrawModal()">💸 Para Çek</button>
+                    <button class="btn btn-warning" onclick="simulateDepositFailed()">❌ Başarısız Yatırım (Test)</button>
+                    <button class="btn btn-danger" onclick="handleWithdrawalFailed()">❌ Başarısız Çekim (Test)</button>
+                </div>
+            </div>
 
             <!-- Games -->
-            <section class="section">
-                <h2 class="section-title">Popüler Oyunlar</h2>
+            <div class="section">
+                <h2 class="section-title">🎮 Popüler Oyunlar</h2>
                 <div class="games-grid">
-                    <div class="game-card game-tile" data-game-id="slot-mega-fortune" onclick="playGame('Mega Fortune', 'slot-mega-fortune')">
-                        <div class="game-icon">🎰</div>
-                        <div class="game-title">Mega Fortune</div>
-                        <div class="game-provider">NetEnt</div>
+                    <div class="game-card" onclick="playGame('Sweet Bonanza', 'sweet_bonanza')">
+                        <div class="game-icon">🍬</div>
+                        <div class="game-title">Sweet Bonanza</div>
+                        <div class="game-provider">Pragmatic Play</div>
                     </div>
-                    <div class="game-card game-tile" data-game-id="slot-book-of-dead" onclick="playGame('Book of Dead', 'slot-book-of-dead')">
-                        <div class="game-icon">📖</div>
+                    <div class="game-card" onclick="playGame('Gates of Olympus', 'gates_olympus')">
+                        <div class="game-icon">⚡</div>
+                        <div class="game-title">Gates of Olympus</div>
+                        <div class="game-provider">Pragmatic Play</div>
+                    </div>
+                    <div class="game-card" onclick="playGame('Mega Moolah', 'mega_moolah')">
+                        <div class="game-icon">🦁</div>
+                        <div class="game-title">Mega Moolah</div>
+                        <div class="game-provider">Microgaming</div>
+                    </div>
+                    <div class="game-card" onclick="playGame('Book of Dead', 'book_of_dead')">
+                        <div class="game-icon">📚</div>
                         <div class="game-title">Book of Dead</div>
                         <div class="game-provider">Play'n GO</div>
                     </div>
-                    <div class="game-card game-tile" data-game-id="roulette-european" onclick="playGame('European Roulette', 'roulette-european')">
-                        <div class="game-icon">🎡</div>
-                        <div class="game-title">European Roulette</div>
-                        <div class="game-provider">Evolution</div>
-                    </div>
-                    <div class="game-card game-tile" data-game-id="blackjack-classic" onclick="playGame('Blackjack', 'blackjack-classic')">
-                        <div class="game-icon">🃏</div>
-                        <div class="game-title">Blackjack Classic</div>
-                        <div class="game-provider">Evolution</div>
-                    </div>
-                    <div class="game-card game-tile" data-game-id="slot-starburst" onclick="playGame('Starburst', 'slot-starburst')">
-                        <div class="game-icon">⭐</div>
-                        <div class="game-title">Starburst</div>
-                        <div class="game-provider">NetEnt</div>
-                    </div>
-                    <div class="game-card game-tile" data-game-id="slot-gonzo-quest" onclick="playGame('Gonzo Quest', 'slot-gonzo-quest')">
-                        <div class="game-icon">🗿</div>
-                        <div class="game-title">Gonzo's Quest</div>
-                        <div class="game-provider">NetEnt</div>
-                    </div>
                 </div>
-            </section>
+            </div>
         </div>
     </main>
 
-    <!-- Game Modal -->
-    <div class="modal" id="gameModal">
+    <!-- Deposit Modal -->
+    <div id="depositModal" class="modal">
         <div class="modal-content">
-            <span class="modal-close" onclick="closeModal()">&times;</span>
-            <h2 id="gameTitle" style="margin-bottom: 20px;">Oyun</h2>
-            <p style="margin-bottom: 20px;">Oyun demo modunda açılıyor...</p>
-            <div class="action-buttons">
-                <button class="btn btn-success" onclick="simulateWin()">🎉 Kazandım!</button>
-                <button class="btn btn-danger" onclick="simulateLoss()">😢 Kaybettim</button>
-                <button class="btn btn-primary" onclick="closeModal()">Kapat</button>
+            <span class="modal-close" onclick="closeDepositModal()">×</span>
+            <h2 class="section-title">💰 Para Yatır</h2>
+            
+            <div class="form-group">
+                <label>Miktar (TRY)</label>
+                <input type="number" id="depositAmount" placeholder="Yatırmak istediğiniz tutarı girin" min="10" value="100">
+            </div>
+
+            <h3 style="margin: 20px 0; color: #ffd700;">Ödeme Yöntemi Seçin:</h3>
+            <div class="payment-methods">
+                <div class="payment-method" data-method="credit_card" onclick="selectPaymentMethod('credit_card', 'Kredi Kartı')">
+                    <div class="payment-icon">💳</div>
+                    <div class="payment-name">Kredi Kartı</div>
+                </div>
+                <div class="payment-method" data-method="bank_transfer" onclick="selectPaymentMethod('bank_transfer', 'Banka Transferi')">
+                    <div class="payment-icon">🏦</div>
+                    <div class="payment-name">Banka Transferi</div>
+                </div>
+                <div class="payment-method" data-method="papara" onclick="selectPaymentMethod('papara', 'Papara')">
+                    <div class="payment-icon">📱</div>
+                    <div class="payment-name">Papara</div>
+                </div>
+                <div class="payment-method" data-method="paykasa" onclick="selectPaymentMethod('paykasa', 'PayKasa')">
+                    <div class="payment-icon">🎫</div>
+                    <div class="payment-name">PayKasa</div>
+                </div>
+                <div class="payment-method" data-method="cmt" onclick="selectPaymentMethod('cmt', 'CMT')">
+                    <div class="payment-icon">💰</div>
+                    <div class="payment-name">CMT</div>
+                </div>
+                <div class="payment-method" data-method="crypto" onclick="selectPaymentMethod('crypto', 'Kripto Para')">
+                    <div class="payment-icon">₿</div>
+                    <div class="payment-name">Kripto</div>
+                </div>
+                <div class="payment-method" data-method="ewallet" onclick="selectPaymentMethod('ewallet', 'E-Cüzdan')">
+                    <div class="payment-icon">👛</div>
+                    <div class="payment-name">E-Cüzdan</div>
+                </div>
+                <div class="payment-method" data-method="fast_havale" onclick="selectPaymentMethod('fast_havale', 'Fast Havale')">
+                    <div class="payment-icon">⚡</div>
+                    <div class="payment-name">Fast Havale</div>
+                </div>
+            </div>
+
+            <button class="btn btn-success" style="width: 100%; margin-top: 20px;" onclick="processDeposit()">✅ Yatırımı Tamamla</button>
+        </div>
+    </div>
+
+    <!-- Withdraw Modal -->
+    <div id="withdrawModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeWithdrawModal()">×</span>
+            <h2 class="section-title">💸 Para Çek</h2>
+            
+            <div class="form-group">
+                <label>Miktar (TRY)</label>
+                <input type="number" id="withdrawAmount" placeholder="Çekmek istediğiniz tutarı girin" min="50" value="100">
+            </div>
+
+            <h3 style="margin: 20px 0; color: #ffd700;">Ödeme Yöntemi Seçin:</h3>
+            <div class="payment-methods">
+                <div class="payment-method" data-method="bank_transfer" onclick="selectWithdrawMethod('bank_transfer', 'Banka Transferi')">
+                    <div class="payment-icon">🏦</div>
+                    <div class="payment-name">Banka Transferi</div>
+                </div>
+                <div class="payment-method" data-method="papara" onclick="selectWithdrawMethod('papara', 'Papara')">
+                    <div class="payment-icon">📱</div>
+                    <div class="payment-name">Papara</div>
+                </div>
+                <div class="payment-method" data-method="crypto" onclick="selectWithdrawMethod('crypto', 'Kripto Para')">
+                    <div class="payment-icon">₿</div>
+                    <div class="payment-name">Kripto</div>
+                </div>
+                <div class="payment-method" data-method="ewallet" onclick="selectWithdrawMethod('ewallet', 'E-Cüzdan')">
+                    <div class="payment-icon">👛</div>
+                    <div class="payment-name">E-Cüzdan</div>
+                </div>
+            </div>
+
+            <div class="action-buttons" style="margin-top: 20px;">
+                <button class="btn btn-warning" onclick="requestWithdrawal()">📝 Çekim Talebi Oluştur</button>
+                <button class="btn btn-success" onclick="processWithdrawalSuccess()">✅ Çekimi Onayla</button>
             </div>
         </div>
     </div>
 
-    <!-- Notification -->
-    <div class="notification" id="notification"></div>
+    <!-- Game Modal -->
+    <div id="gameModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">×</span>
+            <h2 class="section-title" id="gameTitle">Oyun</h2>
+            <p style="text-align: center; font-size: 18px; margin: 30px 0;">🎰 Oyun oynuyor...</p>
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="simulateWin()">🎉 Kazan</button>
+                <button class="btn btn-danger" onclick="simulateLoss()">😢 Kaybet</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Tracker Script - BURAYA KENDİ SCRIPT ID'NİZİ YAZIN -->
-	<script src="http://37.27.72.40:3000/scripts/pix_deneme.js"></script>
-    <!-- Main Script -->
+    <!-- Test Controls (Debug Panel) -->
+    <div class="test-controls">
+        <h3>🔧 Test Kontrolleri</h3>
+        <button class="btn btn-info btn-sm" onclick="checkTracker()">Tracker Durumu</button>
+        <button class="btn btn-primary btn-sm" onclick="showConsole()">Console Logları</button>
+    </div>
+
     <script>
-        // Global variables
+        // Global değişkenler
         window.currentBalance = 0;
         window.totalDeposit = 0;
         window.totalWithdrawal = 0;
         window.gamesPlayed = 0;
+        window.totalBonuses = 0;
         window.currentGameId = null;
+        window.selectedPaymentMethod = null;
+        window.selectedPaymentMethodName = null;
+        window.selectedWithdrawMethod = null;
+        window.selectedWithdrawMethodName = null;
+        window.currentPlayerId = null;
 
-        // Login Handler - Make it global
+        // Login Handler
         window.handleLogin = function() {
-            console.log('handleLogin called');
-            const playerId = document.getElementById('playerIdInput').value;
-            const email = document.getElementById('emailInput').value;
+            const username = document.getElementById('username').value || 'test_user_' + Date.now();
+            const email = username.includes('@') ? username : undefined;
+            const playerId = username;
+            window.currentPlayerId = playerId;
 
-            if (!playerId) {
-                showNotification('❌ Lütfen bir Oyuncu ID girin!', 'error');
-                return;
-            }
-
+            console.log('=== LOGIN STARTED ===');
+            console.log('Player ID:', playerId);
             console.log('Tracker available:', !!window.tracker);
             
             // Tracker'a kimlik bildir
@@ -526,10 +2365,65 @@
             showNotification(`✅ Hoş geldin ${playerId}!`, 'success');
         };
 
-        // Deposit Handler - Make it global
-        window.handleDeposit = function() {
-            console.log('handleDeposit called');
-            const amount = Math.floor(Math.random() * 500) + 100; // 100-600 TL
+        // Payment Method Selection for Deposit
+        window.selectPaymentMethod = function(method, name) {
+            window.selectedPaymentMethod = method;
+            window.selectedPaymentMethodName = name;
+            
+            // Remove all selected classes
+            document.querySelectorAll('#depositModal .payment-method').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked element
+            event.target.closest('.payment-method').classList.add('selected');
+            
+            console.log('Deposit payment method selected:', method, name);
+        };
+
+        // Payment Method Selection for Withdrawal
+        window.selectWithdrawMethod = function(method, name) {
+            window.selectedWithdrawMethod = method;
+            window.selectedWithdrawMethodName = name;
+            
+            // Remove all selected classes
+            document.querySelectorAll('#withdrawModal .payment-method').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked element
+            event.target.closest('.payment-method').classList.add('selected');
+            
+            console.log('Withdraw payment method selected:', method, name);
+        };
+
+        // Open Deposit Modal
+        window.openDepositModal = function() {
+            document.getElementById('depositModal').classList.add('active');
+        };
+
+        // Close Deposit Modal
+        window.closeDepositModal = function() {
+            document.getElementById('depositModal').classList.remove('active');
+        };
+
+        // Process Deposit
+        window.processDeposit = function() {
+            const amount = parseInt(document.getElementById('depositAmount').value);
+            
+            if (!amount || amount < 10) {
+                showNotification('❌ Geçersiz tutar! Minimum 10 TL', 'error');
+                return;
+            }
+
+            if (!window.selectedPaymentMethod) {
+                showNotification('❌ Lütfen bir ödeme yöntemi seçin!', 'error');
+                return;
+            }
+
+            console.log('=== PROCESSING DEPOSIT ===');
+            console.log('Amount:', amount);
+            console.log('Payment Method:', window.selectedPaymentMethod, window.selectedPaymentMethodName);
             
             window.currentBalance += amount;
             window.totalDeposit += amount;
@@ -537,48 +2431,110 @@
             updateStats();
 
             if (window.tracker) {
-                console.log('Sending deposit_successful:', amount);
+                console.log('Sending deposit_successful with payment method:', window.selectedPaymentMethod);
                 window.tracker.track('deposit_successful', {
                     amount: amount,
                     currency: 'TRY',
-                    payment_method: 'credit_card'
+                    payment_method: window.selectedPaymentMethod,
+                    payment_method_name: window.selectedPaymentMethodName
                 });
             }
 
-            showNotification(`✅ ${amount} TL yatırıldı!`, 'success');
+            showNotification(`✅ ${amount} TL ${window.selectedPaymentMethodName} ile yatırıldı!`, 'success');
+            closeDepositModal();
+            
+            // Reset selection
+            window.selectedPaymentMethod = null;
+            window.selectedPaymentMethodName = null;
         };
 
-        // Withdrawal Requested Handler - Make it global
-        window.handleWithdrawalRequested = function() {
-            console.log('handleWithdrawalRequested called');
-            if (window.currentBalance < 50) {
+        // Simulate Failed Deposit
+        window.simulateDepositFailed = function() {
+            const amount = 100 + Math.floor(Math.random() * 400);
+            
+            console.log('=== SIMULATING FAILED DEPOSIT ===');
+            console.log('Amount:', amount);
+
+            if (window.tracker) {
+                window.tracker.track('deposit_failed', {
+                    amount: amount,
+                    currency: 'TRY',
+                    payment_method: 'credit_card',
+                    error_code: 'insufficient_funds',
+                    error_message: 'Yetersiz bakiye'
+                });
+            }
+
+            showNotification(`❌ ${amount} TL yatırım başarısız! (Yetersiz bakiye)`, 'error');
+        };
+
+        // Open Withdraw Modal
+        window.openWithdrawModal = function() {
+            document.getElementById('withdrawModal').classList.add('active');
+        };
+
+        // Close Withdraw Modal
+        window.closeWithdrawModal = function() {
+            document.getElementById('withdrawModal').classList.remove('active');
+        };
+
+        // Request Withdrawal
+        window.requestWithdrawal = function() {
+            const amount = parseInt(document.getElementById('withdrawAmount').value);
+            
+            if (!amount || amount < 50) {
+                showNotification('❌ Geçersiz tutar! Minimum 50 TL', 'error');
+                return;
+            }
+
+            if (window.currentBalance < amount) {
                 showNotification('❌ Yetersiz bakiye!', 'error');
                 return;
             }
 
-            const amount = Math.min(Math.floor(Math.random() * 200) + 50, window.currentBalance);
+            if (!window.selectedWithdrawMethod) {
+                showNotification('❌ Lütfen bir ödeme yöntemi seçin!', 'error');
+                return;
+            }
+
+            console.log('=== WITHDRAWAL REQUESTED ===');
+            console.log('Amount:', amount);
+            console.log('Payment Method:', window.selectedWithdrawMethod, window.selectedWithdrawMethodName);
 
             if (window.tracker) {
-                console.log('Sending withdrawal_requested:', amount);
                 window.tracker.track('withdrawal_requested', {
                     amount: amount,
                     currency: 'TRY',
-                    payment_method: 'bank_transfer'
+                    payment_method: window.selectedWithdrawMethod,
+                    payment_method_name: window.selectedWithdrawMethodName
                 });
             }
 
-            showNotification(`💸 ${amount} TL çekim talebi oluşturuldu!`, 'info');
+            showNotification(`💸 ${amount} TL çekim talebi ${window.selectedWithdrawMethodName} için oluşturuldu!`, 'info');
         };
 
-        // Withdrawal Successful Handler - Make it global
-        window.handleWithdrawalSuccessful = function() {
-            console.log('handleWithdrawalSuccessful called');
-            if (window.currentBalance < 50) {
+        // Process Withdrawal Success
+        window.processWithdrawalSuccess = function() {
+            const amount = parseInt(document.getElementById('withdrawAmount').value);
+            
+            if (!amount || amount < 50) {
+                showNotification('❌ Geçersiz tutar! Minimum 50 TL', 'error');
+                return;
+            }
+
+            if (window.currentBalance < amount) {
                 showNotification('❌ Yetersiz bakiye!', 'error');
                 return;
             }
 
-            const amount = Math.min(Math.floor(Math.random() * 200) + 50, window.currentBalance);
+            if (!window.selectedWithdrawMethod) {
+                showNotification('❌ Lütfen bir ödeme yöntemi seçin!', 'error');
+                return;
+            }
+
+            console.log('=== WITHDRAWAL SUCCESSFUL ===');
+            console.log('Amount:', amount);
+            console.log('Payment Method:', window.selectedWithdrawMethod, window.selectedWithdrawMethodName);
             
             window.currentBalance -= amount;
             window.totalWithdrawal += amount;
@@ -586,24 +2542,30 @@
             updateStats();
 
             if (window.tracker) {
-                console.log('Sending withdrawal_successful:', amount);
                 window.tracker.track('withdrawal_successful', {
                     amount: amount,
                     currency: 'TRY',
-                    payment_method: 'bank_transfer'
+                    payment_method: window.selectedWithdrawMethod,
+                    payment_method_name: window.selectedWithdrawMethodName
                 });
             }
 
-            showNotification(`✅ ${amount} TL çekim başarılı!`, 'success');
+            showNotification(`✅ ${amount} TL ${window.selectedWithdrawMethodName} ile çekim başarılı!`, 'success');
+            closeWithdrawModal();
+            
+            // Reset selection
+            window.selectedWithdrawMethod = null;
+            window.selectedWithdrawMethodName = null;
         };
 
-        // Withdrawal Failed Handler - Make it global
+        // Withdrawal Failed Handler
         window.handleWithdrawalFailed = function() {
-            console.log('handleWithdrawalFailed called');
             const amount = Math.floor(Math.random() * 200) + 50;
 
+            console.log('=== WITHDRAWAL FAILED ===');
+            console.log('Amount:', amount);
+
             if (window.tracker) {
-                console.log('Sending withdrawal_failed:', amount);
                 window.tracker.track('withdrawal_failed', {
                     amount: amount,
                     currency: 'TRY',
@@ -613,40 +2575,36 @@
                 });
             }
 
-            showNotification(`❌ ${amount} TL çekim başarısız!`, 'error');
+            showNotification(`❌ ${amount} TL çekim başarısız! (Banka reddetti)`, 'error');
         };
 
-        // Bonus Request - Make it global
-        window.handleBonusRequest = function() {
-            console.log('handleBonusRequest called');
+        // Request Bonus
+        window.requestBonus = function(bonusType, bonusAmount, bonusName) {
+            console.log('=== BONUS REQUESTED ===');
+            console.log('Bonus Type:', bonusType);
+            console.log('Bonus Amount:', bonusAmount);
+            console.log('Bonus Name:', bonusName);
+
             if (window.tracker) {
                 window.tracker.track('bonus_requested', {
-                    bonus_type: 'welcome_bonus',
-                    bonus_amount: 50
+                    bonus_type: bonusType,
+                    bonus_amount: bonusAmount,
+                    bonus_name: bonusName,
+                    bonus_currency: 'TRY'
                 });
             }
 
-            showNotification('🎁 Bonus talebiniz alındı!', 'success');
+            window.totalBonuses++;
+            updateStats();
+
+            showNotification(`🎁 ${bonusName} talebiniz alındı! (${bonusAmount})`, 'success');
         };
 
-        // Failed Deposit Simulation - Make it global
-        window.simulateFailedDeposit = function() {
-            console.log('simulateFailedDeposit called');
-            if (window.tracker) {
-                window.tracker.track('deposit_failed', {
-                    amount: 100,
-                    currency: 'TRY',
-                    method: 'credit_card',
-                    error_code: 'insufficient_funds'
-                });
-            }
-
-            showNotification('❌ Yatırım başarısız! (Test)', 'error');
-        };
-
-        // Play Game - Make it global
+        // Play Game
         window.playGame = function(gameName, gameId) {
-            console.log('playGame called:', gameName, gameId);
+            console.log('=== GAME STARTED ===');
+            console.log('Game:', gameName, gameId);
+            
             window.currentGameId = gameId;
             document.getElementById('gameTitle').textContent = gameName;
             document.getElementById('gameModal').classList.add('active');
@@ -662,7 +2620,7 @@
             }
         };
 
-        // Simulate Win - Make it global
+        // Simulate Win
         window.simulateWin = function() {
             const winAmount = Math.floor(Math.random() * 300) + 50;
             window.currentBalance += winAmount;
@@ -680,7 +2638,7 @@
             closeModal();
         };
 
-        // Simulate Loss - Make it global
+        // Simulate Loss
         window.simulateLoss = function() {
             const lossAmount = Math.floor(Math.random() * 100) + 20;
             window.currentBalance = Math.max(0, window.currentBalance - lossAmount);
@@ -698,7 +2656,7 @@
             closeModal();
         };
 
-        // Close Modal - Make it global
+        // Close Modal
         window.closeModal = function() {
             document.getElementById('gameModal').classList.remove('active');
             window.currentGameId = null;
@@ -720,10 +2678,19 @@
                 window.totalDeposit = 0;
                 window.totalWithdrawal = 0;
                 window.gamesPlayed = 0;
+                window.totalBonuses = 0;
                 updateBalance();
                 updateStats();
 
                 showNotification('👋 Görüşmek üzere!', 'info');
+            });
+
+            // Quick login on Enter
+            document.getElementById('username').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') handleLogin();
+            });
+            document.getElementById('password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') handleLogin();
             });
         });
 
@@ -737,6 +2704,7 @@
             document.getElementById('totalDeposit').textContent = `₺${window.totalDeposit}`;
             document.getElementById('totalWithdrawal').textContent = `₺${window.totalWithdrawal}`;
             document.getElementById('gamesPlayed').textContent = window.gamesPlayed;
+            document.getElementById('totalBonuses').textContent = window.totalBonuses;
         }
 
         // Show Notification
@@ -750,12 +2718,28 @@
             }, 3000);
         }
 
-        // Check if tracker loaded
-        console.log('Checking tracker...', window.tracker);
-        
-        // Wait for page load
+        // Debug Functions
+        window.checkTracker = function() {
+            console.log('=== TRACKER STATUS ===');
+            console.log('Tracker exists:', !!window.tracker);
+            console.log('Tracker object:', window.tracker);
+            console.log('Current Player ID:', window.currentPlayerId);
+            alert('Tracker durumu console\'da görüntülendi. F12 ile kontrol edin.');
+        };
+
+        window.showConsole = function() {
+            alert('Console loglarını görmek için F12 tuşuna basın ve Console sekmesini açın.');
+        };
+
+        // Auto-check tracker on load
         window.addEventListener('load', function() {
-            console.log('Page loaded. Tracker available:', !!window.tracker);
+            console.log('=== PAGE LOADED ===');
+            console.log('Tracker available:', !!window.tracker);
+            if (window.tracker) {
+                console.log('Tracker loaded successfully!');
+            } else {
+                console.error('⚠️ Tracker NOT found! Make sure the tracker script is loaded before this page.');
+            }
         });
     </script>
 </body>
