@@ -101,30 +101,6 @@ router.post('/:id/evaluate', protectWithJWT, async (req, res) => {
     }
 });
 
-// Bir müşteriye ait tüm segmentleri ve oyuncu sayılarını listele
-router.get('/', protectWithJWT, async (req, res) => {
-    const customerId = req.user.customerId;
-    try {
-        const segments = await prisma.segment.findMany({
-            where: { customerId },
-            orderBy: { name: 'asc' },
-        });
-        
-        const formattedSegments = segments.map(s => ({
-            id: s.id, 
-            name: s.name, 
-            description: s.description,
-            playerCount: s._count?.players || 0,
-            criteria: s.criteria
-        }));
-
-        res.json(formattedSegments);
-    } catch (error) {
-        console.error("Segmentler çekilirken hata:", error);
-        res.status(500).json({ error: 'Segmentler çekilemedi.' });
-    }
-});
-
 // Yeni bir segment oluştur
 router.post('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
