@@ -29,6 +29,9 @@ class RuleEngine {
       BONUS_EXPIRY: this.handleBonusExpiry.bind(this)
     };
   }
+  async evaluatePlayer(playerId, customerId, context = {}) {
+    return this.checkAndExecuteRules(playerId, customerId, context);
+  }
 
   // Ana çalıştırma fonksiyonu
   async checkAndExecuteRules(playerId, customerId, context = {}) {
