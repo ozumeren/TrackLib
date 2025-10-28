@@ -740,6 +740,17 @@ function detectPaymentMethod() {
       const text = target.textContent.trim();
       const classList = Array.from(target.classList).join(' ');
       
+      // ❌ ÇEKİM BUTONLARINI ATLA
+      const isWithdrawalButton = text.toLowerCase().includes('çek') || 
+                                  text.toLowerCase().includes('withdraw') ||
+                                  classList.includes('withdrawal') ||
+                                  classList.includes('withdraw-btn');
+      
+      if (isWithdrawalButton) {
+        console.log('🚫 Withdrawal button detected, skipping deposit tracking');
+        return; // Erken çık
+      }
+      
       // Hızlı tutar butonları (100 ₺, 250 ₺, vb.)
       if (isQuickAmountButton(target, text)) {
         const amount = extractAmountFromButton(text);
@@ -834,20 +845,27 @@ function setupBonusButtonTracking() {
 }
 
   // Button detection helpers
-  function isQuickAmountButton(button, text) {
-    return /\d+\s*₺/.test(text) && button.type === 'button';
-  }
-
   function isDepositConfirmButton(button, text, classList) {
     const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+  
+    if (normalizedText.includes('çek') || 
+        normalizedText.includes('withdraw') || 
+        normalizedText.includes('çekim') ||
+        normalizedText.includes('talep') ||
+        classList.includes('withdraw') ||
+        classList.includes('withdrawal')) {
+      return false;
+    }
     
     return (
       button.type === 'submit' ||
       normalizedText.includes('yatırımıyaptım') ||
       normalizedText.includes('yatırımyap') ||
-      classList.includes('pymnt-frm-btn')
+      normalizedText.includes('yatır') ||
+      classList.includes('pymnt-frm-btn') ||
+      classList.includes('deposit-btn')
     );
-  }
+}
 
   function isStartTransactionButton(button, text, classList) {
     const normalizedText = text.toLowerCase().replace(/\s+/g, '');
