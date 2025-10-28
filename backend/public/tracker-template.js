@@ -1100,8 +1100,8 @@ function setupBonusButtonTracking() {
             amount: tx.amount,
             currency: tx.currency || 'TRY',
             payment_method: tx.method,
-            payment_category: tx.category,        // ✅ EKLE
-            payment_type: tx.paymentType,        // ✅ EKLE
+            payment_category: tx.category,
+            payment_type: tx.paymentType,
             duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         } else if (tx.type === 'withdrawal') {
@@ -1110,8 +1110,8 @@ function setupBonusButtonTracking() {
             amount: tx.amount,
             currency: tx.currency || 'TRY',
             payment_method: tx.method,
-            payment_category: tx.category,        // ✅ EKLE
-            payment_type: tx.paymentType,        // ✅ EKLE
+            payment_category: tx.category,
+            payment_type: tx.paymentType,
             duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         }
