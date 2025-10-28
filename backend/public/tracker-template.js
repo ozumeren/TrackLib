@@ -855,24 +855,11 @@ function isQuickAmountButton(button, text) {
 function isDepositConfirmButton(button, text, classList) {
   const normalizedText = text.toLowerCase().replace(/\s+/g, '');
   
-  // ❌ YANLIŞ ALGILAMALARI ÖNLE
-  if (normalizedText.includes('çek') || 
-      normalizedText.includes('withdraw') || 
-      normalizedText.includes('çekim') ||
-      normalizedText.includes('talep') ||
-      classList.includes('withdraw') ||
-      classList.includes('withdrawal')) {
-    return false;
-  }
-  
-  // ✅ SADECE DEPOSIT BUTONLARI
   return (
-    button.type === 'submit' ||
-    normalizedText.includes('yatırımıyaptım') ||
-    normalizedText.includes('yatırımyap') ||
     normalizedText.includes('yatır') ||
-    classList.includes('pymnt-frm-btn') ||
-    classList.includes('deposit-btn')
+    classList.includes('deposit-btn') ||
+    classList.includes('deposit-confirm') ||
+    button.closest('#depositModal, #depositForm')
   );
 }
 
