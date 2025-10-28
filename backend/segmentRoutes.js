@@ -5,17 +5,32 @@ const { protectWithJWT } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-router.get('/list', protectWithJWT, async (req, res) => {
+// Bir müşteriye ait tüm segmentleri ve oyuncu sayılarını listele
+router.get('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     try {
         const segments = await prisma.segment.findMany({
             where: { customerId },
-            select: { id: true, name: true },
+            include: { 
+                _count: { 
+                    select: { players: true } 
+                } 
+            }, // ✅ BU SATIR EKSİKTİ!
             orderBy: { name: 'asc' },
         });
-        res.json(segments);
+        
+        const formattedSegments = segments.map(s => ({
+            id: s.id, 
+            name: s.name, 
+            description: s.description,
+            playerCount: s._count?.players || 0, // ✅ _count'dan oku
+            criteria: s.criteria
+        }));
+
+        res.json(formattedSegments);
     } catch (error) {
-        res.status(500).json({ error: 'Segment listesi çekilemedi.' });
+        console.error("Segmentler çekilirken hata:", error);
+        res.status(500).json({ error: 'Segmentler çekilemedi.' });
     }
 });
 
