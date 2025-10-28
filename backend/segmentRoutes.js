@@ -5,34 +5,29 @@ const { protectWithJWT } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Bir müşteriye ait tüm segmentleri ve oyuncu sayılarını listele
+// ============================================
+// GET / - Tüm segmentleri ve oyuncu sayılarını listele
+// ============================================
 router.get('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     try {
         const segments = await prisma.segment.findMany({
             where: { customerId },
+            include: { 
+                _count: { 
+                    select: { players: true } 
+                } 
+            },
             orderBy: { name: 'asc' },
         });
         
-        // Manuel olarak her segment için player count al
-        const formattedSegments = await Promise.all(
-            segments.map(async (s) => {
-                // _PlayerSegments tablosundan count al
-                const playerCount = await prisma.$queryRaw`
-                    SELECT COUNT(*) as count 
-                    FROM "_PlayerSegments" 
-                    WHERE "B" = ${s.id}
-                `;
-                
-                return {
-                    id: s.id, 
-                    name: s.name, 
-                    description: s.description,
-                    playerCount: Number(playerCount[0]?.count || 0),
-                    criteria: s.criteria
-                };
-            })
-        );
+        const formattedSegments = segments.map(s => ({
+            id: s.id, 
+            name: s.name, 
+            description: s.description,
+            playerCount: s._count?.players || 0,
+            criteria: s.criteria
+        }));
 
         res.json(formattedSegments);
     } catch (error) {
@@ -44,7 +39,9 @@ router.get('/', protectWithJWT, async (req, res) => {
     }
 });
 
-// Manuel segment değerlendirme endpoint'i
+// ============================================
+// POST /:id/evaluate - Manuel segment değerlendirme
+// ============================================
 router.post('/:id/evaluate', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const segmentId = parseInt(req.params.id, 10);
@@ -90,18 +87,25 @@ router.post('/:id/evaluate', protectWithJWT, async (req, res) => {
             }
         });
 
+        console.log(`✅ Segment "${segment.name}" evaluated: ${matchingPlayerIds.length} players matched`);
+
         res.json({ 
-            message: 'Segment evaluated successfully',
+            message: 'Segment başarıyla değerlendirildi',
             playerCount: matchingPlayerIds.length 
         });
 
     } catch (error) {
         console.error('Segment evaluation error:', error);
-        res.status(500).json({ error: 'Segment değerlendirilemedi' });
+        res.status(500).json({ 
+            error: 'Segment değerlendirilemedi',
+            message: error.message
+        });
     }
 });
 
-// Yeni bir segment oluştur
+// ============================================
+// POST / - Yeni segment oluştur
+// ============================================
 router.post('/', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const { name, description, criteria } = req.body;
@@ -119,13 +123,18 @@ router.post('/', protectWithJWT, async (req, res) => {
                 customerId,
             }
         });
+        
+        console.log(`✅ Yeni segment oluşturuldu: ${name}`);
         res.status(201).json(newSegment);
     } catch (error) {
+        console.error('Segment oluşturma hatası:', error);
         res.status(500).json({ error: 'Segment oluşturulamadı.' });
     }
 });
 
-// Mevcut bir segmenti güncelle
+// ============================================
+// PUT /:id - Segment güncelle
+// ============================================
 router.put('/:id', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const segmentId = parseInt(req.params.id, 10);
@@ -136,16 +145,22 @@ router.put('/:id', protectWithJWT, async (req, res) => {
             where: { id: segmentId, customerId },
             data: { name, description, criteria },
         });
+        
         if (updatedSegment.count === 0) {
             return res.status(404).json({ error: 'Segment bulunamadı veya yetkiniz yok.' });
         }
+        
+        console.log(`✅ Segment güncellendi: ID ${segmentId}`);
         res.json({ message: 'Segment güncellendi.' });
     } catch (error) {
+        console.error('Segment güncelleme hatası:', error);
         res.status(500).json({ error: 'Segment güncellenemedi.' });
     }
 });
-    
-// Bir segmenti sil
+
+// ============================================
+// DELETE /:id - Segment sil
+// ============================================
 router.delete('/:id', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const segmentId = parseInt(req.params.id, 10);
@@ -154,11 +169,15 @@ router.delete('/:id', protectWithJWT, async (req, res) => {
         const deletedSegment = await prisma.segment.deleteMany({
             where: { id: segmentId, customerId },
         });
+        
         if (deletedSegment.count === 0) {
             return res.status(404).json({ error: 'Segment bulunamadı veya yetkiniz yok.' });
         }
+        
+        console.log(`✅ Segment silindi: ID ${segmentId}`);
         res.status(204).send();
     } catch (error) {
+        console.error('Segment silme hatası:', error);
         res.status(500).json({ error: 'Segment silinemedi.' });
     }
 });
