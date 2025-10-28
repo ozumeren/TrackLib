@@ -11,26 +11,36 @@ router.get('/', protectWithJWT, async (req, res) => {
     try {
         const segments = await prisma.segment.findMany({
             where: { customerId },
-            include: { 
-                _count: { 
-                    select: { players: true } 
-                } 
-            }, // ✅ BU SATIR EKSİKTİ!
             orderBy: { name: 'asc' },
         });
         
-        const formattedSegments = segments.map(s => ({
-            id: s.id, 
-            name: s.name, 
-            description: s.description,
-            playerCount: s._count?.players || 0, // ✅ _count'dan oku
-            criteria: s.criteria
-        }));
+        // Manuel olarak her segment için player count al
+        const formattedSegments = await Promise.all(
+            segments.map(async (s) => {
+                // _PlayerSegments tablosundan count al
+                const playerCount = await prisma.$queryRaw`
+                    SELECT COUNT(*) as count 
+                    FROM "_PlayerSegments" 
+                    WHERE "B" = ${s.id}
+                `;
+                
+                return {
+                    id: s.id, 
+                    name: s.name, 
+                    description: s.description,
+                    playerCount: Number(playerCount[0]?.count || 0),
+                    criteria: s.criteria
+                };
+            })
+        );
 
         res.json(formattedSegments);
     } catch (error) {
         console.error("Segmentler çekilirken hata:", error);
-        res.status(500).json({ error: 'Segmentler çekilemedi.' });
+        res.status(500).json({ 
+            error: 'Segmentler çekilemedi.',
+            message: error.message
+        });
     }
 });
 
