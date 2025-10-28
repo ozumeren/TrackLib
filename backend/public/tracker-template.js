@@ -24,6 +24,180 @@
   let lastKnownBalances = new Map(); // Bakiye takibi
   let depositModalProcessed = new Set(); // İşlenmiş modal'ları takip et
 
+  // ============================================
+  // 💳 PAYMENT METHOD MAPPING
+  // ============================================
+  const PAYMENT_METHOD_MAPPING = {
+    vevopay: {
+      category: 'ÖZEL',
+      displayName: 'VevoPay',
+      type: 'gateway',
+      identifiers: ['vevopay', 'vevopay-havale', 'deposit-1548']
+    },
+    havale_fast: {
+      category: 'HAVALE/FAST',
+      displayName: 'Havale/EFT/Fast',
+      type: 'gateway',
+      identifiers: ['havale', 'eft', 'fast', 'bank_transfer', 'banka_havalesi']
+    },
+    manuel_havale: {
+      category: 'MANUEL HAVALE',
+      displayName: 'Manuel Havale',
+      type: 'manual',
+      identifiers: ['manuel', 'manuel_havale', 'manuel_transfer']
+    },
+    papara: {
+      category: 'PAPARA',
+      displayName: 'Papara',
+      type: 'wallet',
+      identifiers: ['papara']
+    },
+    bitcoin: {
+      category: 'KRIPTO',
+      displayName: 'Bitcoin',
+      type: 'crypto',
+      identifiers: ['bitcoin', 'btc']
+    },
+    ethereum: {
+      category: 'KRIPTO',
+      displayName: 'Ethereum',
+      type: 'crypto',
+      identifiers: ['ethereum', 'eth']
+    },
+    tether: {
+      category: 'KRIPTO',
+      displayName: 'Tether (USDT)',
+      type: 'crypto',
+      identifiers: ['tether', 'usdt', 'trc', 'trc20', 'erc20']
+    },
+    payfix: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Payfix',
+      type: 'wallet',
+      identifiers: ['payfix']
+    },
+    parazula: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Parazula',
+      type: 'wallet',
+      identifiers: ['parazula']
+    },
+    mefete: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Mefete',
+      type: 'wallet',
+      identifiers: ['mefete']
+    },
+    payco: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'Payco',
+      type: 'wallet',
+      identifiers: ['payco']
+    },
+    paypay: {
+      category: 'SANAL CÜZDAN',
+      displayName: 'PayPay',
+      type: 'wallet',
+      identifiers: ['paypay']
+    },
+    qr_code: {
+      category: 'QR KOD',
+      displayName: 'QR Kod',
+      type: 'gateway',
+      identifiers: ['qr', 'qr_code', 'qr_kod']
+    },
+    credit_card: {
+      category: 'KREDİ KARTI',
+      displayName: 'Kredi Kartı',
+      type: 'gateway',
+      identifiers: ['credit_card', 'kredi_karti', 'kredi_kartı', 'visa', 'mastercard', 'bank_card']
+    }
+  };
+
+  // ============================================
+  // 💳 PAYMENT METHOD DETECTION FUNCTIONS
+  // ============================================
+  
+  /**
+   * API endpoint'inden ödeme yöntemini tespit eder
+   */
+  function detectPaymentMethodFromAPI(url) {
+    if (!url) return null;
+    
+    const match = url.match(/\/odin\/api\/user\/payment\/([^\/]+)\/(deposit|withdraw)/);
+    if (!match) return null;
+
+    const methodName = match[1].toLowerCase().replace(/-/g, '_');
+    const action = match[2];
+
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAPPING)) {
+      if (key === methodName || value.identifiers.some(id => id === methodName)) {
+        return { 
+          ...value, 
+          action, 
+          detectedFrom: 'api_endpoint' 
+        };
+      }
+    }
+
+    return {
+      category: 'UNKNOWN',
+      displayName: methodName,
+      type: 'unknown',
+      action,
+      detectedFrom: 'api_endpoint'
+    };
+  }
+
+  /**
+   * DOM element'inden ödeme yöntemini tespit eder
+   */
+  function detectPaymentMethodFromDOM(element) {
+    if (!element) return null;
+
+    const classList = (element.className || '').toLowerCase();
+    const imgSrc = (element.querySelector('img')?.src || '').toLowerCase();
+    const text = (element.textContent || '').toLowerCase();
+
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAPPING)) {
+      for (const identifier of value.identifiers) {
+        const idLower = identifier.toLowerCase();
+        if (classList.includes(idLower) || 
+            imgSrc.includes(idLower) || 
+            text.includes(idLower)) {
+          return { 
+            ...value, 
+            detectedFrom: 'dom_element' 
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Pop-up HTML içeriğinden ödeme yöntemini tespit eder
+   */
+  function detectPaymentMethodFromPopup(html) {
+    if (!html) return null;
+    
+    const lowerHTML = html.toLowerCase();
+
+    for (const [key, value] of Object.entries(PAYMENT_METHOD_MAPPING)) {
+      for (const identifier of value.identifiers) {
+        if (lowerHTML.includes(identifier.toLowerCase())) {
+          return { 
+            ...value, 
+            detectedFrom: 'popup_content' 
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
   // 🎰 TRUVABET GAME TRACKING VARIABLES
   let activeGameSession = null;
   let lastKnownBalance = null;
@@ -133,6 +307,112 @@
       localStorage.removeItem('tracklib_queue');
     } catch (e) {
       console.error('TrackLib: Queue process failed', e);
+    }
+  }
+  // ============================================
+  // 🆕 NETWORK REQUEST INTERCEPTION (ODIN API)
+  // ============================================
+  function interceptNetworkRequests() {
+    // Fetch API interception
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      const options = args[1] || {};
+      
+      return originalFetch.apply(this, args).then(response => {
+        if (response.ok) {
+          response.clone().json().then(data => {
+            analyzeNetworkResponse(url, data, options);
+          }).catch(() => {});
+        }
+        return response;
+      });
+    };
+
+    // XMLHttpRequest interception
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url) {
+      this._url = url;
+      this._method = method;
+      return originalOpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send = function() {
+      this.addEventListener('load', function() {
+        if (this.status >= 200 && this.status < 300) {
+          try {
+            const data = JSON.parse(this.responseText);
+            analyzeNetworkResponse(this._url, data, { method: this._method });
+          } catch (e) {}
+        }
+      });
+      return originalSend.apply(this, arguments);
+    };
+  }
+
+  function analyzeNetworkResponse(url, data, options = {}) {
+    if (!url || !data) return;
+
+    const urlStr = url.toString();
+    
+    // ✅ PAYMENT METHOD DETECTION
+    const paymentInfo = detectPaymentMethodFromAPI(urlStr);
+    if (paymentInfo) {
+      console.log(`💳 API'den ödeme yöntemi tespit edildi:`, paymentInfo);
+    }
+
+    // 1. ODIN Balance API (get_accounts)
+    if (urlStr.includes('/odin/api/user/accounts/get_accounts') || 
+        urlStr.includes('/get_accounts')) {
+      handleOdinBalanceUpdate(data);
+    }
+
+    // 2. ODIN Deposit API
+    if (urlStr.includes('/odin/api/user/payment/') && urlStr.includes('/deposit')) {
+      const amount = data.amount || data.value || null;
+      
+      if (amount && paymentInfo) {
+        const txId = `deposit_${Date.now()}`;
+        pendingTransactions.set(txId, {
+          type: 'deposit',
+          amount: amount,
+          method: paymentInfo.displayName,
+          category: paymentInfo.category,
+          paymentType: paymentInfo.type,
+          currency: 'TRY',
+          status: 'pending',
+          timestamp: Date.now()
+        });
+        
+        sendEvent('deposit_initiated', {
+          transaction_id: txId,
+          amount: amount,
+          payment_method: paymentInfo.displayName,
+          payment_category: paymentInfo.category,
+          payment_type: paymentInfo.type,
+          currency: 'TRY'
+        });
+      }
+    }
+
+    // 3. ODIN Pending Transactions
+    if (urlStr.includes('/transaction/getCustomerNewOrPendingTransactions')) {
+      handleOdinPendingTransactions(data);
+    }
+
+    // 4. ODIN Withdrawal Request
+    if (urlStr.includes('/payment/') && urlStr.includes('/withdraw')) {
+      console.log('💸 Para çekme talebi gönderildi');
+      
+      const withdrawalPaymentInfo = detectPaymentMethodFromAPI(urlStr);
+      
+      sendEvent('withdrawal_initiated', {
+        payment_method: withdrawalPaymentInfo?.displayName || 'unknown',
+        payment_category: withdrawalPaymentInfo?.category || 'unknown',
+        payment_type: withdrawalPaymentInfo?.type || 'unknown'
+      });
     }
   }
 
@@ -643,12 +923,42 @@ sendEvent('deposit_initiated', {
         depositModalProcessed.add(modalHash);
         
         // Miktar çıkar
+        // ✅ YENİ KOD
+        // Miktar çıkar
         const amountEl = modal.querySelector('.rslt-mdl h5 > span');
         const amountText = amountEl?.textContent || '';
         const amount = parseFloat(amountText.replace(/[^\d.,]/g, '').replace(',', '.'));
         
+        // ✅ ÖDEME YÖNTEMİ TESPİTİ (YENİ EKLENEN)
+        const modalHTML = modal.innerHTML;
+        const paymentInfo = detectPaymentMethodFromPopup(modalHTML);
+        
         if (amount && amount > 0) {
-          matchPendingTransaction(amount, 'deposit');
+          if (paymentInfo) {
+            console.log(`💳 Ödeme yöntemi: ${paymentInfo.displayName} (${paymentInfo.category})`);
+          }
+          
+          // ✅ Transaction'a payment bilgilerini ekle
+          const txId = `deposit_${Date.now()}`;
+          pendingTransactions.set(txId, {
+            type: 'deposit',
+            amount: amount,
+            method: paymentInfo?.displayName || 'unknown',
+            category: paymentInfo?.category || 'unknown',
+            paymentType: paymentInfo?.type || 'unknown',
+            status: 'pending',
+            timestamp: Date.now()
+          });
+          
+          // ✅ Event'e payment bilgilerini ekle
+          sendEvent('deposit_initiated', {
+            transaction_id: txId,
+            amount: amount,
+            payment_method: paymentInfo?.displayName || 'unknown',
+            payment_category: paymentInfo?.category || 'unknown',
+            payment_type: paymentInfo?.type || 'unknown',
+            currency: 'TRY'
+          });
           
           console.log(`✅ Deposit success modal detected: ${amount} ₺`);
           
@@ -723,6 +1033,8 @@ sendEvent('deposit_initiated', {
             amount: tx.amount,
             currency: tx.currency || 'TRY',
             payment_method: tx.method,
+            payment_category: tx.category,        // ✅ EKLE
+            payment_type: tx.paymentType,        // ✅ EKLE
             duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         } else if (tx.type === 'withdrawal') {
@@ -731,6 +1043,8 @@ sendEvent('deposit_initiated', {
             amount: tx.amount,
             currency: tx.currency || 'TRY',
             payment_method: tx.method,
+            payment_category: tx.category,        // ✅ EKLE
+            payment_type: tx.paymentType,        // ✅ EKLE
             duration_seconds: Math.floor((Date.now() - tx.timestamp) / 1000)
           });
         }
@@ -1130,6 +1444,7 @@ sendEvent('deposit_initiated', {
     });
     
     // Initialize all tracking features
+    interceptNetworkRequests();
     setupDomTracking();
     setupAdvancedDOMListeners();
     monitorFormInputs();
