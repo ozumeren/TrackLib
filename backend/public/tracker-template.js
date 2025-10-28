@@ -702,12 +702,12 @@ function detectPaymentMethod() {
 }
 
 // Deposit initiated event'inde kullan:
-sendEvent('deposit_initiated', {
-  transaction_id: txId,
-  amount: amount,
-  currency: 'TRY',
-  method: detectPaymentMethod() // ✅ Artık "unknown" değil, gerçek method
-});
+//sendEvent('deposit_initiated', {
+  //transaction_id: txId,
+  //amount: amount,
+  //currency: 'TRY',
+  //method: detectPaymentMethod() // ✅ Artık "unknown" değil, gerçek method
+//});
   // ============================================
   // 🆕 ADVANCED DOM LISTENERS
   // ============================================
