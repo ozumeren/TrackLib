@@ -439,16 +439,36 @@ function analyzeBonusResponse(url, data) {
 
     // 4. ODIN Withdrawal Request
     if (urlStr.includes('/payment/') && urlStr.includes('/withdraw')) {
-    console.log('💸 Para çekme talebi gönderildi');
-    
-    const withdrawalPaymentInfo = detectPaymentMethodFromAPI(urlStr);
-    
-    sendEvent('withdrawal_initiated', {
-      payment_method: withdrawalPaymentInfo?.displayName || 'unknown',
-      payment_category: withdrawalPaymentInfo?.category || 'unknown',
-      payment_type: withdrawalPaymentInfo?.type || 'unknown'
-    });
-  }
+      console.log('💸 Para çekme talebi gönderildi');
+      
+      const withdrawalPaymentInfo = detectPaymentMethodFromAPI(urlStr);
+      const amount = data.amount || data.value || null;
+      
+      if (amount && withdrawalPaymentInfo) {
+        const txId = `withdrawal_${Date.now()}`;
+        pendingTransactions.set(txId, {
+          type: 'withdrawal',
+          amount: amount,
+          method: withdrawalPaymentInfo.displayName,
+          category: withdrawalPaymentInfo.category,
+          paymentType: withdrawalPaymentInfo.type,
+          currency: 'TRY',
+          status: 'pending',
+          timestamp: Date.now()
+        });
+        
+        sendEvent('withdrawal_initiated', {
+          transaction_id: txId,
+          amount: amount,
+          payment_method: withdrawalPaymentInfo.displayName,
+          payment_category: withdrawalPaymentInfo.category,
+          payment_type: withdrawalPaymentInfo.type,
+          currency: 'TRY'
+        });
+        
+        console.log(`💸 Pending withdrawal: ${txId} - ${amount} TRY via ${withdrawalPaymentInfo.displayName}`);
+      }
+    }
   analyzeBonusResponse(url, data);
   }
 
@@ -706,8 +726,9 @@ function detectPaymentMethod() {
   //transaction_id: txId,
   //amount: amount,
   //currency: 'TRY',
-  //method: detectPaymentMethod() // ✅ Artık "unknown" değil, gerçek method
+  //method: detectPaymentMethod() // 
 //});
+
   // ============================================
   // 🆕 ADVANCED DOM LISTENERS
   // ============================================
@@ -989,14 +1010,11 @@ function setupBonusButtonTracking() {
         if (depositModalProcessed.has(modalHash)) return;
         depositModalProcessed.add(modalHash);
         
-        // Miktar çıkar
-        // ✅ YENİ KOD
-        // Miktar çıkar
+        
         const amountEl = modal.querySelector('.rslt-mdl h5 > span');
         const amountText = amountEl?.textContent || '';
         const amount = parseFloat(amountText.replace(/[^\d.,]/g, '').replace(',', '.'));
         
-        // ✅ ÖDEME YÖNTEMİ TESPİTİ (YENİ EKLENEN)
         const modalHTML = modal.innerHTML;
         const paymentInfo = detectPaymentMethodFromPopup(modalHTML);
         
@@ -1005,7 +1023,6 @@ function setupBonusButtonTracking() {
             console.log(`💳 Ödeme yöntemi: ${paymentInfo.displayName} (${paymentInfo.category})`);
           }
           
-          // ✅ Transaction'a payment bilgilerini ekle
           const txId = `deposit_${Date.now()}`;
           pendingTransactions.set(txId, {
             type: 'deposit',
@@ -1017,7 +1034,7 @@ function setupBonusButtonTracking() {
             timestamp: Date.now()
           });
           
-          // ✅ Event'e payment bilgilerini ekle
+          
           sendEvent('deposit_initiated', {
             transaction_id: txId,
             amount: amount,
@@ -1128,7 +1145,7 @@ function setupBonusButtonTracking() {
   }
 
   // ============================================
-  // 🎮 TRUVABET GAME TRACKING
+  // GAME TRACKING
   // ============================================
 
   // BALANCE EXTRACTION - TRUVABET SPECIFIC
@@ -1291,8 +1308,7 @@ function setupBonusButtonTracking() {
       if (currentBalance !== null && lastKnownBalance !== null && currentBalance !== lastKnownBalance) {
         const change = currentBalance - lastKnownBalance;
         
-        // Sadece önemli değişimleri logla (10 TL üzeri)
-        if (Math.abs(change) > 10) {
+        if (Math.abs(change) > 1) {
           sendEvent('in_game_balance_change', {
             game_id: activeGameSession?.gameId,
             game_name: activeGameSession?.gameName,
@@ -1305,7 +1321,7 @@ function setupBonusButtonTracking() {
         
         lastKnownBalance = currentBalance;
       }
-    }, 10000); // Her 10 saniyede bir kontrol
+    }, 10000);
   }
 
   function stopTruvabetBalanceMonitoring() {
@@ -1498,7 +1514,7 @@ function setupBonusButtonTracking() {
 
   tracker.clearPendingTransactions = function() {
     pendingTransactions.clear();
-    console.log('🗑️ Tüm pending transaction\'lar temizlendi');
+    console.log('Tüm pending transaction\'lar temizlendi');
   };
 
   // ============================================
@@ -1518,7 +1534,7 @@ function setupBonusButtonTracking() {
     monitorDepositSuccessModal();
     setupBonusButtonTracking(); 
     
-    // 🎮 Initialize Truvabet game tracking
+    // Initialize game tracking
     setupTruvabetGameDetection();
     setupTruvabetIframeDetection();
     setupTruvabetBalanceRefreshTracking();
@@ -1530,7 +1546,6 @@ function setupBonusButtonTracking() {
   window.addEventListener('beforeunload', () => {
     const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
     
-    // Aktif oyun varsa kapat
     if (activeGameSession) {
       handleTruvabetGameEnd();
     }
@@ -1550,6 +1565,6 @@ function setupBonusButtonTracking() {
   console.log('✓ TrackLib v3.0 ODIN-TRUVABET Edition initialized successfully');
   console.log('✓ Available as: window.TrackLib and window.tracker');
   console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking, Game Tracking');
-  console.log('✓ Game Tracking: Truvabet-specific (NO provider API interception)');
+  console.log('✓ Game Tracking: Truvabet-specific ');
   console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx()');
 })();
