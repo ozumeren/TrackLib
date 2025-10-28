@@ -729,89 +729,90 @@ function detectPaymentMethod() {
   //method: detectPaymentMethod() // 
 //});
 
-  // ============================================
-  // 🆕 ADVANCED DOM LISTENERS
-  // ============================================
-  function setupAdvancedDOMListeners() {
-    document.addEventListener('click', (e) => {
-      const target = e.target.closest('button, a, [role="button"]');
-      if (!target) return;
+// ============================================
+// 🆕 ADVANCED DOM LISTENERS (HELPER'LARDAN SONRA!)
+// ============================================
+function setupAdvancedDOMListeners() {
+  document.addEventListener('click', (e) => {
+    const target = e.target.closest('button, a, [role="button"]');
+    if (!target) return;
 
-      const text = target.textContent.trim();
-      const classList = Array.from(target.classList).join(' ');
-      
-      // ❌ ÇEKİM BUTONLARINI ATLA
-      const isWithdrawalButton = text.toLowerCase().includes('çek') || 
-                                  text.toLowerCase().includes('withdraw') ||
-                                  classList.includes('withdrawal') ||
-                                  classList.includes('withdraw-btn');
-      
-      if (isWithdrawalButton) {
-        console.log('🚫 Withdrawal button detected, skipping deposit tracking');
-        return; // Erken çık
+    const text = target.textContent.trim();
+    const classList = Array.from(target.classList).join(' ');
+    
+    // ❌ ÇEKİM BUTONLARINI ATLA
+    const isWithdrawalButton = text.toLowerCase().includes('çek') || 
+                                text.toLowerCase().includes('withdraw') ||
+                                classList.includes('withdrawal') ||
+                                classList.includes('withdraw-btn');
+    
+    if (isWithdrawalButton) {
+      console.log('🚫 Withdrawal button detected, skipping deposit tracking');
+      return;
+    }
+    
+    // Hızlı tutar butonları (100 ₺, 250 ₺, vb.)
+    if (isQuickAmountButton(target, text)) {
+      const amount = extractAmountFromButton(text);
+      if (amount) {
+        currentFormData.amount = amount;
+        console.log(`💰 Hızlı tutar seçildi: ${amount} ₺`);
       }
+    }
+    
+    // "Yatırımı Yaptım" butonu
+    else if (isDepositConfirmButton(target, text, classList)) {
+      console.log('💳 "Yatırımı Yaptım" butonuna tıklandı');
       
-      // Hızlı tutar butonları (100 ₺, 250 ₺, vb.)
-      if (isQuickAmountButton(target, text)) {
-        const amount = extractAmountFromButton(text);
-        if (amount) {
-          currentFormData.amount = amount;
-          console.log(`💰 Hızlı tutar seçildi: ${amount} ₺`);
-        }
-      }
+      const amount = currentFormData.amount || getAmountFromInput();
       
-      // "Yatırımı Yaptım" butonu
-      else if (isDepositConfirmButton(target, text, classList)) {
-        console.log('💳 "Yatırımı Yaptım" butonuna tıklandı');
+      if (amount) {
+        const txId = `tx_${Date.now()}`;
         
-        const amount = currentFormData.amount || getAmountFromInput();
-        
-        if (amount) {
-          const txId = `tx_${Date.now()}`;
-          
-          pendingTransactions.set(txId, {
-            type: 'deposit',
-            amount: amount,
-            timestamp: Date.now(),
-            currency: 'TRY',
-            method: 'unknown'
-          });
+        pendingTransactions.set(txId, {
+          type: 'deposit',
+          amount: amount,
+          timestamp: Date.now(),
+          currency: 'TRY',
+          method: 'unknown'
+        });
 
-          sendEvent('deposit_initiated', {
-            transaction_id: txId,
-            amount: amount,
-            currency: 'TRY',
-            method: 'manual'
-          });
+        sendEvent('deposit_initiated', {
+          transaction_id: txId,
+          amount: amount,
+          currency: 'TRY',
+          method: 'manual'
+        });
 
-          console.log(`📝 Bekleyen para yatırma işlemi: ${txId} - ${amount} ₺`);
-        }
+        console.log(`📝 Bekleyen para yatırma işlemi: ${txId} - ${amount} ₺`);
       }
+    }
+    
+    // "İşlemi Başlat" butonu
+    else if (isStartTransactionButton(target, text, classList)) {
+      console.log('🚀 "İşlemi Başlat" butonuna tıklandı');
       
-      // "İşlemi Başlat" butonu
-      else if (isStartTransactionButton(target, text, classList)) {
-        console.log('🚀 "İşlemi Başlat" butonuna tıklandı');
-        
-        const amount = currentFormData.amount || getAmountFromInput();
-        
-        if (amount) {
-          sendEvent('deposit_gateway_initiated', {
-            amount: amount,
-            method: 'payment_gateway'
-          });
-        }
-      }
+      const amount = currentFormData.amount || getAmountFromInput();
       
-      // Bakiye yenileme butonu
-      else if (isBalanceRefreshButton(target, text, classList)) {
-        console.log('🔄 Bakiye güncelleme butonuna tıklandı');
-        
-        sendEvent('balance_refresh_clicked', {
-          timestamp: Date.now()
+      if (amount) {
+        sendEvent('deposit_gateway_initiated', {
+          amount: amount,
+          currency: 'TRY',
+          method: 'payment_gateway'
         });
       }
-    });
-  }
+    }
+    
+    // Bakiye yenileme butonu
+    else if (isBalanceRefreshButton(target, text, classList)) {
+      console.log('🔄 Bakiye güncelleme butonuna tıklandı');
+      
+      sendEvent('balance_refresh_clicked', {
+        timestamp: Date.now()
+      });
+    }
+  });
+}
 
   // ============================================
 // 🎁 BONUS BUTTON CLICK TRACKING
@@ -844,73 +845,86 @@ function setupBonusButtonTracking() {
   });
 }
 
-  // Button detection helpers
-  function isDepositConfirmButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-  
-    if (normalizedText.includes('çek') || 
-        normalizedText.includes('withdraw') || 
-        normalizedText.includes('çekim') ||
-        normalizedText.includes('talep') ||
-        classList.includes('withdraw') ||
-        classList.includes('withdrawal')) {
-      return false;
-    }
-    
-    return (
-      button.type === 'submit' ||
-      normalizedText.includes('yatırımıyaptım') ||
-      normalizedText.includes('yatırımyap') ||
-      normalizedText.includes('yatır') ||
-      classList.includes('pymnt-frm-btn') ||
-      classList.includes('deposit-btn')
-    );
+// ============================================
+// 🆕 BUTTON DETECTION HELPERS (ÖNCELİKLE TANIMLA!)
+// ============================================
+function isQuickAmountButton(button, text) {
+  return /\d+\s*₺/.test(text) && button.type === 'button';
 }
 
-  function isStartTransactionButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-    
-    return (
-      normalizedText.includes('işlemibaşlat') ||
-      normalizedText.includes('başlat') ||
-      classList.includes('start-transaction')
-    );
+function isDepositConfirmButton(button, text, classList) {
+  const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+  
+  // ❌ YANLIŞ ALGILAMALARI ÖNLE
+  if (normalizedText.includes('çek') || 
+      normalizedText.includes('withdraw') || 
+      normalizedText.includes('çekim') ||
+      normalizedText.includes('talep') ||
+      classList.includes('withdraw') ||
+      classList.includes('withdrawal')) {
+    return false;
   }
+  
+  // ✅ SADECE DEPOSIT BUTONLARI
+  return (
+    button.type === 'submit' ||
+    normalizedText.includes('yatırımıyaptım') ||
+    normalizedText.includes('yatırımyap') ||
+    normalizedText.includes('yatır') ||
+    classList.includes('pymnt-frm-btn') ||
+    classList.includes('deposit-btn')
+  );
+}
 
-  function isBalanceRefreshButton(button, text, classList) {
-    const normalizedText = text.toLowerCase().replace(/\s+/g, '');
-    
-    return (
-      normalizedText.includes('bakiye') ||
-      normalizedText.includes('güncelle') ||
-      normalizedText.includes('refresh') ||
-      normalizedText.includes('yenile') ||
-      classList.includes('refresh-balance')
-    );
+function isStartTransactionButton(button, text, classList) {
+  const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+  
+  return (
+    normalizedText.includes('işlemibaşlat') ||
+    normalizedText.includes('başlat') ||
+    classList.includes('start-transaction')
+  );
+}
+
+function isBalanceRefreshButton(button, text, classList) {
+  const normalizedText = text.toLowerCase().replace(/\s+/g, '');
+  
+  return (
+    normalizedText.includes('bakiye') ||
+    normalizedText.includes('güncelle') ||
+    normalizedText.includes('refresh') ||
+    normalizedText.includes('yenile') ||
+    classList.includes('refresh-balance')
+  );
+}
+
+function extractAmountFromButton(text) {
+  const match = text.match(/[\d.,]+/);
+  if (match) {
+    const cleaned = match[0].replace(/\./g, '').replace(',', '.');
+    return parseFloat(cleaned);
   }
+  return null;
+}
 
-  // Amount extraction helpers
-  function extractAmountFromButton(text) {
-    const match = text.match(/[\d.,]+/);
-    if (match) {
-      const cleaned = match[0].replace(/\./g, '').replace(',', '.');
-      return parseFloat(cleaned);
-    }
-    return null;
-  }
-
-  function getAmountFromInput() {
-    const input = document.querySelector('#mntNpt') || 
-                 document.querySelector('input[placeholder*="Yatırım"]') ||
-                 document.querySelector('input[placeholder*="Tutar"]') ||
-                 document.querySelector('input[name*="amount"]');
-    
+function getAmountFromInput() {
+  const selectors = [
+    'input[name*="amount"]',
+    'input[name*="miktar"]',
+    'input[id*="amount"]',
+    'input[id="mntNpt"]',
+    '.amount-input'
+  ];
+  
+  for (const selector of selectors) {
+    const input = document.querySelector(selector);
     if (input && input.value) {
       return extractAmountFromInputValue(input.value);
     }
-    
-    return null;
   }
+  
+  return null;
+}
 
   // ============================================
   // 🆕 ODIN BALANCE API HANDLER
