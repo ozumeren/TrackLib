@@ -17,6 +17,9 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const https = require('https');
+const segmentEvaluator = require('./services/segmentEvaluator');
+const RuleEngine = require('./services/ruleEngine');
+
 
 const httpsOptions = {
     key: fs.readFileSync('./key.pem'),
@@ -28,6 +31,7 @@ const httpsOptions = {
 const app = express();
 const prisma = new PrismaClient();
 const redis = new Redis();
+const ruleEngine = new RuleEngine();
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const JWT_SECRET = process.env.JWT_SECRET || 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
@@ -590,145 +594,37 @@ app.post('/telegram-webhook', async (req, res) => {
 // ============================================
 // AUTOMATION ENGINE (CRON JOB)
 // ============================================
-cron.schedule('* * * * *', async () => {
+
+cron.schedule('*/5 * * * *', async () => {
     const timestamp = new Date().toLocaleTimeString('tr-TR');
-    console.log(`⏰ [${timestamp}] Otomasyon motoru çalışıyor...`);
+    console.log(`⏰ [${timestamp}] Segment ve Kural Otomasyon motoru çalışıyor...`);
 
     try {
-        const activeRules = await prisma.rule.findMany({
-            where: { isActive: true },
-            include: { 
-                customer: true, 
-                variants: true 
-            },
+        // 1. Tüm müşterileri al
+        const customers = await prisma.customer.findMany({
+            select: { id: true, name: true }
         });
 
-        for (const rule of activeRules) {
+        for (const customer of customers) {
+            console.log(`🔍 Processing customer: ${customer.name}`);
+
+            // 2. Segmentleri değerlendir
+            await segmentEvaluator.evaluateAllSegments(customer.id);
+
+            // 3. Kuralları çalıştır
             const players = await prisma.player.findMany({
-                where: { customerId: rule.customerId },
+                where: { customerId: customer.id }
             });
 
             for (const player of players) {
-                let shouldTrigger = false;
-
-                if (rule.triggerType === 'INACTIVITY') {
-                    const minutesAgo = rule.config.minutes;
-                    const cutoffTime = new Date(Date.now() - minutesAgo * 60 * 1000);
-
-                    const recentEvent = await prisma.event.findFirst({
-                        where: {
-                            customerId: rule.customerId,
-                            playerId: player.playerId,
-                            createdAt: { gte: cutoffTime },
-                        },
-                    });
-
-                    shouldTrigger = !recentEvent;
-                }
-
-                if (shouldTrigger) {
-                    console.log(`🎯 Rule "${rule.name}" triggered for player: ${player.playerId}`);
-
-                    let abTestEntry = await redis.get(`ab_test:${player.playerId}`);
-                    let variant;
-
-                    if (abTestEntry) {
-                        const { variantId } = JSON.parse(abTestEntry);
-                        variant = rule.variants.find((v) => v.id === variantId);
-                    }
-
-                    if (!variant) {
-                        const randomIndex = Math.floor(Math.random() * rule.variants.length);
-                        variant = rule.variants[randomIndex];
-
-                        await redis.set(
-                            `ab_test:${player.playerId}`,
-                            JSON.stringify({ variantId: variant.id }),
-                            'EX',
-                            60 * 60 * 24 * 30
-                        );
-                    }
-
-                    // Execute action based on type
-                    switch (variant.actionType) {
-                        case 'SEND_TELEGRAM_MESSAGE':
-                            if (rule.customer.telegramBotToken && rule.customer.telegramChatId) {
-                                const bot = new TelegramBot(rule.customer.telegramBotToken);
-                                const messageTemplate = variant.actionPayload.messageTemplate;
-                                const finalMessage = messageTemplate.replace('{playerName}', player.playerId);
-
-                                try {
-                                    await bot.sendMessage(rule.customer.telegramChatId, finalMessage);
-                                    console.log(`✅ Telegram message sent to ${player.playerId}`);
-                                } catch (err) {
-                                    console.error(`❌ Telegram error:`, err.message);
-                                }
-                            }
-                            break;
-
-                        case 'FORWARD_TO_META':
-                            if (rule.customer.metaPixelId && rule.customer.metaAccessToken) {
-                                const eventName = variant.actionPayload.eventName || 'Lead';
-
-                                const payload = {
-                                    data: [{
-                                        event_name: eventName,
-                                        event_time: Math.floor(Date.now() / 1000),
-                                        action_source: 'website',
-                                        user_data: {
-                                            client_user_id: crypto.createHash('sha256').update(player.playerId).digest('hex'),
-                                            em: player.email ? [crypto.createHash('sha256').update(player.email.toLowerCase()).digest('hex')] : [],
-                                        },
-                                    }],
-                                };
-
-                                const url = `https://graph.facebook.com/v19.0/${rule.customer.metaPixelId}/events?access_token=${rule.customer.metaAccessToken}`;
-
-                                try {
-                                    await axios.post(url, payload);
-                                    console.log(`✅ Meta CAPI event sent: ${eventName} for ${player.playerId}`);
-                                } catch (axiosError) {
-                                    console.error(`❌ Meta CAPI error:`, axiosError.response?.data?.error?.message || axiosError.message);
-                                }
-                            }
-                            break;
-
-                        case 'FORWARD_TO_GOOGLE_ADS':
-                            if (rule.customer.googleAdsId && rule.customer.googleApiSecret) {
-                                const eventName = variant.actionPayload.eventName || 'lead';
-
-                                const payload = {
-                                    client_id: crypto.createHash('sha256').update(player.playerId).digest('hex'),
-                                    events: [{
-                                        name: eventName,
-                                        params: {
-                                            'send_to': rule.customer.googleAdsId,
-                                        },
-                                    }],
-                                };
-
-                                const url = `https://www.google-analytics.com/mp/collect?api_secret=${rule.customer.googleApiSecret}&measurement_id=${rule.customer.googleAdsId}`;
-
-                                try {
-                                    await axios.post(url, payload);
-                                    console.log(`✅ Google Ads event sent: ${eventName} for ${player.playerId}`);
-                                } catch (axiosError) {
-                                    console.error(`❌ Google Ads error:`, axiosError.response?.data?.error?.message || axiosError.message);
-                                }
-                            }
-                            break;
-                    }
-
-                    // A/B Test istatistiklerini güncelle (gösterim)
-                    await prisma.ruleVariant.update({
-                        where: { id: variant.id },
-                        data: { exposures: { increment: 1 } },
-                    });
-                }
+                await ruleEngine.evaluatePlayer(player.playerId, customer.id);
             }
         }
+
+        console.log(`✅ Automation cycle completed`);
+
     } catch (error) {
-        console.error(`❌ Automation engine error:`, error);
+        console.error('❌ Automation engine error:', error);
     }
 });
 

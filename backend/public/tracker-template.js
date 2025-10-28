@@ -740,7 +740,6 @@ function setupAdvancedDOMListeners() {
     const text = target.textContent.trim();
     const classList = Array.from(target.classList).join(' ');
     
-    // ❌ ÇEKİM BUTONLARINI ATLA
     const isWithdrawalButton = text.toLowerCase().includes('çek') || 
                                 text.toLowerCase().includes('withdraw') ||
                                 classList.includes('withdrawal') ||
