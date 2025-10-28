@@ -740,9 +740,17 @@ function setupAdvancedDOMListeners() {
     const text = target.textContent.trim();
     const classList = Array.from(target.classList).join(' ');
     
-
+    // ❌ ÇEKİM BUTONLARINI ATLA
+    const isWithdrawalButton = text.toLowerCase().includes('çek') || 
+                                text.toLowerCase().includes('withdraw') ||
+                                classList.includes('withdrawal') ||
+                                classList.includes('withdraw-btn');
     
-    // Hızlı tutar butonları (100 ₺, 250 ₺, vb.)
+    if (isWithdrawalButton) {
+      console.log('🚫 Withdrawal button detected, skipping deposit tracking');
+      return;
+    }
+    
     if (isQuickAmountButton(target, text)) {
       const amount = extractAmountFromButton(text);
       if (amount) {
