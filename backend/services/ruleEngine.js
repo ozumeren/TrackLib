@@ -199,25 +199,34 @@ class RuleEngine {
   // ==========================================
 
   async handleInactivity(playerId, customerId, config) {
-    const daysAgo = new Date();
-    daysAgo.setDate(daysAgo.getDate() - config.days);
+  // config.days kontrolü - undefined ise default 7 gün
+  const days = parseInt(config?.days) || 7;
+  
+  const daysAgo = new Date();
+  daysAgo.setDate(daysAgo.getDate() - days);
 
-    const lastLogin = await prisma.event.findFirst({
-      where: {
-        customerId,
-        playerId,
-        eventName: 'login_successful',
-        createdAt: {
-          gte: daysAgo
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-
-    return !lastLogin; // Giriş yoksa tetikle
+  // Tarih geçerli mi kontrol et
+  if (isNaN(daysAgo.getTime())) {
+    console.error('❌ Invalid date in handleInactivity:', { config, days });
+    return false;
   }
+
+  const lastLogin = await prisma.event.findFirst({
+    where: {
+      customerId,
+      playerId,
+      eventName: 'login_successful',
+      createdAt: {
+        gte: daysAgo
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+
+  return !lastLogin;
+}
 
   async handleEvent(playerId, customerId, config, context) {
     return context.eventName === config.eventName;
@@ -256,38 +265,44 @@ class RuleEngine {
     return false;
   }
 
-  async handleDepositThreshold(playerId, customerId, config) {
-    const whereClause = {
-      customerId,
-      playerId,
-      eventName: 'deposit_successful'
-    };
+async handleDepositThreshold(playerId, customerId, config) {
+  const whereClause = {
+    customerId,
+    playerId,
+    eventName: 'deposit_successful'
+  };
 
-    if (config.period !== 'total') {
-      const date = new Date();
-      if (config.period === 'daily') {
-        date.setHours(0, 0, 0, 0);
-      } else if (config.period === 'weekly') {
-        date.setDate(date.getDate() - 7);
-      } else if (config.period === 'monthly') {
-        date.setMonth(date.getMonth() - 1);
-      }
+  if (config.period && config.period !== 'total') {
+    const date = new Date();
+    
+    if (config.period === 'daily') {
+      date.setHours(0, 0, 0, 0);
+    } else if (config.period === 'weekly') {
+      date.setDate(date.getDate() - 7);
+    } else if (config.period === 'monthly') {
+      date.setMonth(date.getMonth() - 1);
+    }
+    
+    // Tarih kontrolü
+    if (!isNaN(date.getTime())) {
       whereClause.createdAt = { gte: date };
     }
-
-    const deposits = await prisma.event.findMany({
-      where: whereClause,
-      select: {
-        parameters: true
-      }
-    });
-
-    const total = deposits.reduce((sum, event) => {
-      return sum + (event.parameters?.amount || 0);
-    }, 0);
-
-    return total >= config.amount;
   }
+
+  const deposits = await prisma.event.findMany({
+    where: whereClause,
+    select: {
+      parameters: true
+    }
+  });
+
+  const total = deposits.reduce((sum, event) => {
+    return sum + (event.parameters?.amount || 0);
+  }, 0);
+
+  const amount = parseFloat(config?.amount) || 0;
+  return total >= amount;
+}
 
   async handleWithdrawalThreshold(playerId, customerId, config) {
     const whereClause = {
@@ -474,23 +489,32 @@ class RuleEngine {
     return false;
   }
 
-  async handleMultipleFailedDeposits(playerId, customerId, config) {
-    const timeAgo = new Date();
-    timeAgo.setMinutes(timeAgo.getMinutes() - config.withinMinutes);
+async handleMultipleFailedDeposits(playerId, customerId, config) {
+  const minutes = parseInt(config?.withinMinutes) || 60;
+  
+  const timeAgo = new Date();
+  timeAgo.setMinutes(timeAgo.getMinutes() - minutes);
 
-    const failedDeposits = await prisma.event.count({
-      where: {
-        customerId,
-        playerId,
-        eventName: 'deposit_failed',
-        createdAt: {
-          gte: timeAgo
-        }
-      }
-    });
-
-    return failedDeposits >= config.failedCount;
+  // Tarih kontrolü
+  if (isNaN(timeAgo.getTime())) {
+    console.error('Invalid date in handleMultipleFailedDeposits:', config);
+    return false;
   }
+
+  const failedDeposits = await prisma.event.count({
+    where: {
+      customerId,
+      playerId,
+      eventName: 'deposit_failed',
+      createdAt: {
+        gte: timeAgo
+      }
+    }
+  });
+
+  const failedCount = parseInt(config?.failedCount) || 3;
+  return failedDeposits >= failedCount;
+}
 
   async handleRtpThreshold(playerId, customerId, config) {
     const bets = await prisma.event.findMany({
