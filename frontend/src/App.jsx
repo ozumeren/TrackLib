@@ -17,6 +17,7 @@ import AdminCustomersPage from './pages/AdminCustomersPage';
 import AdminCustomerDetailPage from './pages/AdminCustomerDetailPage';
 import AbandonedDepositsPage from './pages/AbandonedDepositsPage';
 import PlayerProfile from './pages/PlayerProfile';
+import IPConflictsPage from './pages/IPConflictsPage';
 
 function App() {
   const { token, loading } = useAuth();
@@ -63,6 +64,7 @@ function App() {
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="/admin/customers" element={<ProtectedRoute adminOnly={true}><AdminCustomersPage /></ProtectedRoute>} />
           <Route path="/admin/customer/:id" element={<ProtectedRoute adminOnly={true}><AdminCustomerDetailPage /></ProtectedRoute>} />
+          <Route path="/ip-conflicts" element={<ProtectedRoute><IPConflictsPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AppShell.Main>

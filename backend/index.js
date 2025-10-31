@@ -667,6 +667,44 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🎯 Script Endpoint: http://37.27.72.40:${PORT}/s/tracklib_deneme.js\n`);
 });
 
+app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) => {
+    const eventData = req.body;
+    const customer = req.customer;
+    
+    // ✅ IP adresini al (proxy/load balancer arkasında çalışıyorsa)
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+                   || req.headers['x-real-ip']
+                   || req.connection.remoteAddress
+                   || req.socket.remoteAddress;
+    
+    try {
+        // Rate limiting...
+        
+        // Player kaydı...
+        
+        // ✅ Event'i IP ile kaydet
+        await prisma.event.create({
+            data: {
+                apiKey: eventData.api_key,
+                sessionId: eventData.session_id,
+                playerId: eventData.player_id || null,
+                eventName: eventData.event_name,
+                url: eventData.url || '',
+                parameters: eventData.parameters || {},
+                ipAddress: ipAddress,  // ← YENİ
+                customerId: customer.id,
+                createdAt: eventData.timestamp_utc ? new Date(eventData.timestamp_utc) : new Date(),
+            },
+        });
+
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error('Event tracking error:', error);
+        res.status(500).json({ error: 'Event kaydetme başarısız.' });
+    }
+});
+
 // HTTPS Server (opsiyonel - sadece sertifika varsa)
 const certPath = path.join(__dirname, 'cert.pem');
 const keyPath = path.join(__dirname, 'key.pem');

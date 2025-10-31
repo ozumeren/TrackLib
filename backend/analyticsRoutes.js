@@ -188,6 +188,188 @@ router.get('/timeseries', protectWithJWT, async (req, res) => {
         res.status(500).json({ error: 'Grafik verileri alınamadı.' });
     }
 });
+// IP Conflict Detection - Aynı IP'den birden fazla hesap
+router.get('/ip-conflicts', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const days = parseInt(req.query.days || '7', 10);
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    try {
+        // 1. Son X gün içinde IP başına kaç farklı playerId var?
+        const ipGroups = await prisma.event.groupBy({
+            by: ['ipAddress'],
+            where: {
+                customerId,
+                playerId: { not: null },
+                ipAddress: { not: null },
+                createdAt: { gte: startDate },
+            },
+            _count: {
+                playerId: true,
+            },
+            having: {
+                playerId: {
+                    _count: {
+                        gt: 1  // 1'den fazla farklı playerId
+                    }
+                }
+            }
+        });
+
+        // 2. Her şüpheli IP için detayları al
+        const conflicts = await Promise.all(
+            ipGroups.map(async (group) => {
+                const events = await prisma.event.findMany({
+                    where: {
+                        customerId,
+                        ipAddress: group.ipAddress,
+                        playerId: { not: null },
+                        createdAt: { gte: startDate },
+                    },
+                    distinct: ['playerId'],
+                    select: {
+                        playerId: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                });
+
+                return {
+                    ipAddress: group.ipAddress,
+                    playerCount: events.length,
+                    players: events.map(e => ({
+                        playerId: e.playerId,
+                        lastSeen: e.createdAt,
+                    })),
+                    riskLevel: events.length >= 5 ? 'HIGH' : events.length >= 3 ? 'MEDIUM' : 'LOW',
+                };
+            })
+        );
+
+        // Risk seviyesine göre sırala
+        conflicts.sort((a, b) => b.playerCount - a.playerCount);
+
+        res.json({
+            periodInDays: days,
+            totalConflicts: conflicts.length,
+            conflicts: conflicts,
+        });
+
+    } catch (error) {
+        console.error('IP conflict detection error:', error);
+        res.status(500).json({ error: 'IP analizi yapılamadı.' });
+    }
+});
+
+// Tek bir oyuncunun IP geçmişi
+router.get('/player-ip-history/:playerId', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const { playerId } = req.params;
+    const limit = parseInt(req.query.limit || '50', 10);
+
+    try {
+        const ipHistory = await prisma.event.findMany({
+            where: {
+                customerId,
+                playerId,
+                ipAddress: { not: null },
+            },
+            select: {
+                ipAddress: true,
+                createdAt: true,
+                eventName: true,
+                url: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+
+        // IP'leri grupla ve sayıları hesapla
+        const ipStats = ipHistory.reduce((acc, event) => {
+            if (!acc[event.ipAddress]) {
+                acc[event.ipAddress] = {
+                    ipAddress: event.ipAddress,
+                    count: 0,
+                    firstSeen: event.createdAt,
+                    lastSeen: event.createdAt,
+                };
+            }
+            acc[event.ipAddress].count++;
+            if (event.createdAt < acc[event.ipAddress].firstSeen) {
+                acc[event.ipAddress].firstSeen = event.createdAt;
+            }
+            return acc;
+        }, {});
+
+        res.json({
+            playerId,
+            totalIPs: Object.keys(ipStats).length,
+            ipHistory: Object.values(ipStats).sort((a, b) => b.count - a.count),
+            recentEvents: ipHistory.slice(0, 20),
+        });
+
+    } catch (error) {
+        console.error('Player IP history error:', error);
+        res.status(500).json({ error: 'IP geçmişi alınamadı.' });
+    }
+});
+
+// IP detayları - Bu IP'yi kullanan tüm oyuncular
+router.get('/ip-details/:ipAddress', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const { ipAddress } = req.params;
+    const days = parseInt(req.query.days || '30', 10);
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    try {
+        // Bu IP'yi kullanan tüm oyuncular
+        const players = await prisma.event.findMany({
+            where: {
+                customerId,
+                ipAddress: ipAddress,
+                playerId: { not: null },
+                createdAt: { gte: startDate },
+            },
+            distinct: ['playerId'],
+            select: {
+                playerId: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        // Her oyuncu için event sayısı
+        const playerDetails = await Promise.all(
+            players.map(async (player) => {
+                const eventCount = await prisma.event.count({
+                    where: {
+                        customerId,
+                        playerId: player.playerId,
+                        ipAddress: ipAddress,
+                        createdAt: { gte: startDate },
+                    },
+                });
+
+                return {
+                    playerId: player.playerId,
+                    firstSeen: player.createdAt,
+                    eventCount: eventCount,
+                };
+            })
+        );
+
+        res.json({
+            ipAddress: ipAddress,
+            periodInDays: days,
+            totalPlayers: players.length,
+            players: playerDetails.sort((a, b) => b.eventCount - a.eventCount),
+        });
+
+    } catch (error) {
+        console.error('IP details error:', error);
+        res.status(500).json({ error: 'IP detayları alınamadı.' });
+    }
+});
 router.get('/live-events', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const limit = parseInt(req.query.limit || '20', 10);

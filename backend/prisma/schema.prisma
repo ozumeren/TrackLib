@@ -110,6 +110,7 @@ model Event {
   eventName  String
   url        String
   parameters Json?
+  ipAddress  String?  // ← YENİ ALAN
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
@@ -119,6 +120,9 @@ model Event {
   @@index([customerId, playerId, eventName])
   @@index([customerId, eventName, createdAt])
   @@index([sessionId])
+  @@index([ipAddress])  // ← YENİ INDEX
+  @@index([customerId, ipAddress])  // ← YENİ INDEX
+  @@index([customerId, playerId, ipAddress])  // ← YENİ INDEX
 }
 
 model Player {
