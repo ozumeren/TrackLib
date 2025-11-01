@@ -671,14 +671,26 @@ app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) 
     const eventData = req.body;
     const customer = req.customer;
     
-    // ✅ IP adresini al (proxy/load balancer arkasında çalışıyorsa)
-    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
-                   || req.headers['x-real-ip']
-                   || req.connection.remoteAddress
-                   || req.socket.remoteAddress;
+    // ✅ GÜNCEL IP YAKALAMA
+    let ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+                 || req.headers['x-real-ip']
+                 || req.ip
+                 || req.socket.remoteAddress
+                 || 'Unknown';
+    
+    // IPv6 localhost'u düzelt (::1 → 127.0.0.1)
+    if (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') {
+        ipAddress = '127.0.0.1';
+    }
+    
+    // IPv6 mapped IPv4 formatını düzelt (::ffff:192.168.1.1 → 192.168.1.1)
+    if (ipAddress.startsWith('::ffff:')) {
+        ipAddress = ipAddress.replace('::ffff:', '');
+    }
+    
+    console.log('🌐 Captured IP:', ipAddress); // Debug
     
     try {
-        // ✅ Event'i IP ile kaydet
         await prisma.event.create({
             data: {
                 apiKey: eventData.api_key,
@@ -687,14 +699,13 @@ app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) 
                 eventName: eventData.event_name,
                 url: eventData.url || '',
                 parameters: eventData.parameters || {},
-                ipAddress: ipAddress,  // ← YENİ
+                ipAddress: ipAddress,
                 customerId: customer.id,
                 createdAt: eventData.timestamp_utc ? new Date(eventData.timestamp_utc) : new Date(),
             },
         });
 
         res.json({ success: true });
-
     } catch (error) {
         console.error('Event tracking error:', error);
         res.status(500).json({ error: 'Event kaydetme başarısız.' });
