@@ -678,10 +678,6 @@ app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) 
                    || req.socket.remoteAddress;
     
     try {
-        // Rate limiting...
-        
-        // Player kaydı...
-        
         // ✅ Event'i IP ile kaydet
         await prisma.event.create({
             data: {
