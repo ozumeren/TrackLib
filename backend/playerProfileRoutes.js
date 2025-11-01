@@ -208,14 +208,7 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
         res.status(500).json({ error: 'Profil verileri alınamadı.' });
     }
 });
-// ============================================
-// BACKEND: playerProfileRoutes.js
-// IP ANALİZİNİ EKLE
-// ============================================
 
-// router.get('/:playerId') fonksiyonunda, "GENEL BİLGİLER" bölümünden SONRA ekle:
-
-// ===== IP ANALİZİ =====
 const ipData = events
     .filter(e => e.ipAddress)
     .reduce((acc, event) => {
