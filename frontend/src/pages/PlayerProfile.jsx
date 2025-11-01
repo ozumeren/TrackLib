@@ -12,7 +12,7 @@ import {
   IconArrowLeft, IconTrendingUp, IconTrendingDown, IconCoin,
   IconWallet, IconGift, IconChartBar, IconCalendar, IconClock,
   IconDeviceGamepad2, IconLogin, IconActivity, IconAlertCircle,
-  IconCheck, IconX, IconInfoCircle
+  IconCheck, IconX, IconInfoCircle, IconNetwork, IconWorldWww, IconAlertTriangle
 } from '@tabler/icons-react';
 import { useAuth } from '../AuthContext';
 import { translateEventName } from '../utils/eventTranslator';
@@ -221,6 +221,9 @@ function PlayerProfile() {
           <Tabs.Tab value="timeline" leftSection={<IconClock size={16} />}>
             Zaman Çizelgesi
           </Tabs.Tab>
+          <Tabs.Tab value="ip" leftSection={<IconNetwork size={16} />}>
+            IP Geçmişi
+          </Tabs.Tab>
         </Tabs.List>
 
         {/* Overview Tab */}
@@ -269,6 +272,21 @@ function PlayerProfile() {
                   </Group>
                   <Text size="sm" weight={500}>{overview.avgEventsPerSession}</Text>
                 </Group>
+                <Group position="apart">
+                  <Group spacing="xs">
+                    <IconNetwork size={16} />
+                    <Text size="sm" color="dimmed">Farklı IP</Text>
+                  </Group>
+                  <Badge color={profileData.ipTracking?.uniqueIPCount > 3 ? 'orange' : 'gray'}>
+                    {profileData.ipTracking?.uniqueIPCount || 0}
+                  </Badge>
+                </Group>
+                {profileData.ipTracking && profileData.ipTracking.uniqueIPCount > 5 && (
+                  <Alert icon={<IconAlertTriangle size={16} />} color="orange" title="Çoklu IP Uyarısı">
+                    Bu oyuncu {profileData.ipTracking.uniqueIPCount} farklı IP adresi kullanmış. 
+                    Çoklu hesap riski olabilir.
+                  </Alert>
+                )}
               </Stack>
             </Card>
 
@@ -753,9 +771,161 @@ function PlayerProfile() {
             )}
           </Card>
         </Tabs.Panel>
+        {/* IP History Tab */}
+<Tabs.Panel value="ip" pt="xs">
+  <Card shadow="sm" padding="lg" radius="md" withBorder>
+    <Stack spacing="md">
+      <Group position="apart">
+        <Title order={4}>🌐 IP Adresi Geçmişi</Title>
+        <Badge size="lg" variant="light" color="blue">
+          {profileData.ipTracking?.uniqueIPCount || 0} Farklı IP
+        </Badge>
+      </Group>
+
+      {/* IP Değişiklikleri */}
+      {profileData.ipTracking?.recentIPChanges?.length > 0 && (
+        <>
+          <Divider label="Son IP Değişiklikleri" labelPosition="center" />
+          <Timeline bulletSize={24} lineWidth={2}>
+            {profileData.ipTracking.recentIPChanges.map((change, idx) => (
+              <Timeline.Item
+                key={idx}
+                bullet={<IconNetwork size={12} />}
+                title={`${change.from} → ${change.to}`}
+              >
+                <Text size="xs" color="dimmed" mt={4}>
+                  {new Date(change.date).toLocaleString('tr-TR')}
+                </Text>
+              </Timeline.Item>
+            ))}
+          </Timeline>
+        </>
+      )}
+
+      {/* Tüm IP'ler */}
+      <Divider label="Tüm Kullanılan IP Adresleri" labelPosition="center" />
+      
+      {profileData.ipTracking?.ipHistory?.length > 0 ? (
+        <Stack spacing="xs">
+          {profileData.ipTracking.ipHistory.map((ip, idx) => (
+            <Paper key={idx} p="md" withBorder>
+              <Group position="apart">
+                <Stack spacing={4}>
+                  <Group spacing="xs">
+                    <Badge variant="light" color="blue" leftSection={<IconWorldWww size={12} />}>
+                      {ip.ipAddress}
+                    </Badge>
+                    {idx === 0 && (
+                      <Badge size="xs" color="teal" variant="filled">
+                        En Çok Kullanılan
+                      </Badge>
+                    )}
+                    {ip.ipAddress === profileData.ipTracking.currentIP && (
+                      <Badge size="xs" color="green" variant="filled">
+                        Güncel
+                      </Badge>
+                    )}
+                  </Group>
+                  <Group spacing="xl">
+                    <Text size="xs" color="dimmed">
+                      📊 {ip.count} event
+                    </Text>
+                    <Text size="xs" color="dimmed">
+                      📅 İlk: {new Date(ip.firstSeen).toLocaleDateString('tr-TR')}
+                    </Text>
+                    <Text size="xs" color="dimmed">
+                      🕐 Son: {new Date(ip.lastSeen).toLocaleDateString('tr-TR')}
+                    </Text>
+                  </Group>
+                </Stack>
+                
+                <Tooltip label="IP Detayları">
+                  <ActionIcon
+                    variant="light"
+                    color="blue"
+                    onClick={() => {
+                      // IP detay sayfasına git (opsiyonel)
+                      console.log('IP Details:', ip.ipAddress);
+                    }}
+                  >
+                    <IconEye size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+              
+              {/* Son event'ler */}
+              {ip.events && ip.events.length > 0 && (
+                <Box mt="sm" p="sm" style={{ backgroundColor: '#f8f9fa', borderRadius: 4 }}>
+                  <Text size="xs" weight={500} mb={4}>Son Aktiviteler:</Text>
+                  {ip.events.map((event, eventIdx) => (
+                    <Text key={eventIdx} size="xs" color="dimmed">
+                      • {translateEventName(event.eventName)} - {new Date(event.date).toLocaleString('tr-TR')}
+                    </Text>
+                  ))}
+                </Box>
+              )}
+            </Paper>
+          ))}
+        </Stack>
+      ) : (
+        <Center py="xl">
+          <Stack align="center" spacing="xs">
+            <ThemeIcon size="xl" radius="xl" variant="light" color="gray">
+              <IconNetwork size={24} />
+            </ThemeIcon>
+            <Text size="sm" color="dimmed">IP bilgisi bulunamadı</Text>
+          </Stack>
+        </Center>
+      )}
+        </Stack>
+      </Card>
+    </Tabs.Panel>
       </Tabs>
     </Stack>
   );
 }
+
+{/* Mevcut kartlardan sonra */}
+
+{/* IP Tracking Card */}
+{profileData.ipTracking && (
+  <Card shadow="sm" padding="lg" radius="md" withBorder>
+    <Group position="apart" mb="xs">
+      <Text weight={500}>🌐 IP Bilgisi</Text>
+      {profileData.ipTracking.uniqueIPCount > 3 && (
+        <Tooltip label="Çok sayıda farklı IP kullanılmış!">
+          <ThemeIcon size="sm" radius="xl" color="orange" variant="light">
+            <IconAlertTriangle size={14} />
+          </ThemeIcon>
+        </Tooltip>
+      )}
+    </Group>
+    <Stack spacing="xs">
+      <Group position="apart">
+        <Text size="sm" color="dimmed">Güncel IP:</Text>
+        <Badge variant="light" color="blue" leftSection={<IconWorldWww size={12} />}>
+          {profileData.ipTracking.currentIP}
+        </Badge>
+      </Group>
+      <Group position="apart">
+        <Text size="sm" color="dimmed">Farklı IP:</Text>
+        <Badge variant="light" color={profileData.ipTracking.uniqueIPCount > 3 ? 'orange' : 'gray'}>
+          {profileData.ipTracking.uniqueIPCount}
+        </Badge>
+      </Group>
+      {profileData.ipTracking.mostUsedIP && (
+        <Group position="apart">
+          <Text size="sm" color="dimmed">En Çok Kullanılan:</Text>
+          <Tooltip label={`${profileData.ipTracking.mostUsedIP.count} kez kullanıldı`}>
+            <Badge variant="filled" color="teal" size="sm">
+              {profileData.ipTracking.mostUsedIP.ipAddress}
+            </Badge>
+          </Tooltip>
+        </Group>
+      )}
+    </Stack>
+  </Card>
+)}
+
 
 export default PlayerProfile;

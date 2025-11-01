@@ -208,7 +208,127 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
         res.status(500).json({ error: 'Profil verileri alınamadı.' });
     }
 });
+// ============================================
+// BACKEND: playerProfileRoutes.js
+// IP ANALİZİNİ EKLE
+// ============================================
 
+// router.get('/:playerId') fonksiyonunda, "GENEL BİLGİLER" bölümünden SONRA ekle:
+
+// ===== IP ANALİZİ =====
+const ipData = events
+    .filter(e => e.ipAddress)
+    .reduce((acc, event) => {
+        const ip = event.ipAddress;
+        if (!acc[ip]) {
+            acc[ip] = {
+                ipAddress: ip,
+                count: 0,
+                firstSeen: event.createdAt,
+                lastSeen: event.createdAt,
+                events: []
+            };
+        }
+        acc[ip].count++;
+        if (event.createdAt > acc[ip].lastSeen) {
+            acc[ip].lastSeen = event.createdAt;
+        }
+        if (event.createdAt < acc[ip].firstSeen) {
+            acc[ip].firstSeen = event.createdAt;
+        }
+        // Son 5 event'i sakla
+        if (acc[ip].events.length < 5) {
+            acc[ip].events.push({
+                eventName: event.eventName,
+                date: event.createdAt,
+                url: event.url
+            });
+        }
+        return acc;
+    }, {});
+
+const ipHistory = Object.values(ipData).sort((a, b) => b.count - a.count);
+const uniqueIPCount = ipHistory.length;
+const mostUsedIP = ipHistory[0] || null;
+const currentIP = events[0]?.ipAddress || 'Unknown';
+
+// IP değişikliği analizi
+const ipChanges = [];
+for (let i = 1; i < events.length; i++) {
+    if (events[i].ipAddress && events[i-1].ipAddress && 
+        events[i].ipAddress !== events[i-1].ipAddress) {
+        ipChanges.push({
+            from: events[i].ipAddress,
+            to: events[i-1].ipAddress,
+            date: events[i-1].createdAt
+        });
+    }
+}
+
+const recentIPChanges = ipChanges.slice(0, 5);
+
+// ============================================
+// res.json() içine EKLE:
+// ============================================
+
+res.json({
+    overview: {
+        playerId,
+        firstSeen,
+        lastSeen,
+        totalEvents,
+        registrationDate: registrationEvent ? registrationEvent.createdAt : null,
+        daysSinceRegistration,
+        daysSinceLastActivity,
+    },
+    financial: {
+        totalDeposit,
+        depositCount,
+        avgDepositAmount,
+        lastDepositDate,
+        daysSinceLastDeposit,
+        totalWithdrawal,
+        withdrawalCount,
+        avgWithdrawalAmount,
+        lastWithdrawalDate,
+        deposits,
+        withdrawals,
+        ltv: totalDeposit - totalWithdrawal,
+    },
+    gaming: {
+        totalGames,
+        favoriteGames,
+        totalGameDuration,
+        avgSessionDuration,
+        lastGamePlayed,
+    },
+    activity: {
+        totalLogins,
+        lastLogin,
+        averageDailyEvents,
+        eventBreakdown,
+        heatmapData,
+        peakHour,
+        peakDay,
+    },
+    
+    // ✅ YENİ ALAN - IP TRACKING
+    ipTracking: {
+        currentIP: currentIP,
+        uniqueIPCount: uniqueIPCount,
+        mostUsedIP: mostUsedIP,
+        ipHistory: ipHistory,
+        recentIPChanges: recentIPChanges,
+        totalIPChanges: ipChanges.length
+    },
+    
+    recentEvents: recentEvents.map(e => ({
+        eventName: e.eventName,
+        createdAt: e.createdAt,
+        parameters: e.parameters,
+        url: e.url,
+    })),
+});
 /**
  * GET /api/player-profile/:playerId/summary
  * Hızlı özet bilgi (kartlar için)
