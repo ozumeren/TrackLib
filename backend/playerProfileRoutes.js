@@ -34,6 +34,57 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
         const lastSeen = events[0].createdAt;
         const totalEvents = events.length;
 
+        // ===== IP ANALİZİ =====
+        const ipData = events
+            .filter(e => e.ipAddress)
+            .reduce((acc, event) => {
+                const ip = event.ipAddress;
+                if (!acc[ip]) {
+                    acc[ip] = {
+                        ipAddress: ip,
+                        count: 0,
+                        firstSeen: event.createdAt,
+                        lastSeen: event.createdAt,
+                        events: []
+                    };
+                }
+                acc[ip].count++;
+                if (event.createdAt > acc[ip].lastSeen) {
+                    acc[ip].lastSeen = event.createdAt;
+                }
+                if (event.createdAt < acc[ip].firstSeen) {
+                    acc[ip].firstSeen = event.createdAt;
+                }
+                // Son 5 event'i sakla
+                if (acc[ip].events.length < 5) {
+                    acc[ip].events.push({
+                        eventName: event.eventName,
+                        date: event.createdAt,
+                        url: event.url
+                    });
+                }
+                return acc;
+            }, {});
+
+        const ipHistory = Object.values(ipData).sort((a, b) => b.count - a.count);
+        const uniqueIPCount = ipHistory.length;
+        const mostUsedIP = ipHistory[0] || null;
+        const currentIP = events[0]?.ipAddress || 'Unknown';
+
+        // IP değişikliği analizi
+        const ipChanges = [];
+        for (let i = 1; i < events.length; i++) {
+            if (events[i].ipAddress && events[i-1].ipAddress && 
+                events[i].ipAddress !== events[i-1].ipAddress) {
+                ipChanges.push({
+                    from: events[i].ipAddress,
+                    to: events[i-1].ipAddress,
+                    date: events[i-1].createdAt
+                });
+            }
+        }
+        const recentIPChanges = ipChanges.slice(0, 5);
+
         // ===== DEPOSIT ANALİZİ =====
         const depositEvents = events.filter(e => e.eventName === 'deposit_successful');
         const deposits = depositEvents.map(e => ({
@@ -107,7 +158,7 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
         const last30Days = new Date();
         last30Days.setDate(last30Days.getDate() - 30);
         
-        const recentEvents = events.filter(e => new Date(e.createdAt) >= last30Days);
+        const recentEventsFiltered = events.filter(e => new Date(e.createdAt) >= last30Days);
         
         const dailyActivity = {};
         for (let i = 0; i < 30; i++) {
@@ -117,7 +168,7 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
             dailyActivity[dateKey] = 0;
         }
         
-        recentEvents.forEach(event => {
+        recentEventsFiltered.forEach(event => {
             const dateKey = event.createdAt.toISOString().split('T')[0];
             if (dailyActivity[dateKey] !== undefined) {
                 dailyActivity[dateKey]++;
@@ -192,6 +243,16 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
                 deviceInfo
             },
 
+            // IP Tracking
+            ipTracking: {
+                currentIP: currentIP,
+                uniqueIPCount: uniqueIPCount,
+                mostUsedIP: mostUsedIP,
+                ipHistory: ipHistory,
+                recentIPChanges: recentIPChanges,
+                totalIPChanges: ipChanges.length
+            },
+
             // Son event'ler (timeline için)
             recentEvents: events.slice(0, 50).map(e => ({
                 id: e.id,
@@ -209,119 +270,6 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
     }
 });
 
-const ipData = events
-    .filter(e => e.ipAddress)
-    .reduce((acc, event) => {
-        const ip = event.ipAddress;
-        if (!acc[ip]) {
-            acc[ip] = {
-                ipAddress: ip,
-                count: 0,
-                firstSeen: event.createdAt,
-                lastSeen: event.createdAt,
-                events: []
-            };
-        }
-        acc[ip].count++;
-        if (event.createdAt > acc[ip].lastSeen) {
-            acc[ip].lastSeen = event.createdAt;
-        }
-        if (event.createdAt < acc[ip].firstSeen) {
-            acc[ip].firstSeen = event.createdAt;
-        }
-        // Son 5 event'i sakla
-        if (acc[ip].events.length < 5) {
-            acc[ip].events.push({
-                eventName: event.eventName,
-                date: event.createdAt,
-                url: event.url
-            });
-        }
-        return acc;
-    }, {});
-
-const ipHistory = Object.values(ipData).sort((a, b) => b.count - a.count);
-const uniqueIPCount = ipHistory.length;
-const mostUsedIP = ipHistory[0] || null;
-const currentIP = events[0]?.ipAddress || 'Unknown';
-
-// IP değişikliği analizi
-const ipChanges = [];
-for (let i = 1; i < events.length; i++) {
-    if (events[i].ipAddress && events[i-1].ipAddress && 
-        events[i].ipAddress !== events[i-1].ipAddress) {
-        ipChanges.push({
-            from: events[i].ipAddress,
-            to: events[i-1].ipAddress,
-            date: events[i-1].createdAt
-        });
-    }
-}
-
-const recentIPChanges = ipChanges.slice(0, 5);
-
-// ============================================
-// res.json() içine EKLE:
-// ============================================
-
-res.json({
-    overview: {
-        playerId,
-        firstSeen,
-        lastSeen,
-        totalEvents,
-        registrationDate: registrationEvent ? registrationEvent.createdAt : null,
-        daysSinceRegistration,
-        daysSinceLastActivity,
-    },
-    financial: {
-        totalDeposit,
-        depositCount,
-        avgDepositAmount,
-        lastDepositDate,
-        daysSinceLastDeposit,
-        totalWithdrawal,
-        withdrawalCount,
-        avgWithdrawalAmount,
-        lastWithdrawalDate,
-        deposits,
-        withdrawals,
-        ltv: totalDeposit - totalWithdrawal,
-    },
-    gaming: {
-        totalGames,
-        favoriteGames,
-        totalGameDuration,
-        avgSessionDuration,
-        lastGamePlayed,
-    },
-    activity: {
-        totalLogins,
-        lastLogin,
-        averageDailyEvents,
-        eventBreakdown,
-        heatmapData,
-        peakHour,
-        peakDay,
-    },
-    
-    // ✅ YENİ ALAN - IP TRACKING
-    ipTracking: {
-        currentIP: currentIP,
-        uniqueIPCount: uniqueIPCount,
-        mostUsedIP: mostUsedIP,
-        ipHistory: ipHistory,
-        recentIPChanges: recentIPChanges,
-        totalIPChanges: ipChanges.length
-    },
-    
-    recentEvents: recentEvents.map(e => ({
-        eventName: e.eventName,
-        createdAt: e.createdAt,
-        parameters: e.parameters,
-        url: e.url,
-    })),
-});
 /**
  * GET /api/player-profile/:playerId/summary
  * Hızlı özet bilgi (kartlar için)
