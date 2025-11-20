@@ -76,8 +76,7 @@ const generalLimiter = rateLimit({
     standardHeaders: true, // Return rate limit info in headers
     legacyHeaders: false, // Disable X-RateLimit-* headers
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:general:'
     }),
     keyGenerator: generateKey,
@@ -100,8 +99,7 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:auth:'
     }),
     keyGenerator: (req) => `ip:${req.ip}`, // Always use IP for auth
@@ -135,8 +133,7 @@ const eventTrackingLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:events:'
     }),
     keyGenerator: (req) => {
@@ -181,8 +178,7 @@ const registrationLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:registration:'
     }),
     keyGenerator: (req) => `ip:${req.ip}`,
@@ -215,8 +211,7 @@ const analyticsLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:analytics:'
     }),
     keyGenerator: generateKey,
@@ -238,8 +233,7 @@ const adminLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:admin:'
     }),
     keyGenerator: generateKey,
@@ -261,8 +255,7 @@ const scriptServingLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-        // @ts-expect-error - Known issue with the library types
-        client: redis,
+        sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:scripts:'
     }),
     keyGenerator: (req) => {
