@@ -24,6 +24,15 @@ const logger = require('./utils/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { validateBody, validateParams } = require('./middleware/validate');
 const schemas = require('./validators/schemas');
+const {
+    generalLimiter,
+    authLimiter,
+    eventTrackingLimiter,
+    registrationLimiter,
+    analyticsLimiter,
+    adminLimiter,
+    scriptServingLimiter
+} = require('./middleware/rateLimiter');
 
 const httpsOptions = {
     key: fs.readFileSync('./key.pem'),
@@ -89,12 +98,12 @@ const adminRoutes = require('./adminRoutes');
 const playerProfileRoutes = require('./playerProfileRoutes');
 
 app.use('/api/player-profile', playerProfileRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/analytics', analyticsLimiter, analyticsRoutes);
 app.use('/api/segments', segmentRoutes);
 app.use('/api/rules', ruleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminLimiter, adminRoutes);
 
 // ============================================
 // HEALTH CHECK ENDPOINTS
@@ -214,7 +223,7 @@ async function createPredefinedData(customerId) {
 
 // YENİ: Script ID bazlı route
 
-app.get('/scripts/:scriptId.js', async (req, res) => {
+app.get('/scripts/:scriptId.js', scriptServingLimiter, async (req, res) => {
     try {
         const { scriptId } = req.params;
         
@@ -273,10 +282,10 @@ app.get('/scripts/:scriptId.js', async (req, res) => {
             .send('console.error("TrackLib: Script generation failed");');
     }
 });
-app.get('/s/:scriptId.js', async (req, res) => {
+app.get('/s/:scriptId.js', scriptServingLimiter, async (req, res) => {
     try {
         const { scriptId } = req.params;
-        
+
         // Script ID formatını kontrol et (güvenlik)
         if (!/^[a-zA-Z0-9_-]+$/.test(scriptId)) {
             return res.status(400)
@@ -366,7 +375,7 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
 // ============================================
 const authRoutes = express.Router();
 
-authRoutes.post('/register', validateBody(schemas.registerSchema), async (req, res) => {
+authRoutes.post('/register', registrationLimiter, validateBody(schemas.registerSchema), async (req, res) => {
     const { customerName, scriptId, userName, email, password } = req.body;
 
     try {
@@ -479,7 +488,7 @@ authRoutes.post('/login', validateBody(schemas.loginSchema), async (req, res) =>
     }
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 
 // ============================================
 // DOMAIN MANAGEMENT ROUTES
@@ -628,7 +637,7 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🎯 Script Endpoint: ${BACKEND_URL}/s/tracklib_deneme.js\n`);
 });
 
-app.post('/v1/events', validateEventOrigin, protectWithApiKey, validateBody(schemas.eventSchema), async (req, res) => {
+app.post('/v1/events', eventTrackingLimiter, validateEventOrigin, protectWithApiKey, validateBody(schemas.eventSchema), async (req, res) => {
     const eventData = req.body;
     const customer = req.customer;
 
@@ -748,6 +757,11 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     console.log(`   cd backend`);
     console.log(`   openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"\n`);
 }
+
+// ============================================
+// GENERAL RATE LIMITING (Apply to all remaining routes)
+// ============================================
+app.use(generalLimiter);
 
 // ============================================
 // ERROR HANDLERS (Must be last)
