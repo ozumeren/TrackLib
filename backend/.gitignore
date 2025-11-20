@@ -1,5 +1,15 @@
 node_modules
-# Keep environment variables out of version control
+
+# Environment variables
 .env
 
+# Generated files
 /generated/prisma
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+.nyc_output/

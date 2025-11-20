@@ -11,7 +11,7 @@ import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css'; // 2. YENİ: Bildirim stillerini import et
 
 // Axios global baseURL ayarı
-axios.defaults.baseURL = 'http://37.27.72.40:3000';
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

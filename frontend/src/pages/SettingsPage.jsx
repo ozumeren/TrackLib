@@ -20,6 +20,7 @@ function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [domains, setDomains] = useState('');
   const [saving, setSaving] = useState(false);
+  const API_BASE_URL = axios.defaults.baseURL;
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -180,7 +181,7 @@ function SettingsPage() {
                   </Accordion.Control>
                   <Accordion.Panel>
                     <Code block>
-                      {`curl -X POST http://37.27.72.40:3000/v1/events \\
+                      {`curl -X POST ${API_BASE_URL}/v1/events \\
   -H "Content-Type: application/json" \\
   -d '{
     "api_key": "${customer.apiKey}",
@@ -265,12 +266,12 @@ function SettingsPage() {
                     <Accordion.Panel>
                       <Code block>
                         {`<!-- HTML <head> bölümüne ekleyin -->
-<script src="http://37.27.72.40:3000/s/${customer.scriptId}.js"></script>
+<script src="${API_BASE_URL}/s/${customer.scriptId}.js"></script>
 
 <script>
   // Kullanıcı girişi yaptığında
   tracker.identify("USER_ID");
-  
+
   // Event gönderme
   tracker.track("deposit_successful", {
     amount: 100,
@@ -347,7 +348,7 @@ function SettingsPage() {
                       <strong>Localhost:</strong> <Code>localhost</Code>
                     </Text>
                     <Text size="xs">
-                      <strong>IP:</strong> <Code>37.27.72.40</Code>
+                      <strong>IP Adresi:</strong> <Code>192.168.1.100</Code>
                     </Text>
                   </Stack>
                 </Accordion.Panel>

@@ -99,6 +99,9 @@ model User {
   customer   Customer @relation(fields: [customerId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([customerId])
+  @@index([customerId, role])
 }
 
 model Event {
@@ -136,6 +139,8 @@ model Player {
 
   @@unique([playerId, customerId])
   @@index([customerId, playerId])
+  @@index([customerId, email])
+  @@index([email])
 }
 
 model TelegramConnection {
@@ -146,6 +151,8 @@ model TelegramConnection {
   customerId     String
 
   @@unique([playerId])
+  @@index([customerId])
+  @@index([telegramChatId])
 }
 
 model Segment {
@@ -157,11 +164,13 @@ model Segment {
   customer    Customer @relation(fields: [customerId], references: [id])
 
   players     Player[] @relation("PlayerSegments")
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
   @@index([customerId])
+  @@index([customerId, createdAt])
+  @@index([customerId, updatedAt])
 }
 
 model Rule {
@@ -203,10 +212,15 @@ model Rule {
   
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @default(now()) @updatedAt
-  
+
   @@index([customerId, isActive])
+  @@index([customerId, isActive, priority])
   @@index([triggerType])
   @@index([priority])
+  @@index([lastExecutedAt])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([customerId, triggerType, isActive])
 }
 
 model RuleVariant {
@@ -214,19 +228,22 @@ model RuleVariant {
   name                  String
   actionType            ActionType
   actionPayload         Json
-  
+
   // A/B Test için ağırlık
   weight                Int            @default(1)
-  
+
   // İstatistikler
   exposures             Int            @default(0)
   conversions           Int            @default(0)
-  
+
   ruleId                Int
   rule                  Rule           @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  
+
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @default(now()) @updatedAt
+
+  @@index([ruleId])
+  @@index([actionType])
 }
 
 model RuleExecution {
@@ -237,11 +254,18 @@ model RuleExecution {
   executedAt            DateTime       @default(now())
   success               Boolean        @default(true)
   errorMessage          String?
-  
+
   customerId            String
   customer              Customer       @relation(fields: [customerId], references: [id])
-  
+
   @@index([customerId, playerId])
+  @@index([customerId, ruleId])
+  @@index([customerId, playerId, ruleId])
   @@index([ruleId])
+  @@index([ruleId, executedAt])
   @@index([executedAt])
+  @@index([success])
+  @@index([variantId])
+  @@index([customerId, executedAt])
+  @@index([customerId, success])
 }

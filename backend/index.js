@@ -5,6 +5,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const morgan = require('morgan');
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
@@ -19,6 +20,10 @@ const axios = require('axios');
 const segmentEvaluator = require('./services/segmentEvaluator');
 const ruleEngine = require('./services/ruleEngine');
 const https = require('https');
+const logger = require('./utils/logger');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { validateBody, validateParams } = require('./middleware/validate');
+const schemas = require('./validators/schemas');
 
 const httpsOptions = {
     key: fs.readFileSync('./key.pem'),
@@ -33,6 +38,7 @@ const redis = new Redis();
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const JWT_SECRET = process.env.JWT_SECRET || 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 // ============================================
 // MIDDLEWARE
@@ -43,6 +49,14 @@ const corsOptions = {
   allowedHeaders: 'Content-Type, Authorization, X-Script-Version',
 };
 app.use(cors(corsOptions));
+
+// HTTP request logging
+if (process.env.NODE_ENV === 'production') {
+    app.use(morgan('combined', { stream: logger.stream }));
+} else {
+    app.use(morgan('dev'));
+}
+
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
@@ -81,6 +95,58 @@ app.use('/api/rules', ruleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/admin', adminRoutes);
+
+// ============================================
+// HEALTH CHECK ENDPOINTS
+// ============================================
+
+// Basic health check - Returns 200 if server is running
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Detailed readiness check - Validates all dependencies
+app.get('/ready', async (req, res) => {
+    const checks = {
+        server: 'ok',
+        database: 'checking',
+        redis: 'checking',
+        timestamp: new Date().toISOString()
+    };
+
+    let isReady = true;
+
+    // Check database connection
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        checks.database = 'ok';
+    } catch (error) {
+        checks.database = 'error';
+        checks.databaseError = error.message;
+        isReady = false;
+    }
+
+    // Check Redis connection
+    try {
+        await redis.ping();
+        checks.redis = 'ok';
+    } catch (error) {
+        checks.redis = 'error';
+        checks.redisError = error.message;
+        isReady = false;
+    }
+
+    const statusCode = isReady ? 200 : 503;
+    res.status(statusCode).json({
+        status: isReady ? 'ready' : 'not_ready',
+        checks: checks
+    });
+});
 
 // ============================================
 // HELPER FUNCTION - Create Default Data
@@ -182,7 +248,7 @@ app.get('/scripts/:scriptId.js', async (req, res) => {
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
-            backendUrl: `http://37.27.72.40:3000/v1/events`,
+            backendUrl: `${BACKEND_URL}/v1/events`,
             domConfig: customer.domConfig || {}
         };
         
@@ -241,7 +307,7 @@ app.get('/s/:scriptId.js', async (req, res) => {
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
-            backendUrl: `http://37.27.72.40:3000/v1/events`,
+            backendUrl: `${BACKEND_URL}/v1/events`,
             domConfig: customer.domConfig || {}
         };
         
@@ -300,20 +366,8 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
 // ============================================
 const authRoutes = express.Router();
 
-authRoutes.post('/register', async (req, res) => {
+authRoutes.post('/register', validateBody(schemas.registerSchema), async (req, res) => {
     const { customerName, scriptId, userName, email, password } = req.body;
-    
-    // Validasyon
-    if (!customerName || !scriptId || !userName || !email || !password) {
-        return res.status(400).json({ error: 'Tüm alanlar zorunludur.' });
-    }
-
-    // Script ID formatı kontrolü
-    if (!/^tracklib_[a-z0-9_]+$/.test(scriptId)) {
-        return res.status(400).json({ 
-            error: 'Script ID "tracklib_" ile başlamalı ve sadece küçük harf, rakam ve alt çizgi içerebilir.' 
-        });
-    }
 
     try {
         // Script ID benzersiz mi kontrol et
@@ -388,13 +442,9 @@ authRoutes.post('/register', async (req, res) => {
     }
 });
 
-authRoutes.post('/login', async (req, res) => {
+authRoutes.post('/login', validateBody(schemas.loginSchema), async (req, res) => {
     const { email, password } = req.body;
-    
-    if (!email || !password) {
-        return res.status(400).json({ error: 'E-posta ve şifre gereklidir.' });
-    }
-    
+
     try {
         const user = await prisma.user.findUnique({ where: { email } });
         
@@ -434,21 +484,14 @@ app.use('/api/auth', authRoutes);
 // ============================================
 // DOMAIN MANAGEMENT ROUTES
 // ============================================
-app.put('/api/customers/domains', protectWithJWT, isOwner, async (req, res) => {
+app.put('/api/customers/domains', protectWithJWT, isOwner, validateBody(schemas.domainsSchema), async (req, res) => {
     try {
         const { domains } = req.body;
-        
-        if (!Array.isArray(domains)) {
-            return res.status(400).json({ error: 'Domains must be an array' });
-        }
 
-        // Her domain'i temizle ve doğrula
+        // Clean and normalize domains (validation already checked format)
         const cleanDomains = domains
             .map(d => d.trim().toLowerCase())
-            .filter(d => d.length > 0)
-            .filter(d => {
-                return /^(\*\.)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/.test(d);
-            });
+            .filter(d => d.length > 0);
 
         await prisma.customer.update({
             where: { id: req.user.customerId },
@@ -486,105 +529,23 @@ app.get('/api/customers/domains', protectWithJWT, async (req, res) => {
 // ============================================
 app.options('/v1/events', cors(corsOptions));
 
-app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) => {
-    const eventData = req.body;
-    const customer = req.customer;
-    
-    try {
-        // Rate limiting kontrolü
-        const rateLimitKey = `rate:${customer.apiKey}:${eventData.session_id}`;
-        const requestCount = await redis.incr(rateLimitKey);
-        
-        if (requestCount === 1) {
-            await redis.expire(rateLimitKey, 60); // 1 dakika
-        }
-        
-        if (requestCount > 100) {
-            console.log(`⚠️  Rate limit exceeded: ${customer.name}`);
-            return res.status(429).json({ error: 'Rate limit exceeded' });
-        }
-
-        // Player kaydı oluştur/güncelle
-        if (eventData.player_id) {
-            await prisma.player.upsert({
-                where: { 
-                    playerId_customerId: { 
-                        playerId: eventData.player_id, 
-                        customerId: customer.id 
-                    } 
-                },
-                update: {},
-                create: { 
-                    playerId: eventData.player_id, 
-                    customerId: customer.id 
-                },
-            });
-        }
-
-        // Event'i kaydet
-        await prisma.event.create({
-            data: {
-                apiKey: eventData.api_key,
-                sessionId: eventData.session_id,
-                playerId: eventData.player_id || null,
-                eventName: eventData.event_name,
-                url: eventData.url || '',
-                parameters: eventData.parameters || {},
-                customerId: customer.id,
-                createdAt: eventData.timestamp_utc ? new Date(eventData.timestamp_utc) : new Date()
-            },
-        });
-
-        // A/B Test conversion tracking
-        if (eventData.player_id) {
-            const abTestEntry = await redis.get(`ab_test:${eventData.player_id}`);
-            
-            if (abTestEntry) {
-                const { variantId } = JSON.parse(abTestEntry);
-                const variant = await prisma.ruleVariant.findUnique({ 
-                    where: { id: variantId }, 
-                    include: { rule: true } 
-                });
-                
-                if (variant && eventData.event_name === variant.rule.conversionGoalEvent) {
-                    await prisma.ruleVariant.update({
-                        where: { id: variantId },
-                        data: { conversions: { increment: 1 } },
-                    });
-                    console.log(`✅ A/B Test conversion recorded for variant ${variantId}`);
-                }
-            }
-        }
-
-        res.status(200).json({ success: true });
-
-    } catch (error) {
-        console.error('Event tracking error:', error);
-        res.status(500).json({ error: 'Failed to track event' });
-    }
-});
-
 // ============================================
 // TELEGRAM WEBHOOK ROUTE
 // ============================================
-app.post('/telegram-webhook', async (req, res) => {
+app.post('/telegram-webhook', validateBody(schemas.telegramWebhookSchema), async (req, res) => {
     const { chatId, apiKey } = req.body;
-    
-    if (!chatId || !apiKey) {
-        return res.status(400).json({ error: 'chatId ve apiKey gereklidir.' });
-    }
 
     try {
         await prisma.customer.update({
             where: { apiKey },
             data: { telegramChatId: chatId },
         });
-        
+
+        logger.info('Telegram Chat ID registered', { apiKey });
         res.json({ message: 'Telegram Chat ID başarıyla kaydedildi.' });
-        console.log(`✅ Telegram Chat ID registered for API Key: ${apiKey}`);
-        
+
     } catch (error) {
-        console.error('Telegram webhook error:', error);
+        logger.error('Telegram webhook error:', { error: error.message, apiKey });
         res.status(500).json({ error: 'Chat ID kaydedilemedi.' });
     }
 });
@@ -663,34 +624,65 @@ app.listen(PORT, '0.0.0.0', async () => {
     await connectToDatabase();
     
     console.log("\n🚀 HTTP Server is ready!");
-    console.log(`📝 API Documentation: http://37.27.72.40:${PORT}/api`);
-    console.log(`🎯 Script Endpoint: http://37.27.72.40:${PORT}/s/tracklib_deneme.js\n`);
+    console.log(`📝 API Documentation: ${BACKEND_URL}/api`);
+    console.log(`🎯 Script Endpoint: ${BACKEND_URL}/s/tracklib_deneme.js\n`);
 });
 
-app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) => {
+app.post('/v1/events', validateEventOrigin, protectWithApiKey, validateBody(schemas.eventSchema), async (req, res) => {
     const eventData = req.body;
     const customer = req.customer;
-    
-    // ✅ GÜNCEL IP YAKALAMA
-    let ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+
+    // IP Address capture
+    let ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
                  || req.headers['x-real-ip']
                  || req.ip
                  || req.socket.remoteAddress
                  || 'Unknown';
-    
-    // IPv6 localhost'u düzelt (::1 → 127.0.0.1)
+
+    // IPv6 localhost normalization (::1 → 127.0.0.1)
     if (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') {
         ipAddress = '127.0.0.1';
     }
-    
-    // IPv6 mapped IPv4 formatını düzelt (::ffff:192.168.1.1 → 192.168.1.1)
+
+    // IPv6 mapped IPv4 normalization (::ffff:192.168.1.1 → 192.168.1.1)
     if (ipAddress.startsWith('::ffff:')) {
         ipAddress = ipAddress.replace('::ffff:', '');
     }
-    
-    console.log('🌐 Captured IP:', ipAddress); // Debug
-    
+
+    console.log('🌐 Captured IP:', ipAddress);
+
     try {
+        // Rate limiting check
+        const rateLimitKey = `rate:${customer.apiKey}:${eventData.session_id}`;
+        const requestCount = await redis.incr(rateLimitKey);
+
+        if (requestCount === 1) {
+            await redis.expire(rateLimitKey, 60); // 1 minute
+        }
+
+        if (requestCount > 100) {
+            console.log(`⚠️  Rate limit exceeded: ${customer.name}`);
+            return res.status(429).json({ error: 'Rate limit exceeded' });
+        }
+
+        // Create/update player record
+        if (eventData.player_id) {
+            await prisma.player.upsert({
+                where: {
+                    playerId_customerId: {
+                        playerId: eventData.player_id,
+                        customerId: customer.id
+                    }
+                },
+                update: {},
+                create: {
+                    playerId: eventData.player_id,
+                    customerId: customer.id
+                },
+            });
+        }
+
+        // Save event
         await prisma.event.create({
             data: {
                 apiKey: eventData.api_key,
@@ -705,10 +697,32 @@ app.post('/v1/events', validateEventOrigin, protectWithApiKey, async (req, res) 
             },
         });
 
-        res.json({ success: true });
+        // A/B Test conversion tracking
+        if (eventData.player_id) {
+            const abTestEntry = await redis.get(`ab_test:${eventData.player_id}`);
+
+            if (abTestEntry) {
+                const { variantId } = JSON.parse(abTestEntry);
+                const variant = await prisma.ruleVariant.findUnique({
+                    where: { id: variantId },
+                    include: { rule: true }
+                });
+
+                if (variant && eventData.event_name === variant.rule.conversionGoalEvent) {
+                    await prisma.ruleVariant.update({
+                        where: { id: variantId },
+                        data: { conversions: { increment: 1 } },
+                    });
+                    console.log(`✅ A/B Test conversion recorded for variant ${variantId}`);
+                }
+            }
+        }
+
+        res.status(200).json({ success: true });
+
     } catch (error) {
         console.error('Event tracking error:', error);
-        res.status(500).json({ error: 'Event kaydetme başarısız.' });
+        res.status(500).json({ error: 'Failed to track event' });
     }
 });
 
@@ -723,16 +737,23 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     };
 
     https.createServer(httpsOptions, app).listen(HTTPS_PORT, '0.0.0.0', () => {
+        const httpsUrl = BACKEND_URL.replace('http:', 'https:').replace(`:${PORT}`, `:${HTTPS_PORT}`);
         console.log(`🔒 HTTPS Server running on port ${HTTPS_PORT}`);
-        console.log(`   https://37.27.72.40:${HTTPS_PORT}`);
+        console.log(`   ${httpsUrl}`);
         console.log(`⚠️  Using self-signed certificate\n`);
     });
 } else {
     console.log(`\n⚠️  HTTPS disabled - cert.pem and key.pem not found`);
     console.log(`   To enable HTTPS, run:`);
-    console.log(`   cd /root/tracker/backend`);
-    console.log(`   openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=37.27.72.40"\n`);
+    console.log(`   cd backend`);
+    console.log(`   openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"\n`);
 }
+
+// ============================================
+// ERROR HANDLERS (Must be last)
+// ============================================
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // ============================================
 // GRACEFUL SHUTDOWN

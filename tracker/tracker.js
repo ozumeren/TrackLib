@@ -4,8 +4,8 @@
     let sessionId = null;
     let playerId = null;
 
-    // !!! ÖNEMLİ: 'SUNUCU_IP_ADRESINIZ' yazan yeri kendi VPS IP adresinizle değiştirin.
-    const backendUrl = 'http://37.27.72.40:3000/v1/events';
+    // !!! ÖNEMLİ: Backend URL'inizi buraya girin
+    const backendUrl = 'http://localhost:3000/v1/events';
 
     function getOrCreateSessionId() {
         let sid = localStorage.getItem('tracker_session_id');
