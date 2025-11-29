@@ -1,22 +1,41 @@
 // backend/middleware/rateLimiter.js
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis').default;
+const RedisStore = require('rate-limit-redis');
 const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
 // Create Redis client for rate limiting
-const redis = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    // Use a separate database for rate limiting
-    db: 1,
-    enableOfflineQueue: false,
-    maxRetriesPerRequest: 3
-});
+let redis;
+try {
+    redis = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT || 6379,
+        // Use a separate database for rate limiting
+        db: 1,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 3,
+        lazyConnect: true // Don't connect immediately
+    });
 
-redis.on('error', (err) => {
-    logger.error('Rate limiter Redis error:', { error: err.message });
-});
+    redis.on('error', (err) => {
+        console.error('Rate limiter Redis error:', err.message);
+        if (logger && logger.error) {
+            logger.error('Rate limiter Redis error:', { error: err.message });
+        }
+    });
+
+    redis.on('connect', () => {
+        console.log('Rate limiter Redis connected successfully');
+    });
+} catch (err) {
+    console.error('Failed to initialize Redis client:', err);
+    // Create a dummy redis object to prevent crashes
+    redis = {
+        call: () => Promise.resolve(),
+        on: () => {},
+        quit: () => Promise.resolve()
+    };
+}
 
 // Custom handler for rate limit exceeded
 const rateLimitHandler = (req, res) => {
