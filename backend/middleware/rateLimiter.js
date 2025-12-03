@@ -12,9 +12,18 @@ try {
         port: process.env.REDIS_PORT || 6379,
         // Use a separate database for rate limiting
         db: 1,
-        enableOfflineQueue: false,
+        enableOfflineQueue: true, // Queue commands when Redis is not ready
         maxRetriesPerRequest: 3,
-        lazyConnect: true // Don't connect immediately
+        retryStrategy: (times) => {
+            if (times > 10) {
+                console.error('Redis connection failed after 10 retries');
+                return null;
+            }
+            const delay = Math.min(times * 100, 3000);
+            console.log(`Retrying Redis connection in ${delay}ms...`);
+            return delay;
+        },
+        lazyConnect: false // Connect immediately with retry
     });
 
     redis.on('error', (err) => {
