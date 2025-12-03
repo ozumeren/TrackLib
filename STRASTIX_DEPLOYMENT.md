@@ -34,9 +34,9 @@ Coolify'da `.env` tab'ına aşağıdaki değişkenleri ekle:
 # DATABASE CONFIGURATION
 # ==========================================
 POSTGRES_USER=strastix_user
-POSTGRES_PASSWORD=BURAYA_GÜÇLÜ_ŞİFRE_YAZ
+POSTGRES_PASSWORD=lsab7vqg51
 POSTGRES_DB=strastix_db
-DATABASE_URL=postgresql://strastix_user:BURAYA_GÜÇLÜ_ŞİFRE_YAZ@postgres:5432/strastix_db
+DATABASE_URL=postgresql://strastix_user:lsab7vqg51@postgres:5432/strastix_db
 
 # ==========================================
 # REDIS CONFIGURATION
@@ -54,7 +54,7 @@ BACKEND_URL=https://api.strastix.com
 # ==========================================
 # JWT SECRET (ÖNEMLİ: DEĞİŞTİR!)
 # ==========================================
-JWT_SECRET=strastix_BURAYA_RASTGELE_UZUN_BİR_ANAHTAR_YAZ_2024
+JWT_SECRET=strastix_236790ae1384b190c20e9e41fc102515
 
 # ==========================================
 # TELEGRAM BOT (Opsiyonel)
