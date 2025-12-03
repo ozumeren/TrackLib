@@ -13,7 +13,7 @@ RUN npm install --frozen-lockfile
 COPY . .
 
 # Build argument for API URL
-ARG VITE_API_URL=http://localhost:3000
+ARG VITE_API_URL=https://api.strastix.com
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build for production
