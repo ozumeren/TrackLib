@@ -4,11 +4,11 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: tracklib-postgres
+    container_name: strastix-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
-      POSTGRES_DB: ${POSTGRES_DB:-tracklib}
+      POSTGRES_USER: ${POSTGRES_USER:-strastix_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lsab7vqg51}
+      POSTGRES_DB: ${POSTGRES_DB:-strastix_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -23,7 +23,7 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: tracklib-redis
+    container_name: strastix-redis
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -41,14 +41,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: tracklib-backend
+    container_name: strastix-backend
     environment:
       NODE_ENV: production
       PORT: 3000
       HTTPS_PORT: 3443
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-your_secure_password}@postgres:5432/${POSTGRES_DB:-tracklib}
+      DATABASE_URL: postgresql://strastix_user:lsab7vqg51@postgres:5432/strastix_db}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      JWT_SECRET: ${JWT_SECRET:-strastix_236790ae1384b190c20e9e41fc102515}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
@@ -70,9 +70,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: tracklib-frontend
+    container_name: strastix-frontend
     environment:
-      VITE_API_URL: ${BACKEND_URL:-http://localhost:3000}
+      VITE_API_URL: ${BACKEND_URL:-https://api.strastix.com}
     ports:
       - "5173:5173"
     depends_on:
