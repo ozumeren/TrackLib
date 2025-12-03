@@ -46,7 +46,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       HTTPS_PORT: 3443
-      DATABASE_URL: postgresql://strastix_user:lsab7vqg51@postgres:5432/strastix_db}
+      DATABASE_URL: postgresql://strastix_user:lsab7vqg51@postgres:5432/strastix_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-strastix_236790ae1384b190c20e9e41fc102515}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
@@ -70,11 +70,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${BACKEND_URL:-https://api.strastix.com}
     container_name: strastix-frontend
-    environment:
-      VITE_API_URL: ${BACKEND_URL:-https://api.strastix.com}
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       - backend
     restart: unless-stopped
