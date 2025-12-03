@@ -49,6 +49,8 @@ services:
       HTTPS_PORT: 3443
       DATABASE_URL: postgresql://strastix_user:lsab7vqg51@postgres:5432/strastix_db
       REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-strastix_236790ae1384b190c20e9e41fc102515}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
     expose:
