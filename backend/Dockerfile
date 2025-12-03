@@ -1,16 +1,19 @@
 # Backend Dockerfile for Coolify
 FROM node:20-alpine
 
-# Install system dependencies
+# Install system dependencies and build tools
 RUN apk add --no-cache \
     openssl \
-    postgresql-client
+    postgresql-client \
+    python3 \
+    make \
+    g++
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
 # Install all dependencies (needed for Prisma CLI)
