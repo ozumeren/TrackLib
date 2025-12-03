@@ -43,7 +43,15 @@ const httpsOptions = {
 // ============================================
 const app = express();
 const prisma = new PrismaClient();
-const redis = new Redis();
+const redis = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+    enableOfflineQueue: true,
+    retryStrategy: (times) => {
+        if (times > 10) return null;
+        return Math.min(times * 100, 3000);
+    }
+});
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const JWT_SECRET = process.env.JWT_SECRET || 'bu-cok-gizli-bir-anahtar-ve-asla-degismemeli-12345';
