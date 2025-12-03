@@ -58,7 +58,7 @@ services:
     volumes:
       - ./backend/logs:/app/logs
     restart: unless-stopped
-    command: sh -c "npx prisma migrate deploy && npm start"
+    command: sh -c "sleep 10 && npm start"
 
   # Frontend (Optional)
   frontend:
