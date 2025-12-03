@@ -1,11 +1,11 @@
 -- AlterTable
-ALTER TABLE "public"."Event" ADD COLUMN     "ipAddress" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "ipAddress" TEXT;
 
 -- CreateIndex
-CREATE INDEX "Event_ipAddress_idx" ON "public"."Event"("ipAddress");
+CREATE INDEX IF NOT EXISTS "Event_ipAddress_idx" ON "Event"("ipAddress");
 
 -- CreateIndex
-CREATE INDEX "Event_customerId_ipAddress_idx" ON "public"."Event"("customerId", "ipAddress");
+CREATE INDEX IF NOT EXISTS "Event_customerId_ipAddress_idx" ON "Event"("customerId", "ipAddress");
 
 -- CreateIndex
-CREATE INDEX "Event_customerId_playerId_ipAddress_idx" ON "public"."Event"("customerId", "playerId", "ipAddress");
+CREATE INDEX IF NOT EXISTS "Event_customerId_playerId_ipAddress_idx" ON "Event"("customerId", "playerId", "ipAddress");
