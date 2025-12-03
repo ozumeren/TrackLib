@@ -18,6 +18,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - strastix-network
 
   # Redis Cache
   redis:
@@ -33,6 +35,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - strastix-network
 
   # Backend API
   backend:
@@ -58,6 +62,8 @@ services:
     volumes:
       - ./backend/logs:/app/logs
     restart: unless-stopped
+    networks:
+      - strastix-network
     command: sh -c "npm start"
 
   # Frontend (Optional)
@@ -72,6 +78,12 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - strastix-network
+
+networks:
+  strastix-network:
+    driver: bridge
 
 volumes:
   postgres_data:
