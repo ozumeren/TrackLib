@@ -271,7 +271,7 @@ app.get('/scripts/:scriptId.js', scriptServingLimiter, async (req, res) => {
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
-            backendUrl: `${BACKEND_URL}/v1/events`,
+            backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: customer.domConfig || {}
         };
         
@@ -296,7 +296,7 @@ app.get('/scripts/:scriptId.js', scriptServingLimiter, async (req, res) => {
             .send('console.error("TrackLib: Script generation failed");');
     }
 });
-app.get('/s/:scriptId.js', scriptServingLimiter, async (req, res) => {
+app.get('/c/:scriptId.js', scriptServingLimiter, async (req, res) => {
     try {
         const { scriptId } = req.params;
 
@@ -330,7 +330,7 @@ app.get('/s/:scriptId.js', scriptServingLimiter, async (req, res) => {
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
-            backendUrl: `${BACKEND_URL}/v1/events`,
+            backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: customer.domConfig || {}
         };
         
@@ -370,7 +370,7 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
         
         const config = {
             apiKey: customer.apiKey,
-            backendUrl: `http://${req.get('host')}/v1/events`,
+            backendUrl: `http://${req.get('host')}/api/e`,
             domConfig: customer.domConfig || {}
         };
         
@@ -550,7 +550,7 @@ app.get('/api/customers/domains', protectWithJWT, async (req, res) => {
 // ============================================
 // EVENT TRACKING ROUTE
 // ============================================
-app.options('/v1/events', cors(corsOptions));
+app.options('/api/e', cors(corsOptions));
 
 // ============================================
 // TELEGRAM WEBHOOK ROUTE
@@ -648,10 +648,10 @@ app.listen(PORT, '0.0.0.0', async () => {
     
     console.log("\n🚀 HTTP Server is ready!");
     console.log(`📝 API Documentation: ${BACKEND_URL}/api`);
-    console.log(`🎯 Script Endpoint: ${BACKEND_URL}/s/tracklib_deneme.js\n`);
+    console.log(`🎯 Script Endpoint: ${BACKEND_URL}/c/strastix_deneme.js\n`);
 });
 
-app.post('/v1/events', eventTrackingLimiter, validateEventOrigin, protectWithApiKey, validateBody(schemas.eventSchema), async (req, res) => {
+app.post('/api/e', eventTrackingLimiter, validateEventOrigin, protectWithApiKey, validateBody(schemas.eventSchema), async (req, res) => {
     const eventData = req.body;
     const customer = req.customer;
 

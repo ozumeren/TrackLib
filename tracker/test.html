@@ -843,7 +843,7 @@
     </div>
 
     <!-- Tracking Script -->
-	    <script src="https://api.strastix.com/s/tracklib_deneme.js?v=2"></script>
+	    <script src="https://api.strastix.com/c/strastix_deneme.js?v=3"></script>
 
     <!-- Main App Logic -->
     <script>
@@ -860,7 +860,7 @@
         // Initialize on page load
         window.addEventListener('load', () => {
             console.log('🎰 BetKing Casino Test Site Loaded');
-            console.log('✓ TrackLib status:', window.TrackLib ? 'Ready' : 'Not loaded');
+            console.log('✓ Strastix status:', window.Strastix ? 'Ready' : 'Not loaded');
             
             // Start session timer
             startSessionTimer();
@@ -884,9 +884,9 @@
             console.log('🔐 Login attempt:', { playerId, email });
 
             // Identify user with tracker
-            if (window.TrackLib) {
-                window.TrackLib.identify(playerId);
-                window.TrackLib.track('login_successful', { email: email || undefined });
+            if (window.Strastix) {
+                window.Strastix.identify(playerId);
+                window.Strastix.track('login_successful', { email: email || undefined });
             }
 
             // Update UI
@@ -905,8 +905,8 @@
         }
 
         function handleLogout() {
-            if (window.TrackLib) {
-                window.TrackLib.logout();
+            if (window.Strastix) {
+                window.Strastix.logout();
             }
 
             // Reset UI
@@ -987,8 +987,8 @@
             updateStats();
 
             // Track event
-            if (window.TrackLib) {
-                window.TrackLib.track('deposit_successful', {
+            if (window.Strastix) {
+                window.Strastix.track('deposit_successful', {
                     amount: amount,
                     currency: 'TRY',
                     payment_method: selectedPaymentMethod
@@ -1022,8 +1022,8 @@
             updateStats();
 
             // Track event
-            if (window.TrackLib) {
-                window.TrackLib.track('withdrawal_successful', {
+            if (window.Strastix) {
+                window.Strastix.track('withdrawal_successful', {
                     amount: amount,
                     currency: 'TRY',
                     payment_method: selectedPaymentMethod
@@ -1041,8 +1041,8 @@
         function simulateFailedDeposit() {
             const amount = Math.floor(Math.random() * 500) + 100;
 
-            if (window.TrackLib) {
-                window.TrackLib.track('deposit_failed', {
+            if (window.Strastix) {
+                window.Strastix.track('deposit_failed', {
                     amount: amount,
                     currency: 'TRY',
                     payment_method: 'credit_card',
@@ -1061,8 +1061,8 @@
             
             updateBalance();
 
-            if (window.TrackLib) {
-                window.TrackLib.track('balance_updated', {
+            if (window.Strastix) {
+                window.Strastix.track('balance_updated', {
                     old_balance: oldBalance,
                     new_balance: currentBalance,
                     change: change
@@ -1085,8 +1085,8 @@
 
             console.log('🎮 Game started:', { gameName, gameId });
 
-            if (window.TrackLib) {
-                window.TrackLib.track('game_started', {
+            if (window.Strastix) {
+                window.Strastix.track('game_started', {
                     game_id: gameId,
                     game_name: gameName
                 });
@@ -1098,8 +1098,8 @@
             currentBalance += winAmount;
             updateBalance();
 
-            if (window.TrackLib) {
-                window.TrackLib.track('game_ended', {
+            if (window.Strastix) {
+                window.Strastix.track('game_ended', {
                     game_id: currentGameId,
                     result: 'win',
                     amount: winAmount
@@ -1115,8 +1115,8 @@
             currentBalance = Math.max(0, currentBalance - lossAmount);
             updateBalance();
 
-            if (window.TrackLib) {
-                window.TrackLib.track('game_ended', {
+            if (window.Strastix) {
+                window.Strastix.track('game_ended', {
                     game_id: currentGameId,
                     result: 'loss',
                     amount: lossAmount
@@ -1138,8 +1138,8 @@
             currentBalance += bonusAmount;
             updateBalance();
 
-            if (window.TrackLib) {
-                window.TrackLib.track('bonus_claimed', {
+            if (window.Strastix) {
+                window.Strastix.track('bonus_claimed', {
                     bonus_type: 'welcome',
                     amount: bonusAmount
                 });

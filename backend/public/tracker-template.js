@@ -3,11 +3,11 @@
   const config = __CONFIG__;
   
   if (!config) {
-    console.error("TrackLib: Configuration not found");
+    console.error("Strastix: Configuration not found");
     return;
   }
 
-  console.log(`TrackLib v3.0 ODIN Edition initialized for ${config.scriptId}`);
+  console.log(`Strastix v3.0 ODIN Edition initialized for ${config.scriptId}`);
 
   // ============================================
   // CORE VARIABLES
@@ -261,11 +261,11 @@
         throw new Error(`HTTP ${response.status}`);
       }
 
-      console.log(`✓ TrackLib: ${eventName} sent`, params);
+      console.log(`✓ Strastix: ${eventName} sent`, params);
       return true;
 
     } catch (error) {
-      console.error(`✗ TrackLib: ${eventName} failed:`, error.message);
+      console.error(`✗ Strastix: ${eventName} failed:`, error.message);
       
       if (retryCount < 3) {
         const delay = Math.pow(2, retryCount) * 1000;
@@ -289,7 +289,7 @@
       
       localStorage.setItem('tracklib_queue', JSON.stringify(queue));
     } catch (e) {
-      console.error('TrackLib: Queue save failed', e);
+      console.error('Strastix: Queue save failed', e);
     }
   }
 
@@ -298,7 +298,7 @@
       const queue = JSON.parse(localStorage.getItem('tracklib_queue') || '[]');
       if (queue.length === 0) return;
 
-      console.log(`TrackLib: Processing ${queue.length} queued events`);
+      console.log(`Strastix: Processing ${queue.length} queued events`);
       
       queue.forEach(item => {
         sendEvent(item.eventName, item.params);
@@ -306,7 +306,7 @@
       
       localStorage.removeItem('tracklib_queue');
     } catch (e) {
-      console.error('TrackLib: Queue process failed', e);
+      console.error('Strastix: Queue process failed', e);
     }
   }
   // ============================================
@@ -474,13 +474,13 @@ function analyzeBonusResponse(url, data) {
 
   window.addEventListener('online', () => {
     isOnline = true;
-    console.log('TrackLib: Back online, processing queue');
+    console.log('Strastix: Back online, processing queue');
     processQueue();
   });
 
   window.addEventListener('offline', () => {
     isOnline = false;
-    console.log('TrackLib: Offline mode');
+    console.log('Strastix: Offline mode');
   });
 
   // ============================================
@@ -576,7 +576,7 @@ function analyzeBonusResponse(url, data) {
         }
       }
     } catch (error) {
-      console.warn('TrackLib: Amount extraction failed:', error);
+      console.warn('Strastix: Amount extraction failed:', error);
     }
 
     return null;
@@ -599,13 +599,13 @@ function analyzeBonusResponse(url, data) {
   // ============================================
   function setupDomTracking() {
     if (!config.domConfig || !config.domConfig.rules || !Array.isArray(config.domConfig.rules)) {
-      console.log('TrackLib: No DOM rules configured');
+      console.log('Strastix: No DOM rules configured');
       return;
     }
 
     config.domConfig.rules.forEach((rule, index) => {
       if (!rule.selector || !rule.eventName || !rule.trigger) {
-        console.warn(`TrackLib: Invalid rule at index ${index}:`, rule);
+        console.warn(`Strastix: Invalid rule at index ${index}:`, rule);
         return;
       }
 
@@ -613,13 +613,13 @@ function analyzeBonusResponse(url, data) {
         const elements = document.querySelectorAll(rule.selector);
         
         if (elements.length === 0) {
-          console.warn(`TrackLib: No elements found for selector: ${rule.selector}`);
+          console.warn(`Strastix: No elements found for selector: ${rule.selector}`);
           return;
         }
 
         elements.forEach(element => {
           element.addEventListener(rule.trigger, function(event) {
-            console.log(`TrackLib: Event triggered - ${rule.eventName}`, {
+            console.log(`Strastix: Event triggered - ${rule.eventName}`, {
               selector: rule.selector,
               trigger: rule.trigger
             });
@@ -631,9 +631,9 @@ function analyzeBonusResponse(url, data) {
               
               if (amount !== null) {
                 parameters.amount = amount;
-                console.log(`TrackLib: Amount extracted - ${amount} from ${rule.amountSelector}`);
+                console.log(`Strastix: Amount extracted - ${amount} from ${rule.amountSelector}`);
               } else {
-                console.warn(`TrackLib: Could not extract amount from ${rule.amountSelector}`);
+                console.warn(`Strastix: Could not extract amount from ${rule.amountSelector}`);
               }
             }
 
@@ -651,9 +651,9 @@ function analyzeBonusResponse(url, data) {
           });
         });
 
-        console.log(`✓ TrackLib: Tracking setup for ${rule.eventName} (${elements.length} elements)`);
+        console.log(`✓ Strastix: Tracking setup for ${rule.eventName} (${elements.length} elements)`);
       } catch (error) {
-        console.error(`TrackLib: Error setting up rule ${index}:`, error);
+        console.error(`Strastix: Error setting up rule ${index}:`, error);
       }
     });
   }
@@ -1462,7 +1462,7 @@ function getAmountFromInput() {
 
   tracker.track = function(eventName, params = {}) {
     if (!config.apiKey) {
-      console.error('TrackLib: Not initialized');
+      console.error('Strastix: Not initialized');
       return;
     }
     sendEvent(eventName, params);
@@ -1571,7 +1571,7 @@ function getAmountFromInput() {
   });
 
   // Expose to window
-  window.TrackLib = tracker;
+  window.Strastix = tracker;
   window.tracker = tracker;
   
   // Debug commands
@@ -1579,8 +1579,8 @@ function getAmountFromInput() {
   window.clearPendingTx = () => tracker.clearPendingTransactions();
   window.getCurrentFormData = () => currentFormData;
   
-  console.log('✓ TrackLib v3.0 ODIN-TRUVABET Edition initialized successfully');
-  console.log('✓ Available as: window.TrackLib and window.tracker');
+  console.log('✓ Strastix v3.0 ODIN-TRUVABET Edition initialized successfully');
+  console.log('✓ Available as: window.Strastix and window.tracker');
   console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking, Game Tracking');
   console.log('✓ Game Tracking: Truvabet-specific ');
   console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx()');
