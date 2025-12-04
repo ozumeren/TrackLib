@@ -5,7 +5,7 @@
     let playerId = null;
 
     // !!! ÖNEMLİ: Backend URL'inizi buraya girin
-    const backendUrl = 'http://localhost:3000/v1/events';
+    const backendUrl = 'https://api.strastix.com/v1/events';
 
     function getOrCreateSessionId() {
         let sid = localStorage.getItem('tracker_session_id');
