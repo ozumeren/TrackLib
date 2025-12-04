@@ -19,8 +19,10 @@ COPY prisma ./prisma/
 # Install all dependencies (needed for Prisma CLI)
 RUN npm install --frozen-lockfile
 
-# Generate Prisma client
+# Generate Prisma client with dummy DATABASE_URL for build
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 RUN npx prisma generate
+ENV DATABASE_URL=""
 
 # Remove dev dependencies
 RUN npm prune --production
