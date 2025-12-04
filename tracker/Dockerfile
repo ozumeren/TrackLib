@@ -8,7 +8,7 @@ COPY tracker.js /usr/share/nginx/html/tracker.js
 # Create nginx config for SPA routing
 RUN cat > /etc/nginx/conf.d/default.conf <<'EOF'
 server {
-    listen 80;
+    listen 8082;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
@@ -27,7 +27,7 @@ server {
 EOF
 
 # Expose port
-EXPOSE 80
+EXPOSE 8082
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
