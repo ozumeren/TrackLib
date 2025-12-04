@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../AuthContext';
 import DashboardChart from '../components/DashboardChart';
 import LiveEventFeed from '../components/LiveEventFeed';
+import FraudStatsCard from '../components/FraudStatsCard';
 import { 
   IconSearch, IconUsers, IconCoin, IconTrendingUp, 
   IconUserPlus, IconArrowUpRight, IconArrowDownRight,
@@ -266,6 +267,9 @@ function Dashboard() {
 
         {/* SAĞ: Diğer kartlar */}
         <Stack spacing="lg">
+          {/* Fraud Detection Stats */}
+          <FraudStatsCard />
+
           {/* Recent Players */}
           <Card shadow="sm" p="lg" radius="md" withBorder>
             <Group position="apart" mb="md">

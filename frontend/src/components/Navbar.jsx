@@ -5,9 +5,9 @@ import {
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import {
-  IconReportMoney, IconChevronDown, IconDashboard, IconChartPie, 
+  IconReportMoney, IconChevronDown, IconDashboard, IconChartPie,
   IconTargetArrow, IconSettings, IconUser, IconLogout, IconUserShield,
-  IconChartBar
+  IconChartBar, IconShieldCheck
 } from '@tabler/icons-react';
 
 function AppNavbar() {
@@ -39,12 +39,27 @@ function AppNavbar() {
       to: '/rules',
       description: 'Otomasyon'
     },
-    { 
-      icon: IconReportMoney, 
-      label: 'Terk Edilmiş', 
+    {
+      icon: IconReportMoney,
+      label: 'Terk Edilmiş',
       to: '/abandoned-deposits',
       description: 'Kayıp fırsatlar'
     },
+  ];
+
+  const fraudLinks = [
+    {
+      icon: IconShieldCheck,
+      label: 'Fraud Uyarıları',
+      to: '/fraud/alerts',
+      description: 'Şüpheli aktiviteler'
+    },
+    {
+      icon: IconShieldCheck,
+      label: 'Risk Profilleri',
+      to: '/fraud/risk-profiles',
+      description: 'Oyuncu risk skorları'
+    }
   ];
 
   return (
@@ -106,6 +121,64 @@ function AppNavbar() {
                       radius="md" 
                       variant={isActive ? 'filled' : 'light'}
                       color={isActive ? 'blue' : 'gray'}
+                    >
+                      <Icon size={18} />
+                    </ThemeIcon>
+                    <div style={{ flex: 1 }}>
+                      <Text size="sm" weight={isActive ? 600 : 500}>
+                        {link.label}
+                      </Text>
+                      <Text size="xs" color="dimmed">
+                        {link.description}
+                      </Text>
+                    </div>
+                  </Group>
+                </UnstyledButton>
+              );
+            })}
+
+            {/* Fraud Detection Section */}
+            <Divider my="sm" label="Fraud Detection" labelPosition="center" />
+            {fraudLinks.map((link) => {
+              const Icon = link.icon;
+              const isActive = location.pathname === link.to;
+
+              return (
+                <UnstyledButton
+                  key={link.label}
+                  component={RouterLink}
+                  to={link.to}
+                  sx={(theme) => ({
+                    display: 'block',
+                    width: '100%',
+                    padding: theme.spacing.sm,
+                    borderRadius: theme.radius.md,
+                    color: isActive ? theme.colors.red[6] : theme.colorScheme === 'dark' ? theme.colors.dark[0] : theme.black,
+                    backgroundColor: isActive
+                      ? theme.colorScheme === 'dark'
+                        ? theme.colors.dark[6]
+                        : theme.colors.red[0]
+                      : 'transparent',
+
+                    '&:hover': {
+                      backgroundColor: isActive
+                        ? theme.colorScheme === 'dark'
+                          ? theme.colors.dark[6]
+                          : theme.colors.red[0]
+                        : theme.colorScheme === 'dark'
+                        ? theme.colors.dark[7]
+                        : theme.colors.gray[0],
+                    },
+
+                    transition: 'all 0.15s ease',
+                  })}
+                >
+                  <Group>
+                    <ThemeIcon
+                      size="md"
+                      radius="md"
+                      variant={isActive ? 'filled' : 'light'}
+                      color={isActive ? 'red' : 'gray'}
                     >
                       <Icon size={18} />
                     </ThemeIcon>
