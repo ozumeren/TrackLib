@@ -28,7 +28,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Create basic nginx config
 RUN cat > /etc/nginx/conf.d/default.conf <<'EOF'
 server {
-    listen 80;
+    listen 3001;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
@@ -40,7 +40,7 @@ server {
 EOF
 
 # Expose port
-EXPOSE 80
+EXPOSE 3001
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
