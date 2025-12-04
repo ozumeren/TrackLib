@@ -10,6 +10,7 @@ try {
     redis = new Redis({
         host: process.env.REDIS_HOST || 'localhost',
         port: process.env.REDIS_PORT || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
         // Use a separate database for rate limiting
         db: 1,
         enableOfflineQueue: true, // Queue commands when Redis is not ready

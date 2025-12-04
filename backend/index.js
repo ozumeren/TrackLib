@@ -46,6 +46,7 @@ const prisma = new PrismaClient();
 const redis = new Redis({
     host: process.env.REDIS_HOST || 'localhost',
     port: process.env.REDIS_PORT || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
     enableOfflineQueue: true,
     retryStrategy: (times) => {
         if (times > 10) return null;
