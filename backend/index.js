@@ -19,6 +19,7 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 const segmentEvaluator = require('./services/segmentEvaluator');
 const ruleEngine = require('./services/ruleEngine');
+const { detectFraud } = require('./services/fraudDetection');
 const https = require('https');
 const logger = require('./utils/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -107,6 +108,7 @@ const userRoutes = require('./userRoutes');
 const customerRoutes = require('./customerRoutes');
 const adminRoutes = require('./adminRoutes');
 const playerProfileRoutes = require('./playerProfileRoutes');
+const fraudRoutes = require('./routes/fraudRoutes');
 
 app.use('/api/player-profile', playerProfileRoutes);
 app.use('/api/analytics', analyticsLimiter, analyticsRoutes);
@@ -115,6 +117,7 @@ app.use('/api/rules', ruleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/admin', adminLimiter, adminRoutes);
+app.use('/api/fraud', fraudRoutes);
 
 // ============================================
 // HEALTH CHECK ENDPOINTS
@@ -716,6 +719,18 @@ app.post('/v1/events', eventTrackingLimiter, validateEventOrigin, protectWithApi
                 createdAt: eventData.timestamp_utc ? new Date(eventData.timestamp_utc) : new Date(),
             },
         });
+
+        // Fraud Detection - Run async without blocking response
+        if (eventData.player_id && ipAddress) {
+            detectFraud({
+                playerId: eventData.player_id,
+                eventName: eventData.event_name,
+                ipAddress: ipAddress,
+                customerId: customer.id
+            }).catch(error => {
+                logger.error('Fraud detection error', { error: error.message });
+            });
+        }
 
         // A/B Test conversion tracking
         if (eventData.player_id) {

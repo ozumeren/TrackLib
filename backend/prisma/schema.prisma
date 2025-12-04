@@ -82,6 +82,8 @@ model Customer {
   segments          Segment[]
   rules             Rule[]
   ruleExecutions    RuleExecution[]
+  fraudAlerts       FraudAlert[]
+  playerRiskProfiles PlayerRiskProfile[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now()) @updatedAt
@@ -136,6 +138,8 @@ model Player {
   telegramConnections   TelegramConnection[]
 
   segments              Segment[]             @relation("PlayerSegments")
+  fraudAlerts           FraudAlert[]
+  riskProfile           PlayerRiskProfile?
 
   @@unique([playerId, customerId])
   @@index([customerId, playerId])
@@ -268,4 +272,91 @@ model RuleExecution {
   @@index([variantId])
   @@index([customerId, executedAt])
   @@index([customerId, success])
+}
+
+// ============================================
+// FRAUD DETECTION MODELS
+// ============================================
+
+model FraudAlert {
+  id          String   @id @default(cuid())
+  playerId    Int
+  player      Player   @relation(fields: [playerId], references: [id])
+
+  alertType   String   // "MULTI_ACCOUNT", "BONUS_ABUSE", "SUSPICIOUS_PATTERN", "RAPID_DEPOSIT_WITHDRAWAL", "HIGH_RISK_IP"
+  severity    String   // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  riskScore   Int      // 0-100
+
+  reason      String   // Detailed explanation
+  evidence    Json     // Data points that triggered alert
+
+  status      String   @default("PENDING") // "PENDING", "REVIEWED", "CONFIRMED", "FALSE_POSITIVE"
+  reviewedBy  String?
+  reviewedAt  DateTime?
+
+  action      String?  // "FLAGGED", "LIMITED", "BLOCKED", "VERIFICATION_REQUIRED"
+  actionTaken Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([playerId])
+  @@index([customerId, playerId])
+  @@index([alertType])
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerId, status])
+  @@index([customerId, alertType, status])
+}
+
+model PlayerRiskProfile {
+  id              String   @id @default(cuid())
+  playerId        Int      @unique
+  player          Player   @relation(fields: [playerId], references: [id])
+
+  riskScore       Int      @default(0) // 0-100
+  riskLevel       String   @default("LOW") // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+
+  // Counters
+  totalDeposits   Int      @default(0)
+  totalWithdrawals Int     @default(0)
+  totalBets       Int      @default(0)
+  chargebacks     Int      @default(0)
+
+  // Financial metrics
+  totalDepositAmount    Float   @default(0)
+  totalWithdrawalAmount Float   @default(0)
+  totalBetAmount        Float   @default(0)
+  netProfit             Float   @default(0) // totalWithdrawal - totalDeposit
+
+  // Flags
+  isVpnUser             Boolean  @default(false)
+  isProxyUser           Boolean  @default(false)
+  hasMultipleAccounts   Boolean  @default(false)
+  suspiciousPattern     Boolean  @default(false)
+  rapidWithdrawal       Boolean  @default(false)
+
+  // Device tracking
+  deviceIds       String[] // Browser fingerprints
+  ipAddresses     String[]
+
+  // Behavioral
+  avgSessionDuration  Int?    // seconds
+  avgTimeBetweenBets  Int?    // seconds
+
+  lastRiskCheck   DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([riskLevel])
+  @@index([riskScore])
+  @@index([customerId, riskLevel])
+  @@index([hasMultipleAccounts])
+  @@index([suspiciousPattern])
 }
