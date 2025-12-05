@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rona Tracker Test Page</title>
+    <title>Rona API Simulator - Tracker Test</title>
     <style>
         * {
             margin: 0;
@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -39,42 +39,47 @@
             opacity: 0.9;
         }
 
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
         .test-section {
             background: white;
             border-radius: 12px;
             padding: 30px;
-            margin-bottom: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
         .test-section h2 {
             color: #667eea;
             margin-bottom: 20px;
-            font-size: 1.8em;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .test-group {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: #f7f9fc;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+            margin-bottom: 20px;
         }
 
         .test-group h3 {
             color: #333;
-            margin-bottom: 15px;
-            font-size: 1.3em;
+            margin-bottom: 10px;
+            font-size: 1.1em;
         }
 
         .form__input {
             width: 100%;
-            padding: 12px 15px;
+            padding: 10px 12px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 6px;
+            font-size: 14px;
             transition: all 0.3s;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
 
         .form__input:focus {
@@ -84,27 +89,20 @@
         }
 
         .form__btn {
-            padding: 12px 30px;
+            padding: 10px 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 6px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            transition: transform 0.2s;
+            width: 100%;
         }
 
         .form__btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .form__btn:active {
-            transform: translateY(0);
         }
 
         .settings__btn {
@@ -115,8 +113,8 @@
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 15px;
+            border-radius: 6px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
@@ -130,10 +128,10 @@
         .console-output {
             background: #1e1e1e;
             color: #d4d4d4;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             font-family: 'Courier New', monospace;
-            font-size: 14px;
+            font-size: 12px;
             max-height: 400px;
             overflow-y: auto;
             margin-top: 20px;
@@ -146,20 +144,20 @@
         }
 
         .debug-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
         }
 
         .debug-btn {
-            padding: 10px 20px;
+            padding: 8px 15px;
             background: #2196F3;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             transition: background 0.2s;
         }
 
@@ -167,145 +165,204 @@
             background: #1976D2;
         }
 
-        .status-indicator {
+        .status-badge {
             display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-online {
             background: #4CAF50;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
+            color: white;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .info-box {
+            background: #f0f4ff;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #666;
         }
 
-        .padding-horiz--1 {
-            padding: 0 10px;
-        }
-
-        .justify-center {
-            justify-content: center;
-        }
-
-        .gap-2 {
-            gap: 8px;
-        }
-
-        .small {
-            font-size: 14px;
+        .api-response {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            border-left: 4px solid #ffc107;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎯 Rona Tracker v3.0</h1>
-            <p>Test & Debug Interface</p>
-            <p><span class="status-indicator"></span>Tracker Active</p>
+            <h1>🎰 Rona API Simulator</h1>
+            <p>Tracker Test & Debug Interface</p>
+            <p><span class="status-badge status-online">TRACKER ACTIVE</span></p>
         </div>
 
-        <!-- Deposit Test -->
-        <div class="test-section">
-            <h2>💳 Deposit Tracking Test</h2>
-            <div class="test-group">
-                <h3>1. Enter Deposit Amount</h3>
-                <input type="text" inputmode="decimal" class="form__input"
-                       placeholder="Miktar" value="" data-sharkid="__1"
-                       id="deposit-amount">
+        <div class="grid">
+            <!-- Login/Logout -->
+            <div class="test-section">
+                <h2>🔐 Login & Wallet</h2>
+                <div class="test-group">
+                    <h3>Simulate Login</h3>
+                    <input type="text" class="form__input" placeholder="Username" id="username" value="testuser123">
+                    <button class="form__btn" onclick="simulateLogin()">
+                        Login
+                    </button>
+                    <div class="info-box">
+                        API: POST /api/player/auth/login<br>
+                        Event: login_successful
+                    </div>
+                </div>
 
-                <button class="form__btn justify-center" id="deposit-btn">
-                    <span class="padding-horiz--1">Talep Gönder</span>
-                </button>
+                <div class="test-group">
+                    <h3>Load Wallet</h3>
+                    <button class="form__btn" onclick="simulateWallet()">
+                        Fetch Wallet Balance
+                    </button>
+                    <div class="info-box">
+                        API: GET /api/player/wallet/index<br>
+                        Event: wallet_updated
+                    </div>
+                </div>
 
-                <div style="margin-top: 15px; color: #666; font-size: 14px;">
-                    ℹ️ Expected events:
-                    <ul style="margin-left: 20px; margin-top: 5px;">
-                        <li><code>deposit_amount_entered</code> (on blur)</li>
-                        <li><code>deposit_button_clicked</code> (on click)</li>
-                    </ul>
+                <div class="test-group">
+                    <h3>Logout</h3>
+                    <button class="form__btn" onclick="simulateLogout()">
+                        Logout
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <!-- Withdrawal Test -->
-        <div class="test-section">
-            <h2>💰 Withdrawal Tracking Test</h2>
-            <div class="test-group">
-                <h3>2. Enter Withdrawal Amount</h3>
-                <input type="text" inputmode="decimal" class="form__input"
-                       placeholder="TRY Amount" value="" data-sharkid="__2"
-                       id="withdrawal-amount">
+            <!-- Deposit -->
+            <div class="test-section">
+                <h2>💳 Deposit</h2>
+                <div class="test-group">
+                    <h3>1. Enter Amount</h3>
+                    <input type="text" inputmode="decimal" class="form__input"
+                           placeholder="Miktar" value="100" id="deposit-amount">
 
-                <button class="form__btn justify-center" id="withdrawal-btn">
-                    <span class="padding-horiz--1">Talep Gönder</span>
-                </button>
-
-                <div style="margin-top: 15px; color: #666; font-size: 14px;">
-                    ℹ️ Expected events:
-                    <ul style="margin-left: 20px; margin-top: 5px;">
-                        <li><code>withdrawal_amount_entered</code> (on blur)</li>
-                        <li><code>withdrawal_button_clicked</code> (on click)</li>
-                    </ul>
+                    <h3>2. Submit Deposit</h3>
+                    <button class="form__btn" onclick="simulateDeposit()">
+                        Talep Gönder
+                    </button>
+                    <div class="info-box">
+                        API: POST /api/player/transactions/bank-info<br>
+                        Events: deposit_initiated → wallet_updated → deposit_successful
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Bonus Test -->
-        <div class="test-section">
-            <h2>🎁 Bonus Claim Tracking Test</h2>
-            <div class="test-group">
-                <h3>3. Claim Bonus</h3>
-                <span class="settings__btn small gap-2" id="bonus-btn">
-                    <span>Talep Et</span>
-                    <svg class="svg-icon" width="16" height="16">
-                        <use href="#get-bonus"></use>
-                    </svg>
-                </span>
+            <!-- Withdrawal -->
+            <div class="test-section">
+                <h2>💰 Withdrawal</h2>
+                <div class="test-group">
+                    <h3>1. Enter Amount</h3>
+                    <input type="text" inputmode="decimal" class="form__input"
+                           placeholder="TRY Amount" value="50" id="withdrawal-amount">
 
-                <div style="margin-top: 15px; color: #666; font-size: 14px;">
-                    ℹ️ Expected event:
-                    <ul style="margin-left: 20px; margin-top: 5px;">
-                        <li><code>bonus_claim_button_clicked</code></li>
-                    </ul>
+                    <h3>2. Submit Withdrawal</h3>
+                    <button class="form__btn" onclick="simulateWithdrawal()">
+                        Talep Gönder
+                    </button>
+                    <div class="info-box">
+                        API: POST /api/player/withdrawal/request<br>
+                        Events: withdrawal_initiated → wallet_updated
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Debug Section -->
-        <div class="test-section">
-            <h2>🛠️ Debug Tools</h2>
-            <div class="test-group">
-                <h3>Tracker Status & Commands</h3>
+            <!-- Bonus -->
+            <div class="test-section">
+                <h2>🎁 Bonus</h2>
+                <div class="test-group">
+                    <h3>Claim Bonus</h3>
+                    <span class="settings__btn" onclick="simulateBonus()">
+                        <span>Talep Et</span>
+                        <svg width="16" height="16" fill="currentColor">
+                            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <text x="8" y="12" text-anchor="middle" font-size="10" fill="currentColor">B</text>
+                        </svg>
+                    </span>
+                    <div class="info-box">
+                        API: POST /api/player/bonus-request-contents/claim/123<br>
+                        Events: bonus_claimed_successful / bonus_claimed_failed
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>Payment Methods</h3>
+                    <button class="form__btn" onclick="simulatePaymentMethods()">
+                        Load Payment Methods
+                    </button>
+                    <div class="info-box">
+                        API: GET /api/player/payment/methods-all<br>
+                        Event: payment_methods_loaded
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Tracking -->
+            <div class="test-section">
+                <h2>🎮 Game Session</h2>
+                <div class="test-group">
+                    <h3>Start Game</h3>
+                    <select class="form__input" id="game-provider">
+                        <option value="pragmatic">Pragmatic Play - Sweet Bonanza</option>
+                        <option value="evolution">Evolution - Lightning Roulette</option>
+                        <option value="netent">NetEnt - Starburst</option>
+                        <option value="hacksaw">Hacksaw - Wanted Dead or Wild</option>
+                    </select>
+                    <button class="form__btn" onclick="startGameSession()">
+                        Start Game Session
+                    </button>
+                </div>
+
+                <div class="test-group">
+                    <h3>Place Bet</h3>
+                    <input type="number" class="form__input" placeholder="Bet Amount" value="5" id="bet-amount">
+                    <button class="form__btn" onclick="placeBet()">
+                        Spin / Bet
+                    </button>
+                    <div class="info-box">
+                        API: POST /gameService (generic)<br>
+                        Event: game_bet_placed
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>End Game</h3>
+                    <button class="form__btn" onclick="endGameSession()">
+                        End Game Session
+                    </button>
+                    <div class="info-box">
+                        Event: game_session_ended (with stats)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debug Tools -->
+            <div class="test-section">
+                <h2>🛠️ Debug Tools</h2>
                 <div class="debug-buttons">
-                    <button class="debug-btn" onclick="showStatus()">
-                        📊 Show Tracker Status
-                    </button>
-                    <button class="debug-btn" onclick="showGameSession()">
-                        🎮 Show Game Session
-                    </button>
-                    <button class="debug-btn" onclick="endGame()">
-                        🏁 End Game Session
-                    </button>
-                    <button class="debug-btn" onclick="clearPending()">
-                        🗑️ Clear Pending TX
-                    </button>
-                    <button class="debug-btn" onclick="sendCustomEvent()">
-                        ✉️ Send Custom Event
-                    </button>
-                    <button class="debug-btn" onclick="clearConsole()">
-                        🧹 Clear Console
-                    </button>
+                    <button class="debug-btn" onclick="showStatus()">📊 Status</button>
+                    <button class="debug-btn" onclick="showGameSession()">🎮 Game</button>
+                    <button class="debug-btn" onclick="clearPending()">🗑️ Clear TX</button>
+                    <button class="debug-btn" onclick="clearConsole()">🧹 Clear</button>
                 </div>
 
                 <div class="console-output" id="console-output">
-                    <pre>Console Output:
-Ready to test Rona Tracker v3.0...
+                    <pre>🎯 Rona API Simulator Ready
 
-Press F12 to open browser console for detailed logs.
-Use the debug buttons above to interact with the tracker.
+Waiting for tracker to load...
+Use buttons above to simulate Rona API calls.
                     </pre>
                 </div>
             </div>
@@ -315,10 +372,12 @@ Use the debug buttons above to interact with the tracker.
     <!-- Tracker Script -->
     <script src="http://localhost:3000/c/rona_tracker.js" async></script>
 
-    <!-- Test Scripts -->
+    <!-- API Simulation Scripts -->
     <script>
-        // Console logging to page
         const consoleOutput = document.getElementById('console-output');
+        let currentBalance = 1000.00;
+        let gameActive = false;
+        let userId = 12345;
 
         function logToPage(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -326,7 +385,8 @@ Use the debug buttons above to interact with the tracker.
                 info: '#4CAF50',
                 warn: '#FF9800',
                 error: '#F44336',
-                debug: '#2196F3'
+                debug: '#2196F3',
+                api: '#9C27B0'
             };
 
             const pre = consoleOutput.querySelector('pre');
@@ -334,84 +394,293 @@ Use the debug buttons above to interact with the tracker.
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
         }
 
-        // Debug functions
+        // Mock fetch to intercept and respond to Rona API calls
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const url = args[0];
+            logToPage(`📡 API Call: ${url}`, 'api');
+
+            // Call original fetch
+            return originalFetch.apply(this, args);
+        };
+
+        // ============================================
+        // LOGIN SIMULATION
+        // ============================================
+        function simulateLogin() {
+            const username = document.getElementById('username').value;
+            logToPage(`🔐 Simulating login: ${username}`, 'info');
+
+            // Simulate API response
+            const mockResponse = {
+                success: true,
+                data: {
+                    user: {
+                        id: userId,
+                        username: username,
+                        email: `${username}@rona.com`,
+                        balance: currentBalance
+                    },
+                    token: 'mock_jwt_token_' + Date.now()
+                }
+            };
+
+            // Trigger tracker by creating a fake fetch response
+            const fakeUrl = window.location.origin + '/api/player/auth/login';
+            logToPage(`✅ Login successful: ${username} (ID: ${userId})`, 'info');
+
+            // Update balance after login
+            setTimeout(() => simulateWallet(), 500);
+        }
+
+        // ============================================
+        // WALLET SIMULATION
+        // ============================================
+        function simulateWallet() {
+            logToPage(`💰 Fetching wallet balance...`, 'info');
+
+            const mockWallet = [
+                {
+                    id: 1,
+                    code: 'TRY',
+                    balance: currentBalance,
+                    currency: { currency: 'TRY' },
+                    active_bonus_id: null
+                },
+                {
+                    id: 2,
+                    code: 'BTC',
+                    balance: 0.00123,
+                    currency: { currency: 'BTC' },
+                    active_bonus_id: null
+                },
+                {
+                    id: 3,
+                    code: 'USDT',
+                    balance: 50.00,
+                    currency: { currency: 'USDT' },
+                    active_bonus_id: null
+                }
+            ];
+
+            // Manually trigger interceptor
+            if (window.handleRonaWalletUpdate) {
+                window.handleRonaWalletUpdate(mockWallet);
+            }
+
+            logToPage(`✅ Wallet loaded: ${currentBalance} TRY`, 'info');
+        }
+
+        // ============================================
+        // LOGOUT SIMULATION
+        // ============================================
+        function simulateLogout() {
+            logToPage(`🚪 Logging out...`, 'info');
+            // Trigger logout detection
+            logToPage(`✅ Logged out successfully`, 'info');
+        }
+
+        // ============================================
+        // DEPOSIT SIMULATION
+        // ============================================
+        function simulateDeposit() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value) || 100;
+            logToPage(`💳 Simulating deposit: ${amount} TRY`, 'info');
+
+            // Step 1: Deposit initiated
+            logToPage(`📝 Deposit request created`, 'debug');
+
+            // Step 2: Wait and update balance
+            setTimeout(() => {
+                currentBalance += amount;
+                logToPage(`✅ Deposit successful! New balance: ${currentBalance} TRY`, 'info');
+                simulateWallet();
+            }, 1500);
+        }
+
+        // ============================================
+        // WITHDRAWAL SIMULATION
+        // ============================================
+        function simulateWithdrawal() {
+            const amount = parseFloat(document.getElementById('withdrawal-amount').value) || 50;
+
+            if (amount > currentBalance) {
+                logToPage(`❌ Insufficient balance!`, 'error');
+                return;
+            }
+
+            logToPage(`💰 Simulating withdrawal: ${amount} TRY`, 'info');
+
+            setTimeout(() => {
+                currentBalance -= amount;
+                logToPage(`✅ Withdrawal successful! New balance: ${currentBalance} TRY`, 'info');
+                simulateWallet();
+            }, 1500);
+        }
+
+        // ============================================
+        // BONUS SIMULATION
+        // ============================================
+        function simulateBonus() {
+            logToPage(`🎁 Claiming bonus...`, 'info');
+
+            const success = Math.random() > 0.3; // 70% success rate
+
+            setTimeout(() => {
+                if (success) {
+                    const bonusAmount = 25;
+                    currentBalance += bonusAmount;
+                    logToPage(`✅ Bonus claimed: ${bonusAmount} TRY`, 'info');
+                    simulateWallet();
+                } else {
+                    logToPage(`❌ Bonus claim failed: Already claimed`, 'error');
+                }
+            }, 1000);
+        }
+
+        // ============================================
+        // PAYMENT METHODS SIMULATION
+        // ============================================
+        function simulatePaymentMethods() {
+            logToPage(`💳 Loading payment methods...`, 'info');
+
+            const mockMethods = [
+                { id: 1, name: 'Papara', code: 'papara' },
+                { id: 2, name: 'Havale/EFT', code: 'bank_transfer' },
+                { id: 3, name: 'Kripto Para', code: 'crypto' },
+                { id: 4, name: 'Cepbank', code: 'cepbank' }
+            ];
+
+            setTimeout(() => {
+                logToPage(`✅ Loaded ${mockMethods.length} payment methods`, 'info');
+            }, 500);
+        }
+
+        // ============================================
+        // GAME SESSION SIMULATION
+        // ============================================
+        function startGameSession() {
+            const provider = document.getElementById('game-provider').value;
+            const gameName = document.getElementById('game-provider').selectedOptions[0].text;
+
+            if (gameActive) {
+                logToPage(`⚠️  Game already active! End current session first.`, 'warn');
+                return;
+            }
+
+            logToPage(`🎮 Starting game: ${gameName}`, 'info');
+
+            // Simulate game API with balance
+            const mockGameData = {
+                balance: currentBalance,
+                currency: 'TRY',
+                game_id: provider,
+                game_name: gameName
+            };
+
+            gameActive = true;
+            logToPage(`✅ Game session started (Balance: ${currentBalance} TRY)`, 'info');
+        }
+
+        function placeBet() {
+            if (!gameActive) {
+                logToPage(`⚠️  Start a game session first!`, 'warn');
+                return;
+            }
+
+            const betAmount = parseFloat(document.getElementById('bet-amount').value) || 5;
+
+            if (betAmount > currentBalance) {
+                logToPage(`❌ Insufficient balance for bet!`, 'error');
+                return;
+            }
+
+            // Random win (40% chance)
+            const isWin = Math.random() > 0.6;
+            const winAmount = isWin ? betAmount * (Math.random() * 10 + 1) : 0;
+
+            // Update balance
+            currentBalance -= betAmount;
+            currentBalance += winAmount;
+
+            const netProfit = winAmount - betAmount;
+
+            logToPage(`🎲 Bet: ${betAmount} TRY | Win: ${winAmount.toFixed(2)} TRY | Net: ${netProfit > 0 ? '+' : ''}${netProfit.toFixed(2)} TRY`, isWin ? 'info' : 'debug');
+            logToPage(`💰 New Balance: ${currentBalance.toFixed(2)} TRY`, 'info');
+
+            // Simulate generic balance change detection
+            if (typeof window.handleGenericBalanceChange === 'function') {
+                window.handleGenericBalanceChange('/gameService', {
+                    balance: currentBalance,
+                    currency: 'TRY'
+                });
+            }
+        }
+
+        function endGameSession() {
+            if (!gameActive) {
+                logToPage(`⚠️  No active game session`, 'warn');
+                return;
+            }
+
+            gameActive = false;
+            logToPage(`🏁 Game session ended`, 'info');
+
+            if (typeof tracker !== 'undefined' && tracker.endGame) {
+                tracker.endGame();
+            }
+        }
+
+        // ============================================
+        // DEBUG FUNCTIONS
+        // ============================================
         function showStatus() {
             if (typeof tracker !== 'undefined') {
                 const status = tracker.getStatus();
-                console.log('Tracker Status:', status);
-                logToPage('✅ Tracker Status (check console for details)', 'info');
+                console.log('📊 Tracker Status:', status);
+                logToPage(`✅ Status logged to console`, 'info');
             } else {
-                logToPage('❌ Tracker not loaded yet', 'error');
+                logToPage(`❌ Tracker not loaded`, 'error');
             }
         }
 
         function showGameSession() {
             if (typeof tracker !== 'undefined') {
                 const session = tracker.getGameSession();
-                console.log('Game Session:', session);
-                logToPage(session ? '🎮 Game Session Active (check console)' : '⚠️ No active game session', 'info');
+                console.log('🎮 Game Session:', session);
+                logToPage(session ? `✅ Game session active` : `⚠️  No active session`, 'info');
             } else {
-                logToPage('❌ Tracker not loaded yet', 'error');
-            }
-        }
-
-        function endGame() {
-            if (typeof tracker !== 'undefined') {
-                tracker.endGame();
-                logToPage('🏁 Game session ended', 'info');
-            } else {
-                logToPage('❌ Tracker not loaded yet', 'error');
+                logToPage(`❌ Tracker not loaded`, 'error');
             }
         }
 
         function clearPending() {
             if (typeof window.clearPendingTx !== 'undefined') {
                 window.clearPendingTx();
-                logToPage('🗑️ Pending transactions cleared', 'info');
+                logToPage(`🗑️ Pending transactions cleared`, 'info');
             } else {
-                logToPage('❌ Tracker not loaded yet', 'error');
-            }
-        }
-
-        function sendCustomEvent() {
-            if (typeof tracker !== 'undefined') {
-                tracker.track('custom_test_event', {
-                    test: true,
-                    timestamp: Date.now()
-                });
-                logToPage('✉️ Custom event sent: custom_test_event', 'info');
-            } else {
-                logToPage('❌ Tracker not loaded yet', 'error');
+                logToPage(`❌ Function not available`, 'error');
             }
         }
 
         function clearConsole() {
             const pre = consoleOutput.querySelector('pre');
-            pre.innerHTML = 'Console cleared.\n';
+            pre.innerHTML = '🧹 Console cleared\n';
         }
 
-        // Button click handlers with logging
-        document.getElementById('deposit-btn')?.addEventListener('click', function() {
-            const amount = document.getElementById('deposit-amount').value;
-            logToPage(`💳 Deposit button clicked (Amount: ${amount || 'not entered'})`, 'debug');
-        });
-
-        document.getElementById('withdrawal-btn')?.addEventListener('click', function() {
-            const amount = document.getElementById('withdrawal-amount').value;
-            logToPage(`💰 Withdrawal button clicked (Amount: ${amount || 'not entered'})`, 'debug');
-        });
-
-        document.getElementById('bonus-btn')?.addEventListener('click', function() {
-            logToPage(`🎁 Bonus claim button clicked`, 'debug');
-        });
-
-        // Log tracker load
+        // ============================================
+        // INITIALIZATION
+        // ============================================
         window.addEventListener('load', function() {
             setTimeout(() => {
                 if (typeof tracker !== 'undefined') {
-                    logToPage('✅ Rona Tracker v3.0 loaded successfully!', 'info');
+                    logToPage(`✅ Rona Tracker v3.0 loaded!`, 'info');
+                    logToPage(`💰 Initial Balance: ${currentBalance} TRY`, 'info');
+                    logToPage(`👤 User ID: ${userId}`, 'info');
+                    logToPage(``, 'info');
+                    logToPage(`Ready to simulate Rona API calls!`, 'info');
                 } else {
-                    logToPage('⚠️ Waiting for tracker to load...', 'warn');
+                    logToPage(`⚠️  Tracker loading...`, 'warn');
                 }
             }, 1000);
         });
