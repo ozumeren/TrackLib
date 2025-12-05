@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BetKing Casino - Test Sitesi</title>
+    <title>Rona API Simulator - Tracker Test</title>
     <style>
         * {
             margin: 0;
@@ -12,1165 +12,678 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
         }
 
-        /* Header */
         .header {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            background: linear-gradient(45deg, #f39c12, #e74c3c);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .balance-section {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .balance {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 24px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px 20px;
-            border-radius: 8px;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #f39c12, #e74c3c);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-        }
-
-        .btn {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(238, 9, 121, 0.6);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Auth Section */
-        .auth-section {
-            max-width: 500px;
-            margin: 100px auto;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        .auth-section h2 {
             text-align: center;
-            margin-bottom: 30px;
-            font-size: 32px;
-            background: linear-gradient(45deg, #f39c12, #e74c3c);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: white;
+            margin-bottom: 40px;
         }
 
-        .form-group {
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
             margin-bottom: 20px;
         }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #ddd;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Dashboard */
-        .dashboard {
-            display: none;
-        }
-
-        .dashboard.active {
-            display: block;
-        }
-
-        /* Quick Actions */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .action-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
+        .test-section {
+            background: white;
+            border-radius: 12px;
             padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
-        .action-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .action-card .icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-
-        .action-card h3 {
-            margin-bottom: 10px;
-            font-size: 20px;
-        }
-
-        .action-card p {
-            color: #aaa;
-            font-size: 14px;
-        }
-
-        /* Games Section */
-        .games-section {
-            margin-top: 30px;
-        }
-
-        .section-title {
-            font-size: 28px;
-            margin-bottom: 20px;
-            background: linear-gradient(45deg, #f39c12, #e74c3c);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-        }
-
-        .game-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
-        }
-
-        .game-card:hover {
-            transform: scale(1.05);
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .game-thumbnail {
-            width: 100%;
-            height: 150px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-        }
-
-        .game-info {
-            padding: 15px;
-        }
-
-        .game-info h4 {
-            margin-bottom: 5px;
-            font-size: 16px;
-        }
-
-        .game-info .provider {
-            color: #aaa;
-            font-size: 12px;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 40px;
-            border-radius: 20px;
-            max-width: 600px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .modal-header h2 {
-            font-size: 28px;
-            background: linear-gradient(45deg, #f39c12, #e74c3c);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .close-btn {
-            font-size: 32px;
-            cursor: pointer;
-            color: #aaa;
-            transition: color 0.3s ease;
-        }
-
-        .close-btn:hover {
-            color: #fff;
-        }
-
-        /* Payment Methods */
-        .payment-methods {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .payment-method {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-        }
-
-        .payment-method:hover,
-        .payment-method.selected {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.2);
-        }
-
-        .payment-method .icon {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        /* Notifications */
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px 30px;
-            border-radius: 10px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            gap: 15px;
-            border-left: 4px solid;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .notification.success {
-            border-color: #38ef7d;
-        }
-
-        .notification.error {
-            border-color: #ee0979;
-        }
-
-        .notification.info {
-            border-color: #667eea;
-        }
-
-        .notification.active {
-            display: flex;
-        }
-
-        /* Stats */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-        }
-
-        .stat-card .value {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #f39c12, #e74c3c);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .stat-card .label {
-            color: #aaa;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Game Modal */
-        .game-modal {
-            padding: 60px;
-        }
-
-        .game-frame {
-            width: 100%;
-            height: 400px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 64px;
-            margin-bottom: 30px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .game-controls {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-        }
-
-        /* Bonus Section */
-        .bonus-section {
-            background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .bonus-section h3 {
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
-
-        .bonus-amount {
-            font-size: 48px;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-
-        /* Amount Input Styling */
-        .amount-input-group {
-            margin-bottom: 25px;
-        }
-
-        .amount-input-group label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 500;
-            color: #ddd;
-        }
-
-        .amount-input-wrapper {
-            position: relative;
-        }
-
-        .amount-input-wrapper input {
-            width: 100%;
-            padding: 15px 50px 15px 15px;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-            font-size: 20px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-
-        .amount-input-wrapper input:focus {
-            outline: none;
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .currency-symbol {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 20px;
-            font-weight: bold;
+        .test-section h2 {
             color: #667eea;
-        }
-
-        .quick-amounts {
+            margin-bottom: 20px;
+            font-size: 1.5em;
             display: flex;
+            align-items: center;
             gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
         }
 
-        .quick-amount-btn {
-            flex: 1;
-            min-width: 80px;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
+        .test-group {
+            margin-bottom: 20px;
         }
 
-        .quick-amount-btn:hover {
-            background: rgba(102, 126, 234, 0.3);
+        .test-group h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .form__input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .form__input:focus {
+            outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form__btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+
+        .form__btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .settings__btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .settings__btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .console-output pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .debug-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .debug-btn {
+            padding: 8px 15px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .debug-btn:hover {
+            background: #1976D2;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-online {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .api-response {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            border-left: 4px solid #ffc107;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
-            <div class="logo">🎰 BetKing Casino</div>
-            <div class="balance-section">
-                <div id="balanceDisplay" class="balance hidden">
-                    💰 <span id="balanceAmount">0</span> ₺
-                </div>
-                <div id="userInfoDisplay" class="user-info hidden">
-                    <div class="user-avatar">👤</div>
-                    <span id="usernameDisplay">Oyuncu</span>
-                </div>
-                <button id="loginBtn" class="btn btn-primary" onclick="showLoginModal()">Giriş Yap</button>
-                <button id="logoutBtn" class="btn btn-secondary hidden" onclick="handleLogout()">Çıkış</button>
-            </div>
+            <h1>🎰 Rona API Simulator</h1>
+            <p>Tracker Test & Debug Interface</p>
+            <p><span class="status-badge status-online">TRACKER ACTIVE</span></p>
         </div>
 
-        <!-- Auth Section -->
-        <div id="authSection" class="auth-section">
-            <h2>Giriş Yap</h2>
-            <form id="loginForm" onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label for="username">Kullanıcı Adı</label>
-                    <input type="text" id="username" name="username" required 
-                           placeholder="Kullanıcı adınızı girin" value="demo_user_123">
+        <div class="grid">
+            <!-- Login/Logout -->
+            <div class="test-section">
+                <h2>🔐 Login & Wallet</h2>
+                <div class="test-group">
+                    <h3>Simulate Login</h3>
+                    <input type="text" class="form__input" placeholder="Username" id="username" value="testuser123">
+                    <button class="form__btn" onclick="simulateLogin()">
+                        Login
+                    </button>
+                    <div class="info-box">
+                        API: POST /api/player/auth/login<br>
+                        Event: login_successful
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="email">E-posta (Opsiyonel)</label>
-                    <input type="email" id="email" name="email" 
-                           placeholder="ornek@email.com" value="demo@betking.com">
-                </div>
-                <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 10px;">
-                    🎮 Oyuna Başla
-                </button>
-            </form>
-        </div>
 
-        <!-- Dashboard -->
-        <div id="dashboard" class="dashboard">
-            <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="value" id="totalDepositStat">0 ₺</div>
-                    <div class="label">Toplam Yatırım</div>
+                <div class="test-group">
+                    <h3>Load Wallet</h3>
+                    <button class="form__btn" onclick="simulateWallet()">
+                        Fetch Wallet Balance
+                    </button>
+                    <div class="info-box">
+                        API: GET /api/player/wallet/index<br>
+                        Event: wallet_updated
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="value" id="totalWithdrawalStat">0 ₺</div>
-                    <div class="label">Toplam Çekim</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value" id="gamesPlayedStat">0</div>
-                    <div class="label">Oynanan Oyun</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value" id="sessionTimeStat">0 dk</div>
-                    <div class="label">Oturum Süresi</div>
+
+                <div class="test-group">
+                    <h3>Logout</h3>
+                    <button class="form__btn" onclick="simulateLogout()">
+                        Logout
+                    </button>
                 </div>
             </div>
 
-            <!-- Bonus Section -->
-            <div class="bonus-section">
-                <h3>🎁 Hoş Geldin Bonusu</h3>
-                <div class="bonus-amount">%100 İlk Yatırım Bonusu</div>
-                <button class="btn btn-primary" onclick="claimBonus()">Bonusu Al</button>
-            </div>
+            <!-- Deposit -->
+            <div class="test-section">
+                <h2>💳 Deposit</h2>
+                <div class="test-group">
+                    <h3>1. Enter Amount</h3>
+                    <input type="text" inputmode="decimal" class="form__input"
+                           placeholder="Miktar" value="100" id="deposit-amount">
 
-            <!-- Quick Actions -->
-            <div class="quick-actions">
-                <div class="action-card" onclick="showDepositModal()">
-                    <div class="icon">💰</div>
-                    <h3>Para Yatır</h3>
-                    <p>Hesabına bakiye ekle</p>
-                </div>
-                <div class="action-card" onclick="showWithdrawModal()">
-                    <div class="icon">💸</div>
-                    <h3>Para Çek</h3>
-                    <p>Kazancını çek</p>
-                </div>
-                <div class="action-card" onclick="simulateFailedDeposit()">
-                    <div class="icon">❌</div>
-                    <h3>Başarısız Yatırım</h3>
-                    <p>Test için</p>
-                </div>
-                <div class="action-card" onclick="simulateBalanceUpdate()">
-                    <div class="icon">🔄</div>
-                    <h3>Bakiye Güncelle</h3>
-                    <p>Rastgele değişim</p>
+                    <h3>2. Submit Deposit</h3>
+                    <button class="form__btn" onclick="simulateDeposit()">
+                        Talep Gönder
+                    </button>
+                    <div class="info-box">
+                        API: POST /api/player/transactions/bank-info<br>
+                        Events: deposit_initiated → wallet_updated → deposit_successful
+                    </div>
                 </div>
             </div>
 
-            <!-- Games Section -->
-            <div class="games-section">
-                <h2 class="section-title">🎮 Popüler Oyunlar</h2>
-                <div class="games-grid">
-                    <div class="game-card" onclick="playGame('Sweet Bonanza', 'sweet_bonanza_001')">
-                        <div class="game-thumbnail">🍭</div>
-                        <div class="game-info">
-                            <h4>Sweet Bonanza</h4>
-                            <p class="provider">Pragmatic Play</p>
-                        </div>
-                    </div>
-                    <div class="game-card" onclick="playGame('Gates of Olympus', 'gates_olympus_001')">
-                        <div class="game-thumbnail">⚡</div>
-                        <div class="game-info">
-                            <h4>Gates of Olympus</h4>
-                            <p class="provider">Pragmatic Play</p>
-                        </div>
-                    </div>
-                    <div class="game-card" onclick="playGame('Mega Moolah', 'mega_moolah_001')">
-                        <div class="game-thumbnail">🦁</div>
-                        <div class="game-info">
-                            <h4>Mega Moolah</h4>
-                            <p class="provider">Microgaming</p>
-                        </div>
-                    </div>
-                    <div class="game-card" onclick="playGame('Book of Dead', 'book_of_dead_001')">
-                        <div class="game-thumbnail">📚</div>
-                        <div class="game-info">
-                            <h4>Book of Dead</h4>
-                            <p class="provider">Play'n GO</p>
-                        </div>
-                    </div>
-                    <div class="game-card" onclick="playGame('Starburst', 'starburst_001')">
-                        <div class="game-thumbnail">💎</div>
-                        <div class="game-info">
-                            <h4>Starburst</h4>
-                            <p class="provider">NetEnt</p>
-                        </div>
-                    </div>
-                    <div class="game-card" onclick="playGame('Gonzo\'s Quest', 'gonzos_quest_001')">
-                        <div class="game-thumbnail">🗿</div>
-                        <div class="game-info">
-                            <h4>Gonzo's Quest</h4>
-                            <p class="provider">NetEnt</p>
-                        </div>
+            <!-- Withdrawal -->
+            <div class="test-section">
+                <h2>💰 Withdrawal</h2>
+                <div class="test-group">
+                    <h3>1. Enter Amount</h3>
+                    <input type="text" inputmode="decimal" class="form__input"
+                           placeholder="TRY Amount" value="50" id="withdrawal-amount">
+
+                    <h3>2. Submit Withdrawal</h3>
+                    <button class="form__btn" onclick="simulateWithdrawal()">
+                        Talep Gönder
+                    </button>
+                    <div class="info-box">
+                        API: POST /api/player/withdrawal/request<br>
+                        Events: withdrawal_initiated → wallet_updated
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Deposit Modal -->
-    <div id="depositModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>💰 Para Yatır</h2>
-                <span class="close-btn" onclick="closeModal('depositModal')">&times;</span>
-            </div>
-            <form id="depositForm" onsubmit="handleDeposit(event)">
-                <div class="amount-input-group">
-                    <label for="depositAmount">Yatırım Miktarı</label>
-                    <div class="amount-input-wrapper">
-                        <input type="number" id="depositAmount" name="amount" 
-                               min="50" max="50000" step="10" required 
-                               placeholder="Miktar girin">
-                        <span class="currency-symbol">₺</span>
-                    </div>
-                    <div class="quick-amounts">
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('deposit', 100)">100₺</button>
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('deposit', 250)">250₺</button>
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('deposit', 500)">500₺</button>
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('deposit', 1000)">1000₺</button>
+            <!-- Bonus -->
+            <div class="test-section">
+                <h2>🎁 Bonus</h2>
+                <div class="test-group">
+                    <h3>Claim Bonus</h3>
+                    <span class="settings__btn" onclick="simulateBonus()">
+                        <span>Talep Et</span>
+                        <svg width="16" height="16" fill="currentColor">
+                            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <text x="8" y="12" text-anchor="middle" font-size="10" fill="currentColor">B</text>
+                        </svg>
+                    </span>
+                    <div class="info-box">
+                        API: POST /api/player/bonus-request-contents/claim/123<br>
+                        Events: bonus_claimed_successful / bonus_claimed_failed
                     </div>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 10px; font-weight: 500; color: #ddd;">
-                        Ödeme Yöntemi Seçin
-                    </label>
-                    <div class="payment-methods">
-                        <div class="payment-method selected" data-method="papara" onclick="selectPaymentMethod(this)">
-                            <div class="icon">💳</div>
-                            <div>Papara</div>
-                        </div>
-                        <div class="payment-method" data-method="havale" onclick="selectPaymentMethod(this)">
-                            <div class="icon">🏦</div>
-                            <div>Havale/EFT</div>
-                        </div>
-                        <div class="payment-method" data-method="kripto" onclick="selectPaymentMethod(this)">
-                            <div class="icon">₿</div>
-                            <div>Kripto</div>
-                        </div>
-                        <div class="payment-method" data-method="credit_card" onclick="selectPaymentMethod(this)">
-                            <div class="icon">💳</div>
-                            <div>Kredi Kartı</div>
-                        </div>
+                <div class="test-group">
+                    <h3>Payment Methods</h3>
+                    <button class="form__btn" onclick="simulatePaymentMethods()">
+                        Load Payment Methods
+                    </button>
+                    <div class="info-box">
+                        API: GET /api/player/payment/methods-all<br>
+                        Event: payment_methods_loaded
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Tracking -->
+            <div class="test-section">
+                <h2>🎮 Game Session</h2>
+                <div class="test-group">
+                    <h3>Start Game</h3>
+                    <select class="form__input" id="game-provider">
+                        <option value="pragmatic">Pragmatic Play - Sweet Bonanza</option>
+                        <option value="evolution">Evolution - Lightning Roulette</option>
+                        <option value="netent">NetEnt - Starburst</option>
+                        <option value="hacksaw">Hacksaw - Wanted Dead or Wild</option>
+                    </select>
+                    <button class="form__btn" onclick="startGameSession()">
+                        Start Game Session
+                    </button>
+                </div>
+
+                <div class="test-group">
+                    <h3>Place Bet</h3>
+                    <input type="number" class="form__input" placeholder="Bet Amount" value="5" id="bet-amount">
+                    <button class="form__btn" onclick="placeBet()">
+                        Spin / Bet
+                    </button>
+                    <div class="info-box">
+                        API: POST /gameService (generic)<br>
+                        Event: game_bet_placed
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-success" style="width: 100%;">
-                    ✅ Yatırımı Tamamla
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Withdraw Modal -->
-    <div id="withdrawModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>💸 Para Çek</h2>
-                <span class="close-btn" onclick="closeModal('withdrawModal')">&times;</span>
-            </div>
-            <form id="withdrawForm" onsubmit="handleWithdraw(event)">
-                <div class="amount-input-group">
-                    <label for="withdrawAmount">Çekim Miktarı</label>
-                    <div class="amount-input-wrapper">
-                        <input type="number" id="withdrawAmount" name="amount" 
-                               min="50" max="50000" step="10" required 
-                               placeholder="Miktar girin">
-                        <span class="currency-symbol">₺</span>
-                    </div>
-                    <div class="quick-amounts">
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('withdraw', 100)">100₺</button>
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('withdraw', 250)">250₺</button>
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('withdraw', 500)">500₺</button>
-                        <button type="button" class="quick-amount-btn" onclick="setAmount('withdraw', 1000)">1000₺</button>
+                <div class="test-group">
+                    <h3>End Game</h3>
+                    <button class="form__btn" onclick="endGameSession()">
+                        End Game Session
+                    </button>
+                    <div class="info-box">
+                        Event: game_session_ended (with stats)
                     </div>
                 </div>
+            </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 10px; font-weight: 500; color: #ddd;">
-                        Ödeme Yöntemi Seçin
-                    </label>
-                    <div class="payment-methods">
-                        <div class="payment-method selected" data-method="papara" onclick="selectPaymentMethod(this)">
-                            <div class="icon">💳</div>
-                            <div>Papara</div>
-                        </div>
-                        <div class="payment-method" data-method="havale" onclick="selectPaymentMethod(this)">
-                            <div class="icon">🏦</div>
-                            <div>Havale/EFT</div>
-                        </div>
-                        <div class="payment-method" data-method="kripto" onclick="selectPaymentMethod(this)">
-                            <div class="icon">₿</div>
-                            <div>Kripto</div>
-                        </div>
-                    </div>
+            <!-- Debug Tools -->
+            <div class="test-section">
+                <h2>🛠️ Debug Tools</h2>
+                <div class="debug-buttons">
+                    <button class="debug-btn" onclick="showStatus()">📊 Status</button>
+                    <button class="debug-btn" onclick="showGameSession()">🎮 Game</button>
+                    <button class="debug-btn" onclick="clearPending()">🗑️ Clear TX</button>
+                    <button class="debug-btn" onclick="clearConsole()">🧹 Clear</button>
                 </div>
 
-                <button type="submit" class="btn btn-danger" style="width: 100%;">
-                    💸 Çekimi Başlat
-                </button>
-            </form>
-        </div>
-    </div>
+                <div class="console-output" id="console-output">
+                    <pre>🎯 Rona API Simulator Ready
 
-    <!-- Game Modal -->
-    <div id="gameModal" class="modal">
-        <div class="modal-content game-modal">
-            <div class="modal-header">
-                <h2 id="gameTitle">Oyun</h2>
-                <span class="close-btn" onclick="closeGameModal()">&times;</span>
-            </div>
-            <div class="game-frame" id="gameFrame">
-                🎰
-            </div>
-            <div class="game-controls">
-                <button class="btn btn-success" onclick="simulateWin()">🎉 Kazan</button>
-                <button class="btn btn-danger" onclick="simulateLoss()">😢 Kaybet</button>
-                <button class="btn btn-secondary" onclick="closeGameModal()">❌ Kapat</button>
+Waiting for tracker to load...
+Use buttons above to simulate Rona API calls.
+                    </pre>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Notification -->
-    <div id="notification" class="notification">
-        <span id="notificationText"></span>
-    </div>
+    <!-- Tracker Script -->
+    <script src="http://localhost:3000/c/rona_tracker.js" async></script>
 
-    <!-- Tracking Script -->
-	    <script src="https://api.strastix.com/c/strastix_deneme.js?v=3"></script>
-
-    <!-- Main App Logic -->
+    <!-- API Simulation Scripts -->
     <script>
-        // Global Variables
-        let currentBalance = 0;
-        let totalDeposit = 0;
-        let totalWithdrawal = 0;
-        let gamesPlayed = 0;
-        let currentGameId = null;
-        let sessionStartTime = Date.now();
-        let sessionTimer = null;
-        let selectedPaymentMethod = 'papara';
+        const consoleOutput = document.getElementById('console-output');
+        let currentBalance = 1000.00;
+        let gameActive = false;
+        let userId = 12345;
 
-        // Initialize on page load
-        window.addEventListener('load', () => {
-            console.log('🎰 BetKing Casino Test Site Loaded');
-            console.log('✓ Strastix status:', window.Strastix ? 'Ready' : 'Not loaded');
-            
-            // Start session timer
-            startSessionTimer();
-        });
+        function logToPage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#4CAF50',
+                warn: '#FF9800',
+                error: '#F44336',
+                debug: '#2196F3',
+                api: '#9C27B0'
+            };
 
-        function startSessionTimer() {
-            sessionTimer = setInterval(() => {
-                const minutes = Math.floor((Date.now() - sessionStartTime) / 60000);
-                document.getElementById('sessionTimeStat').textContent = minutes + ' dk';
+            const pre = consoleOutput.querySelector('pre');
+            pre.innerHTML += `\n<span style="color: ${colors[type]}">[${timestamp}] ${message}</span>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        // Mock fetch to intercept and respond to Rona API calls
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const url = args[0];
+            logToPage(`📡 API Call: ${url}`, 'api');
+
+            // Call original fetch
+            return originalFetch.apply(this, args);
+        };
+
+        // ============================================
+        // LOGIN SIMULATION
+        // ============================================
+        function simulateLogin() {
+            const username = document.getElementById('username').value;
+            logToPage(`🔐 Simulating login: ${username}`, 'info');
+
+            // Simulate API response
+            const mockResponse = {
+                success: true,
+                data: {
+                    user: {
+                        id: userId,
+                        username: username,
+                        email: `${username}@rona.com`,
+                        balance: currentBalance
+                    },
+                    token: 'mock_jwt_token_' + Date.now()
+                }
+            };
+
+            // Trigger tracker by creating a fake fetch response
+            const fakeUrl = window.location.origin + '/api/player/auth/login';
+            logToPage(`✅ Login successful: ${username} (ID: ${userId})`, 'info');
+
+            // Update balance after login
+            setTimeout(() => simulateWallet(), 500);
+        }
+
+        // ============================================
+        // WALLET SIMULATION
+        // ============================================
+        function simulateWallet() {
+            logToPage(`💰 Fetching wallet balance...`, 'info');
+
+            const mockWallet = [
+                {
+                    id: 1,
+                    code: 'TRY',
+                    balance: currentBalance,
+                    currency: { currency: 'TRY' },
+                    active_bonus_id: null
+                },
+                {
+                    id: 2,
+                    code: 'BTC',
+                    balance: 0.00123,
+                    currency: { currency: 'BTC' },
+                    active_bonus_id: null
+                },
+                {
+                    id: 3,
+                    code: 'USDT',
+                    balance: 50.00,
+                    currency: { currency: 'USDT' },
+                    active_bonus_id: null
+                }
+            ];
+
+            // Manually trigger interceptor
+            if (window.handleRonaWalletUpdate) {
+                window.handleRonaWalletUpdate(mockWallet);
+            }
+
+            logToPage(`✅ Wallet loaded: ${currentBalance} TRY`, 'info');
+        }
+
+        // ============================================
+        // LOGOUT SIMULATION
+        // ============================================
+        function simulateLogout() {
+            logToPage(`🚪 Logging out...`, 'info');
+            // Trigger logout detection
+            logToPage(`✅ Logged out successfully`, 'info');
+        }
+
+        // ============================================
+        // DEPOSIT SIMULATION
+        // ============================================
+        function simulateDeposit() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value) || 100;
+            logToPage(`💳 Simulating deposit: ${amount} TRY`, 'info');
+
+            // Step 1: Deposit initiated
+            logToPage(`📝 Deposit request created`, 'debug');
+
+            // Step 2: Wait and update balance
+            setTimeout(() => {
+                currentBalance += amount;
+                logToPage(`✅ Deposit successful! New balance: ${currentBalance} TRY`, 'info');
+                simulateWallet();
+            }, 1500);
+        }
+
+        // ============================================
+        // WITHDRAWAL SIMULATION
+        // ============================================
+        function simulateWithdrawal() {
+            const amount = parseFloat(document.getElementById('withdrawal-amount').value) || 50;
+
+            if (amount > currentBalance) {
+                logToPage(`❌ Insufficient balance!`, 'error');
+                return;
+            }
+
+            logToPage(`💰 Simulating withdrawal: ${amount} TRY`, 'info');
+
+            setTimeout(() => {
+                currentBalance -= amount;
+                logToPage(`✅ Withdrawal successful! New balance: ${currentBalance} TRY`, 'info');
+                simulateWallet();
+            }, 1500);
+        }
+
+        // ============================================
+        // BONUS SIMULATION
+        // ============================================
+        function simulateBonus() {
+            logToPage(`🎁 Claiming bonus...`, 'info');
+
+            const success = Math.random() > 0.3; // 70% success rate
+
+            setTimeout(() => {
+                if (success) {
+                    const bonusAmount = 25;
+                    currentBalance += bonusAmount;
+                    logToPage(`✅ Bonus claimed: ${bonusAmount} TRY`, 'info');
+                    simulateWallet();
+                } else {
+                    logToPage(`❌ Bonus claim failed: Already claimed`, 'error');
+                }
             }, 1000);
         }
 
-        // Authentication
-        function handleLogin(event) {
-            event.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
-            const playerId = username || 'player_' + Date.now();
+        // ============================================
+        // PAYMENT METHODS SIMULATION
+        // ============================================
+        function simulatePaymentMethods() {
+            logToPage(`💳 Loading payment methods...`, 'info');
 
-            console.log('🔐 Login attempt:', { playerId, email });
-
-            // Identify user with tracker
-            if (window.Strastix) {
-                window.Strastix.identify(playerId);
-                window.Strastix.track('login_successful', { email: email || undefined });
-            }
-
-            // Update UI
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('dashboard').classList.add('active');
-            document.getElementById('loginBtn').classList.add('hidden');
-            document.getElementById('logoutBtn').classList.remove('hidden');
-            document.getElementById('balanceDisplay').classList.remove('hidden');
-            document.getElementById('userInfoDisplay').classList.remove('hidden');
-            document.getElementById('usernameDisplay').textContent = playerId;
-
-            currentBalance = 1000; // Starting balance
-            updateBalance();
-
-            showNotification('✅ Giriş başarılı! Hoş geldin ' + playerId, 'success');
-        }
-
-        function handleLogout() {
-            if (window.Strastix) {
-                window.Strastix.logout();
-            }
-
-            // Reset UI
-            document.getElementById('authSection').style.display = 'block';
-            document.getElementById('dashboard').classList.remove('active');
-            document.getElementById('loginBtn').classList.remove('hidden');
-            document.getElementById('logoutBtn').classList.add('hidden');
-            document.getElementById('balanceDisplay').classList.add('hidden');
-            document.getElementById('userInfoDisplay').classList.add('hidden');
-
-            // Reset stats
-            currentBalance = 0;
-            totalDeposit = 0;
-            totalWithdrawal = 0;
-            gamesPlayed = 0;
-            updateBalance();
-            updateStats();
-
-            clearInterval(sessionTimer);
-            sessionStartTime = Date.now();
-            startSessionTimer();
-
-            showNotification('👋 Çıkış yapıldı. Görüşmek üzere!', 'info');
-        }
-
-        // Modals
-        function showLoginModal() {
-            document.getElementById('authSection').style.display = 'block';
-        }
-
-        function showDepositModal() {
-            document.getElementById('depositModal').classList.add('active');
-            selectedPaymentMethod = 'papara';
-        }
-
-        function showWithdrawModal() {
-            if (currentBalance < 50) {
-                showNotification('❌ Yetersiz bakiye! En az 50₺ olmalı.', 'error');
-                return;
-            }
-            document.getElementById('withdrawModal').classList.add('active');
-            selectedPaymentMethod = 'papara';
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-        }
-
-        // Payment Methods
-        function selectPaymentMethod(element) {
-        // Remove selection from all
-            element.parentElement.querySelectorAll('.payment-method').forEach(pm => {
-            pm.classList.remove('selected');
-        });
-        // Select current
-            element.classList.add('selected');
-            selectedPaymentMethod = element.dataset.method;  // ✅ Bu satır önemli!
-            console.log('💳 Payment method selected:', selectedPaymentMethod);
-        }
-
-        function setAmount(type, amount) {
-            const inputId = type === 'deposit' ? 'depositAmount' : 'withdrawAmount';
-            document.getElementById(inputId).value = amount;
-        }
-
-        // Deposit
-        function handleDeposit(event) {
-            event.preventDefault();
-
-            const amount = parseFloat(document.getElementById('depositAmount').value);
-            
-            console.log('💰 Processing deposit:', { amount, method: selectedPaymentMethod });
-
-            // Update balance
-            currentBalance += amount;
-            totalDeposit += amount;
-            updateBalance();
-            updateStats();
-
-            // Track event
-            if (window.Strastix) {
-                window.Strastix.track('deposit_successful', {
-                    amount: amount,
-                    currency: 'TRY',
-                    payment_method: selectedPaymentMethod
-                });
-            }
-
-            closeModal('depositModal');
-            showNotification(`✅ ${amount}₺ başarıyla yatırıldı!`, 'success');
-
-            // Reset form
-            document.getElementById('depositForm').reset();
-        }
-
-        // Withdraw
-        function handleWithdraw(event) {
-            event.preventDefault();
-
-            const amount = parseFloat(document.getElementById('withdrawAmount').value);
-
-            if (amount > currentBalance) {
-                showNotification('❌ Yetersiz bakiye! Çekim yapılamadı.', 'error');
-                return;
-            }
-
-            console.log('💸 Processing withdrawal:', { amount, method: selectedPaymentMethod });
-
-            // Update balance
-            currentBalance -= amount;
-            totalWithdrawal += amount;
-            updateBalance();
-            updateStats();
-
-            // Track event
-            if (window.Strastix) {
-                window.Strastix.track('withdrawal_successful', {
-                    amount: amount,
-                    currency: 'TRY',
-                    payment_method: selectedPaymentMethod
-                });
-            }
-
-            closeModal('withdrawModal');
-            showNotification(`✅ ${amount}₺ başarıyla çekildi!`, 'success');
-
-            // Reset form
-            document.getElementById('withdrawForm').reset();
-        }
-
-        // Failed Deposit Simulation
-        function simulateFailedDeposit() {
-            const amount = Math.floor(Math.random() * 500) + 100;
-
-            if (window.Strastix) {
-                window.Strastix.track('deposit_failed', {
-                    amount: amount,
-                    currency: 'TRY',
-                    payment_method: 'credit_card',
-                    error_code: 'insufficient_funds'
-                });
-            }
-
-            showNotification(`❌ ${amount}₺ yatırım başarısız oldu! (Test)`, 'error');
-        }
-
-        // Balance Update Simulation
-        function simulateBalanceUpdate() {
-            const change = Math.floor(Math.random() * 200) - 100; // -100 to +100
-            const oldBalance = currentBalance;
-            currentBalance = Math.max(0, currentBalance + change);
-            
-            updateBalance();
-
-            if (window.Strastix) {
-                window.Strastix.track('balance_updated', {
-                    old_balance: oldBalance,
-                    new_balance: currentBalance,
-                    change: change
-                });
-            }
-
-            const emoji = change > 0 ? '📈' : '📉';
-            const text = change > 0 ? `+${change}₺` : `${change}₺`;
-            showNotification(`${emoji} Bakiye değişti: ${text}`, change > 0 ? 'success' : 'info');
-        }
-
-        // Games
-        function playGame(gameName, gameId) {
-            currentGameId = gameId;
-            document.getElementById('gameTitle').textContent = gameName;
-            document.getElementById('gameModal').classList.add('active');
-
-            gamesPlayed++;
-            updateStats();
-
-            console.log('🎮 Game started:', { gameName, gameId });
-
-            if (window.Strastix) {
-                window.Strastix.track('game_started', {
-                    game_id: gameId,
-                    game_name: gameName
-                });
-            }
-        }
-
-        function simulateWin() {
-            const winAmount = Math.floor(Math.random() * 500) + 100;
-            currentBalance += winAmount;
-            updateBalance();
-
-            if (window.Strastix) {
-                window.Strastix.track('game_ended', {
-                    game_id: currentGameId,
-                    result: 'win',
-                    amount: winAmount
-                });
-            }
-
-            showNotification(`🎉 Tebrikler! ${winAmount}₺ kazandınız!`, 'success');
-            closeGameModal();
-        }
-
-        function simulateLoss() {
-            const lossAmount = Math.floor(Math.random() * 150) + 50;
-            currentBalance = Math.max(0, currentBalance - lossAmount);
-            updateBalance();
-
-            if (window.Strastix) {
-                window.Strastix.track('game_ended', {
-                    game_id: currentGameId,
-                    result: 'loss',
-                    amount: lossAmount
-                });
-            }
-
-            showNotification(`😢 ${lossAmount}₺ kaybettiniz.`, 'error');
-            closeGameModal();
-        }
-
-        function closeGameModal() {
-            document.getElementById('gameModal').classList.remove('active');
-            currentGameId = null;
-        }
-
-        // Bonus
-        function claimBonus() {
-            const bonusAmount = 500;
-            currentBalance += bonusAmount;
-            updateBalance();
-
-            if (window.Strastix) {
-                window.Strastix.track('bonus_claimed', {
-                    bonus_type: 'welcome',
-                    amount: bonusAmount
-                });
-            }
-
-            showNotification(`🎁 ${bonusAmount}₺ hoş geldin bonusu alındı!`, 'success');
-        }
-
-        // UI Updates
-        function updateBalance() {
-            document.getElementById('balanceAmount').textContent = currentBalance.toFixed(2);
-        }
-
-        function updateStats() {
-            document.getElementById('totalDepositStat').textContent = totalDeposit.toFixed(2) + ' ₺';
-            document.getElementById('totalWithdrawalStat').textContent = totalWithdrawal.toFixed(2) + ' ₺';
-            document.getElementById('gamesPlayedStat').textContent = gamesPlayed;
-        }
-
-        // Notifications
-        function showNotification(text, type = 'info') {
-            const notification = document.getElementById('notification');
-            const notificationText = document.getElementById('notificationText');
-
-            notificationText.textContent = text;
-            notification.className = 'notification ' + type + ' active';
+            const mockMethods = [
+                { id: 1, name: 'Papara', code: 'papara' },
+                { id: 2, name: 'Havale/EFT', code: 'bank_transfer' },
+                { id: 3, name: 'Kripto Para', code: 'crypto' },
+                { id: 4, name: 'Cepbank', code: 'cepbank' }
+            ];
 
             setTimeout(() => {
-                notification.classList.remove('active');
-            }, 4000);
+                logToPage(`✅ Loaded ${mockMethods.length} payment methods`, 'info');
+            }, 500);
         }
+
+        // ============================================
+        // GAME SESSION SIMULATION
+        // ============================================
+        function startGameSession() {
+            const provider = document.getElementById('game-provider').value;
+            const gameName = document.getElementById('game-provider').selectedOptions[0].text;
+
+            if (gameActive) {
+                logToPage(`⚠️  Game already active! End current session first.`, 'warn');
+                return;
+            }
+
+            logToPage(`🎮 Starting game: ${gameName}`, 'info');
+
+            // Simulate game API with balance
+            const mockGameData = {
+                balance: currentBalance,
+                currency: 'TRY',
+                game_id: provider,
+                game_name: gameName
+            };
+
+            gameActive = true;
+            logToPage(`✅ Game session started (Balance: ${currentBalance} TRY)`, 'info');
+        }
+
+        function placeBet() {
+            if (!gameActive) {
+                logToPage(`⚠️  Start a game session first!`, 'warn');
+                return;
+            }
+
+            const betAmount = parseFloat(document.getElementById('bet-amount').value) || 5;
+
+            if (betAmount > currentBalance) {
+                logToPage(`❌ Insufficient balance for bet!`, 'error');
+                return;
+            }
+
+            // Random win (40% chance)
+            const isWin = Math.random() > 0.6;
+            const winAmount = isWin ? betAmount * (Math.random() * 10 + 1) : 0;
+
+            // Update balance
+            currentBalance -= betAmount;
+            currentBalance += winAmount;
+
+            const netProfit = winAmount - betAmount;
+
+            logToPage(`🎲 Bet: ${betAmount} TRY | Win: ${winAmount.toFixed(2)} TRY | Net: ${netProfit > 0 ? '+' : ''}${netProfit.toFixed(2)} TRY`, isWin ? 'info' : 'debug');
+            logToPage(`💰 New Balance: ${currentBalance.toFixed(2)} TRY`, 'info');
+
+            // Simulate generic balance change detection
+            if (typeof window.handleGenericBalanceChange === 'function') {
+                window.handleGenericBalanceChange('/gameService', {
+                    balance: currentBalance,
+                    currency: 'TRY'
+                });
+            }
+        }
+
+        function endGameSession() {
+            if (!gameActive) {
+                logToPage(`⚠️  No active game session`, 'warn');
+                return;
+            }
+
+            gameActive = false;
+            logToPage(`🏁 Game session ended`, 'info');
+
+            if (typeof tracker !== 'undefined' && tracker.endGame) {
+                tracker.endGame();
+            }
+        }
+
+        // ============================================
+        // DEBUG FUNCTIONS
+        // ============================================
+        function showStatus() {
+            if (typeof tracker !== 'undefined') {
+                const status = tracker.getStatus();
+                console.log('📊 Tracker Status:', status);
+                logToPage(`✅ Status logged to console`, 'info');
+            } else {
+                logToPage(`❌ Tracker not loaded`, 'error');
+            }
+        }
+
+        function showGameSession() {
+            if (typeof tracker !== 'undefined') {
+                const session = tracker.getGameSession();
+                console.log('🎮 Game Session:', session);
+                logToPage(session ? `✅ Game session active` : `⚠️  No active session`, 'info');
+            } else {
+                logToPage(`❌ Tracker not loaded`, 'error');
+            }
+        }
+
+        function clearPending() {
+            if (typeof window.clearPendingTx !== 'undefined') {
+                window.clearPendingTx();
+                logToPage(`🗑️ Pending transactions cleared`, 'info');
+            } else {
+                logToPage(`❌ Function not available`, 'error');
+            }
+        }
+
+        function clearConsole() {
+            const pre = consoleOutput.querySelector('pre');
+            pre.innerHTML = '🧹 Console cleared\n';
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (typeof tracker !== 'undefined') {
+                    logToPage(`✅ Rona Tracker v3.0 loaded!`, 'info');
+                    logToPage(`💰 Initial Balance: ${currentBalance} TRY`, 'info');
+                    logToPage(`👤 User ID: ${userId}`, 'info');
+                    logToPage(``, 'info');
+                    logToPage(`Ready to simulate Rona API calls!`, 'info');
+                } else {
+                    logToPage(`⚠️  Tracker loading...`, 'warn');
+                }
+            }, 1000);
+        });
     </script>
 </body>
 </html>
