@@ -370,7 +370,11 @@ Use buttons above to simulate Rona API calls.
     </div>
 
     <!-- Tracker Script -->
-    <script src="http://localhost:3000/c/rona_tracker.js" async></script>
+    <!-- For production: -->
+    <script src="https://api.strastix.com/c/strastix_rona_tracker.js" async></script>
+
+    <!-- For local testing: -->
+    <!-- <script src="http://localhost:3000/c/strastix_rona_tracker.js" async></script> -->
 
     <!-- API Simulation Scripts -->
     <script>
