@@ -19,12 +19,12 @@ const registerSchema = Joi.object({
 
     scriptId: Joi.string()
         .trim()
-        .pattern(/^tracklib_[a-z0-9_]+$/)
+        .pattern(/^strastix_[a-z0-9_]+$/)
         .min(10)
         .max(50)
         .required()
         .messages({
-            'string.pattern.base': 'Script ID must start with "tracklib_" and contain only lowercase letters, numbers, and underscores',
+            'string.pattern.base': 'Script ID must start with "strastix_" and contain only lowercase letters, numbers, and underscores',
             'any.required': 'Script ID is required'
         }),
 
