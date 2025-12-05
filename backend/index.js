@@ -411,7 +411,7 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
 // ============================================
 const authRoutes = express.Router();
 
-authRoutes.post('/register', registrationLimiter, validateBody(schemas.registerSchema), async (req, res) => {
+authRoutes.post('/register', /* registrationLimiter, */ validateBody(schemas.registerSchema), async (req, res) => {
     const { customerName, scriptId, userName, email, password, trackerType } = req.body;
 
     try {
