@@ -266,16 +266,18 @@ function SettingsPage() {
                     <Accordion.Panel>
                       <Code block>
                         {`<!-- HTML <head> bölümüne ekleyin -->
-<script src="${API_BASE_URL}/s/${customer.scriptId}.js"></script>
+<script src="${API_BASE_URL}/c/${customer.scriptId}.js" async></script>
 
 <script>
   // Kullanıcı girişi yaptığında
-  tracker.identify("USER_ID");
+  window.addEventListener('strastix:ready', () => {
+    strastix.identify("USER_ID");
 
-  // Event gönderme
-  tracker.track("deposit_successful", {
-    amount: 100,
-    currency: "TRY"
+    // Event gönderme
+    strastix.track("deposit_successful", {
+      amount: 100,
+      currency: "TRY"
+    });
   });
 </script>`}
                       </Code>

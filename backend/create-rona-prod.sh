@@ -9,7 +9,7 @@ curl -X POST https://api.strastix.com/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "customerName": "Rona Casino",
-    "scriptId": "rona_tracker",
+    "scriptId": "strastix_rona_tracker",
     "trackerType": "ebetlab",
     "userName": "Rona Admin",
     "email": "admin@ronacasino.com",
