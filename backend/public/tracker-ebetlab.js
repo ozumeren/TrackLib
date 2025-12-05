@@ -1288,16 +1288,21 @@
   });
 
   // Expose to window
-  window.Strastix = tracker;
-  window.tracker = tracker;
+  window.strastix = tracker;      // ✅ PRIMARY: lowercase
+  window.Strastix = tracker;      // Backward compatibility
+  window.tracker = tracker;       // Backward compatibility
 
   // Debug commands
   window.getTrackerStatus = () => tracker.getStatus();
   window.clearPendingTx = () => tracker.clearPendingTransactions();
   window.getCurrentFormData = () => currentFormData;
 
-  console.log('✓ Strastix v3.0 RONA Edition initialized successfully');
-  console.log('✓ Available as: window.Strastix and window.tracker');
-  console.log('✓ Features: Login/Logout, Wallet/Balance, Deposit, Bonus, Game Tracking');
-  console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx() | tracker.endGame()');
+  // Dispatch ready event
+  window.dispatchEvent(new Event('strastix:ready'));
+
+  console.log('✓ Strastix v3.0 EBETLAB Edition initialized successfully');
+  console.log('✓ Available as: window.strastix (primary), window.Strastix, window.tracker');
+  console.log('✓ Features: Rona API, Login/Logout, Wallet/Balance, Deposit, Bonus, Game Tracking');
+  console.log('✓ Optimized for: Rona/Ebetlab Gaming Platform');
+  console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx() | strastix.endGame()');
 })();

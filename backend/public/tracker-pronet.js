@@ -1571,17 +1571,21 @@ function getAmountFromInput() {
   });
 
   // Expose to window
-  window.Strastix = tracker;
-  window.tracker = tracker;
-  
+  window.strastix = tracker;      // ✅ PRIMARY: lowercase
+  window.Strastix = tracker;      // Backward compatibility
+  window.tracker = tracker;       // Backward compatibility
+
   // Debug commands
   window.getTrackerStatus = () => tracker.getStatus();
   window.clearPendingTx = () => tracker.clearPendingTransactions();
   window.getCurrentFormData = () => currentFormData;
-  
-  console.log('✓ Strastix v3.0 ODIN-TRUVABET Edition initialized successfully');
-  console.log('✓ Available as: window.Strastix and window.tracker');
-  console.log('✓ Features: ODIN API, Deposit Modal, Withdrawal, Balance Tracking, Game Tracking');
-  console.log('✓ Game Tracking: Truvabet-specific ');
+
+  // Dispatch ready event
+  window.dispatchEvent(new Event('strastix:ready'));
+
+  console.log('✓ Strastix v3.0 PRONET Edition initialized successfully');
+  console.log('✓ Available as: window.strastix (primary), window.Strastix, window.tracker');
+  console.log('✓ Features: Pronet/Truva API, Deposit/Withdrawal, Balance Tracking, Game Tracking');
+  console.log('✓ Optimized for: Truva Gaming Platform');
   console.log('✓ Debug: window.getTrackerStatus() | window.clearPendingTx()');
 })();
