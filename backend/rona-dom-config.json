@@ -1,0 +1,67 @@
+{
+  "rules": [
+    {
+      "name": "Deposit Button Click",
+      "selector": "button.form__btn",
+      "trigger": "click",
+      "eventName": "deposit_button_clicked",
+      "extractAmount": true,
+      "amountSelector": "input[placeholder=\"Miktar\"], input[inputmode=\"decimal\"]",
+      "parameters": {
+        "button_type": "deposit",
+        "button_class": "form__btn"
+      },
+      "conditions": {
+        "inputExists": "input[placeholder=\"Miktar\"]"
+      }
+    },
+    {
+      "name": "Withdraw Button Click",
+      "selector": "button.form__btn",
+      "trigger": "click",
+      "eventName": "withdrawal_button_clicked",
+      "extractAmount": true,
+      "amountSelector": "input[placeholder=\"TRY Amount\"], input[inputmode=\"decimal\"]",
+      "parameters": {
+        "button_type": "withdrawal",
+        "button_class": "form__btn"
+      },
+      "conditions": {
+        "inputExists": "input[placeholder=\"TRY Amount\"]"
+      }
+    },
+    {
+      "name": "Bonus Claim Button Click",
+      "selector": "span.settings__btn.small",
+      "trigger": "click",
+      "eventName": "bonus_claim_button_clicked",
+      "extractAmount": false,
+      "parameters": {
+        "button_type": "bonus_claim",
+        "button_class": "settings__btn"
+      }
+    },
+    {
+      "name": "Deposit Amount Input Change",
+      "selector": "input[placeholder=\"Miktar\"]",
+      "trigger": "blur",
+      "eventName": "deposit_amount_entered",
+      "extractAmount": true,
+      "amountSelector": "input[placeholder=\"Miktar\"]",
+      "parameters": {
+        "input_type": "deposit_amount"
+      }
+    },
+    {
+      "name": "Withdrawal Amount Input Change",
+      "selector": "input[placeholder=\"TRY Amount\"]",
+      "trigger": "blur",
+      "eventName": "withdrawal_amount_entered",
+      "extractAmount": true,
+      "amountSelector": "input[placeholder=\"TRY Amount\"]",
+      "parameters": {
+        "input_type": "withdrawal_amount"
+      }
+    }
+  ]
+}

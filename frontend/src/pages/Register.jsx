@@ -1,13 +1,13 @@
 import { useForm } from '@mantine/form';
-import { 
-  TextInput, PasswordInput, Button, Paper, Title, Text, 
+import {
+  TextInput, PasswordInput, Button, Paper, Title, Text,
   Anchor, Stack, Alert, Container, Box, ThemeIcon, Stepper,
-  Progress, List, ThemeIcon as ListIcon
+  Progress, List, ThemeIcon as ListIcon, Select
 } from '@mantine/core';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
+import {
   IconAlertCircle, IconChartBar, IconLock, IconMail,
-  IconUser, IconBuildingStore, IconCode, IconCheck
+  IconUser, IconBuildingStore, IconCode, IconCheck, IconServer
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { useState } from 'react';
@@ -22,6 +22,7 @@ function RegisterPage() {
     initialValues: {
       customerName: '',
       scriptId: '',
+      trackerType: 'default',  // 🆕 Tracker Type
       userName: '',
       email: '',
       password: '',
@@ -34,6 +35,7 @@ function RegisterPage() {
         if (val.length < 3 || val.length > 20) return '3-20 karakter arasında olmalı';
         return null;
       },
+      trackerType: (val) => (!val ? 'Tracker tipi seçmelisiniz' : null),  // 🆕 Validation
       userName: (val) => (val.length >= 2 ? null : 'İsim en az 2 karakter olmalı'),
       email: (val) => (/^\S+@\S+$/.test(val) ? null : 'Geçersiz e-posta adresi'),
       password: (val) => {
@@ -161,7 +163,7 @@ function RegisterPage() {
                           description="İşletmenizin adı"
                           {...form.getInputProps('customerName')}
                         />
-                        
+
                         <TextInput
                           required
                           size="md"
@@ -172,11 +174,27 @@ function RegisterPage() {
                           {...form.getInputProps('scriptId')}
                         />
 
-                        <Button 
-                          fullWidth 
+                        {/* 🆕 Tracker Type Selection */}
+                        <Select
+                          required
+                          size="md"
+                          label="Tracker Script Tipi"
+                          placeholder="Altyapınıza uygun tracker'ı seçin"
+                          icon={<IconServer size={18} />}
+                          description="Her altyapı için özel optimizasyon"
+                          data={[
+                            { value: 'default', label: '🔹 Default - Genel amaçlı tracker' },
+                            { value: 'pronet', label: '🎯 Pronet - Truva altyapısı için optimize edilmiş' },
+                            { value: 'ebetlab', label: '🚀 Ebetlab - Rona altyapısı için optimize edilmiş' }
+                          ]}
+                          {...form.getInputProps('trackerType')}
+                        />
+
+                        <Button
+                          fullWidth
                           size="md"
                           onClick={() => {
-                            if (!form.errors.customerName && !form.errors.scriptId) {
+                            if (!form.errors.customerName && !form.errors.scriptId && !form.errors.trackerType) {
                               setStep(1);
                             } else {
                               form.validate();

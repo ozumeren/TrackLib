@@ -258,15 +258,26 @@ app.get('/scripts/:scriptId.js', scriptServingLimiter, async (req, res) => {
                 .send('console.error("TrackLib: Customer not found. Invalid script ID.");');
         }
 
-        const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
-        
+        // 🆕 TrackerType'a göre doğru template'i seç
+        const trackerTypeMap = {
+            'pronet': 'tracker-pronet.js',      // Truva infrastructure
+            'ebetlab': 'tracker-ebetlab.js',    // Rona infrastructure
+            'default': 'tracker-template.js'    // Generic tracker
+        };
+
+        const trackerType = customer.trackerType || 'default';
+        const templateFileName = trackerTypeMap[trackerType] || 'tracker-template.js';
+        const templatePath = path.join(__dirname, 'public', templateFileName);
+
         if (!fs.existsSync(templatePath)) {
             return res.status(500)
-                .type('application/javascript; charset=utf-8')  // ✅ charset eklendi
-                .send('console.error("TrackLib: Template file not found.");');
+                .type('application/javascript; charset=utf-8')
+                .send(`console.error("TrackLib: Template file not found: ${templateFileName}");`);
         }
 
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
+
+        console.log(`📝 Using tracker: ${templateFileName} (type: ${trackerType}) for ${customer.name}`);
         
         const config = {
             scriptId: scriptId,
@@ -317,15 +328,26 @@ app.get('/c/:scriptId.js', scriptServingLimiter, async (req, res) => {
                 .send('console.error("TrackLib: Customer not found. Invalid script ID.");');
         }
 
-        const templatePath = path.join(__dirname, 'public', 'tracker-template.js');
-        
+        // 🆕 TrackerType'a göre doğru template'i seç
+        const trackerTypeMap = {
+            'pronet': 'tracker-pronet.js',      // Truva infrastructure
+            'ebetlab': 'tracker-ebetlab.js',    // Rona infrastructure
+            'default': 'tracker-template.js'    // Generic tracker
+        };
+
+        const trackerType = customer.trackerType || 'default';
+        const templateFileName = trackerTypeMap[trackerType] || 'tracker-template.js';
+        const templatePath = path.join(__dirname, 'public', templateFileName);
+
         if (!fs.existsSync(templatePath)) {
             return res.status(500)
                 .type('application/javascript; charset=utf-8')
-                .send('console.error("TrackLib: Template file not found.");');
+                .send(`console.error("TrackLib: Template file not found: ${templateFileName}");`);
         }
 
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
+
+        console.log(`📝 Using tracker: ${templateFileName} (type: ${trackerType}) for ${customer.name}`);
         
         const config = {
             scriptId: scriptId,
@@ -390,7 +412,7 @@ app.get('/tracker/:apiKey.js', async (req, res) => {
 const authRoutes = express.Router();
 
 authRoutes.post('/register', registrationLimiter, validateBody(schemas.registerSchema), async (req, res) => {
-    const { customerName, scriptId, userName, email, password } = req.body;
+    const { customerName, scriptId, userName, email, password, trackerType } = req.body;
 
     try {
         // Script ID benzersiz mi kontrol et
@@ -416,19 +438,24 @@ authRoutes.post('/register', registrationLimiter, validateBody(schemas.registerS
         // API Key oluştur
         const apiKey = `trk_${crypto.randomBytes(16).toString('hex')}`;
         
+        // Tracker type validation
+        const validTrackerTypes = ['pronet', 'ebetlab', 'default'];
+        const selectedTrackerType = trackerType && validTrackerTypes.includes(trackerType) ? trackerType : 'default';
+
         // Müşteri ve kullanıcı oluştur
         const newCustomer = await prisma.customer.create({
             data: {
                 name: customerName,
                 apiKey: apiKey,
                 scriptId: scriptId,
+                trackerType: selectedTrackerType,  // 🆕 Tracker type
                 allowedDomains: [], // Boş array, sonra müşteri ekleyecek
                 users: {
-                    create: { 
-                        name: userName, 
-                        email: email, 
-                        password: hashedPassword, 
-                        role: 'OWNER' 
+                    create: {
+                        name: userName,
+                        email: email,
+                        password: hashedPassword,
+                        role: 'OWNER'
                     },
                 },
             },

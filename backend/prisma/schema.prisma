@@ -67,6 +67,9 @@ model Customer {
   apiKey            String   @unique
   scriptId          String   @unique
 
+  // 🆕 Tracker Type Selection
+  trackerType       String   @default("default") // "pronet" (Truva), "ebetlab" (Rona), "default"
+
   // Domain güvenliği için
   allowedDomains    String[]
 

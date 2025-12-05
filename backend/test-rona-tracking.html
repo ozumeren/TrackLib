@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rona Tracker Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .test-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .test-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .test-group {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f7f9fc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .test-group h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .form__input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .form__input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form__btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form__btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .form__btn:active {
+            transform: translateY(0);
+        }
+
+        .settings__btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .settings__btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .console-output pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .debug-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .debug-btn {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .debug-btn:hover {
+            background: #1976D2;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .padding-horiz--1 {
+            padding: 0 10px;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .gap-2 {
+            gap: 8px;
+        }
+
+        .small {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Rona Tracker v3.0</h1>
+            <p>Test & Debug Interface</p>
+            <p><span class="status-indicator"></span>Tracker Active</p>
+        </div>
+
+        <!-- Deposit Test -->
+        <div class="test-section">
+            <h2>💳 Deposit Tracking Test</h2>
+            <div class="test-group">
+                <h3>1. Enter Deposit Amount</h3>
+                <input type="text" inputmode="decimal" class="form__input"
+                       placeholder="Miktar" value="" data-sharkid="__1"
+                       id="deposit-amount">
+
+                <button class="form__btn justify-center" id="deposit-btn">
+                    <span class="padding-horiz--1">Talep Gönder</span>
+                </button>
+
+                <div style="margin-top: 15px; color: #666; font-size: 14px;">
+                    ℹ️ Expected events:
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><code>deposit_amount_entered</code> (on blur)</li>
+                        <li><code>deposit_button_clicked</code> (on click)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdrawal Test -->
+        <div class="test-section">
+            <h2>💰 Withdrawal Tracking Test</h2>
+            <div class="test-group">
+                <h3>2. Enter Withdrawal Amount</h3>
+                <input type="text" inputmode="decimal" class="form__input"
+                       placeholder="TRY Amount" value="" data-sharkid="__2"
+                       id="withdrawal-amount">
+
+                <button class="form__btn justify-center" id="withdrawal-btn">
+                    <span class="padding-horiz--1">Talep Gönder</span>
+                </button>
+
+                <div style="margin-top: 15px; color: #666; font-size: 14px;">
+                    ℹ️ Expected events:
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><code>withdrawal_amount_entered</code> (on blur)</li>
+                        <li><code>withdrawal_button_clicked</code> (on click)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bonus Test -->
+        <div class="test-section">
+            <h2>🎁 Bonus Claim Tracking Test</h2>
+            <div class="test-group">
+                <h3>3. Claim Bonus</h3>
+                <span class="settings__btn small gap-2" id="bonus-btn">
+                    <span>Talep Et</span>
+                    <svg class="svg-icon" width="16" height="16">
+                        <use href="#get-bonus"></use>
+                    </svg>
+                </span>
+
+                <div style="margin-top: 15px; color: #666; font-size: 14px;">
+                    ℹ️ Expected event:
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><code>bonus_claim_button_clicked</code></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Section -->
+        <div class="test-section">
+            <h2>🛠️ Debug Tools</h2>
+            <div class="test-group">
+                <h3>Tracker Status & Commands</h3>
+                <div class="debug-buttons">
+                    <button class="debug-btn" onclick="showStatus()">
+                        📊 Show Tracker Status
+                    </button>
+                    <button class="debug-btn" onclick="showGameSession()">
+                        🎮 Show Game Session
+                    </button>
+                    <button class="debug-btn" onclick="endGame()">
+                        🏁 End Game Session
+                    </button>
+                    <button class="debug-btn" onclick="clearPending()">
+                        🗑️ Clear Pending TX
+                    </button>
+                    <button class="debug-btn" onclick="sendCustomEvent()">
+                        ✉️ Send Custom Event
+                    </button>
+                    <button class="debug-btn" onclick="clearConsole()">
+                        🧹 Clear Console
+                    </button>
+                </div>
+
+                <div class="console-output" id="console-output">
+                    <pre>Console Output:
+Ready to test Rona Tracker v3.0...
+
+Press F12 to open browser console for detailed logs.
+Use the debug buttons above to interact with the tracker.
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tracker Script -->
+    <script src="http://localhost:3000/c/rona_tracker.js" async></script>
+
+    <!-- Test Scripts -->
+    <script>
+        // Console logging to page
+        const consoleOutput = document.getElementById('console-output');
+
+        function logToPage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#4CAF50',
+                warn: '#FF9800',
+                error: '#F44336',
+                debug: '#2196F3'
+            };
+
+            const pre = consoleOutput.querySelector('pre');
+            pre.innerHTML += `\n<span style="color: ${colors[type]}">[${timestamp}] ${message}</span>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        // Debug functions
+        function showStatus() {
+            if (typeof tracker !== 'undefined') {
+                const status = tracker.getStatus();
+                console.log('Tracker Status:', status);
+                logToPage('✅ Tracker Status (check console for details)', 'info');
+            } else {
+                logToPage('❌ Tracker not loaded yet', 'error');
+            }
+        }
+
+        function showGameSession() {
+            if (typeof tracker !== 'undefined') {
+                const session = tracker.getGameSession();
+                console.log('Game Session:', session);
+                logToPage(session ? '🎮 Game Session Active (check console)' : '⚠️ No active game session', 'info');
+            } else {
+                logToPage('❌ Tracker not loaded yet', 'error');
+            }
+        }
+
+        function endGame() {
+            if (typeof tracker !== 'undefined') {
+                tracker.endGame();
+                logToPage('🏁 Game session ended', 'info');
+            } else {
+                logToPage('❌ Tracker not loaded yet', 'error');
+            }
+        }
+
+        function clearPending() {
+            if (typeof window.clearPendingTx !== 'undefined') {
+                window.clearPendingTx();
+                logToPage('🗑️ Pending transactions cleared', 'info');
+            } else {
+                logToPage('❌ Tracker not loaded yet', 'error');
+            }
+        }
+
+        function sendCustomEvent() {
+            if (typeof tracker !== 'undefined') {
+                tracker.track('custom_test_event', {
+                    test: true,
+                    timestamp: Date.now()
+                });
+                logToPage('✉️ Custom event sent: custom_test_event', 'info');
+            } else {
+                logToPage('❌ Tracker not loaded yet', 'error');
+            }
+        }
+
+        function clearConsole() {
+            const pre = consoleOutput.querySelector('pre');
+            pre.innerHTML = 'Console cleared.\n';
+        }
+
+        // Button click handlers with logging
+        document.getElementById('deposit-btn')?.addEventListener('click', function() {
+            const amount = document.getElementById('deposit-amount').value;
+            logToPage(`💳 Deposit button clicked (Amount: ${amount || 'not entered'})`, 'debug');
+        });
+
+        document.getElementById('withdrawal-btn')?.addEventListener('click', function() {
+            const amount = document.getElementById('withdrawal-amount').value;
+            logToPage(`💰 Withdrawal button clicked (Amount: ${amount || 'not entered'})`, 'debug');
+        });
+
+        document.getElementById('bonus-btn')?.addEventListener('click', function() {
+            logToPage(`🎁 Bonus claim button clicked`, 'debug');
+        });
+
+        // Log tracker load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (typeof tracker !== 'undefined') {
+                    logToPage('✅ Rona Tracker v3.0 loaded successfully!', 'info');
+                } else {
+                    logToPage('⚠️ Waiting for tracker to load...', 'warn');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
