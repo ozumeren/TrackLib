@@ -626,8 +626,8 @@ Use buttons above to simulate Rona API calls.
             gameActive = false;
             logToPage(`🏁 Game session ended`, 'info');
 
-            if (typeof tracker !== 'undefined' && tracker.endGame) {
-                tracker.endGame();
+            if (typeof strastix !== 'undefined' && strastix.endGame) {
+                strastix.endGame();
             }
         }
 
@@ -635,8 +635,8 @@ Use buttons above to simulate Rona API calls.
         // DEBUG FUNCTIONS
         // ============================================
         function showStatus() {
-            if (typeof tracker !== 'undefined') {
-                const status = tracker.getStatus();
+            if (typeof strastix !== 'undefined') {
+                const status = strastix.getStatus();
                 console.log('📊 Tracker Status:', status);
                 logToPage(`✅ Status logged to console`, 'info');
             } else {
@@ -645,8 +645,8 @@ Use buttons above to simulate Rona API calls.
         }
 
         function showGameSession() {
-            if (typeof tracker !== 'undefined') {
-                const session = tracker.getGameSession();
+            if (typeof strastix !== 'undefined') {
+                const session = strastix.getGameSession();
                 console.log('🎮 Game Session:', session);
                 logToPage(session ? `✅ Game session active` : `⚠️  No active session`, 'info');
             } else {
@@ -671,18 +671,25 @@ Use buttons above to simulate Rona API calls.
         // ============================================
         // INITIALIZATION
         // ============================================
+        window.addEventListener('strastix:ready', function() {
+            logToPage(`✅ Strastix Tracker loaded!`, 'info');
+            logToPage(`💰 Initial Balance: ${currentBalance} TRY`, 'info');
+            logToPage(`👤 User ID: ${userId}`, 'info');
+            logToPage(``, 'info');
+            logToPage(`Ready to simulate Rona API calls!`, 'info');
+
+            // Identify user
+            if (typeof strastix !== 'undefined' && strastix.identify) {
+                strastix.identify(userId.toString());
+            }
+        });
+
         window.addEventListener('load', function() {
             setTimeout(() => {
-                if (typeof tracker !== 'undefined') {
-                    logToPage(`✅ Rona Tracker v3.0 loaded!`, 'info');
-                    logToPage(`💰 Initial Balance: ${currentBalance} TRY`, 'info');
-                    logToPage(`👤 User ID: ${userId}`, 'info');
-                    logToPage(``, 'info');
-                    logToPage(`Ready to simulate Rona API calls!`, 'info');
-                } else {
+                if (typeof strastix === 'undefined') {
                     logToPage(`⚠️  Tracker loading...`, 'warn');
                 }
-            }, 1000);
+            }, 2000);
         });
     </script>
 </body>
