@@ -414,6 +414,13 @@ const authRoutes = express.Router();
 authRoutes.post('/register', registrationLimiter, validateBody(schemas.registerSchema), async (req, res) => {
     const { customerName, scriptId, userName, email, password, trackerType } = req.body;
 
+    // 🐛 DEBUG: Log received trackerType
+    console.log('📝 Registration Request:', {
+        scriptId,
+        trackerType_received: trackerType,
+        trackerType_type: typeof trackerType
+    });
+
     try {
         // Script ID benzersiz mi kontrol et
         const existingCustomer = await prisma.customer.findFirst({
@@ -441,6 +448,10 @@ authRoutes.post('/register', registrationLimiter, validateBody(schemas.registerS
         // Tracker type validation
         const validTrackerTypes = ['pronet', 'ebetlab', 'default'];
         const selectedTrackerType = trackerType && validTrackerTypes.includes(trackerType) ? trackerType : 'default';
+
+        // 🐛 DEBUG: Log selected trackerType
+        console.log('✅ Selected TrackerType:', selectedTrackerType,
+            `(received: "${trackerType}", valid: ${validTrackerTypes.includes(trackerType)})`);
 
         // Müşteri ve kullanıcı oluştur
         const newCustomer = await prisma.customer.create({
