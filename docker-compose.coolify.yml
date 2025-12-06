@@ -59,7 +59,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-strastix_236790ae1384b190c20e9e41fc102515}
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+      BACKEND_URL: ${BACKEND_URL:-https://api.strastix.com}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     expose:
       - "3000"
       - "3443"
