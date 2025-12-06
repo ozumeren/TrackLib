@@ -52,10 +52,14 @@ function RegisterPage() {
     setLoading(true);
 
     try {
-      await axios.post('/api/auth/register', {
+      // 🐛 DEBUG: Log what we're sending
+      const payload = {
         ...values,
         scriptId: `strastix_${values.scriptId}`
-      });
+      };
+      console.log('🚀 Registration Payload:', payload);
+
+      await axios.post('/api/auth/register', payload);
       
       setStep(3); // Success step
       
