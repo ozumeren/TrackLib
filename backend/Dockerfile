@@ -7,7 +7,9 @@ RUN apk add --no-cache \
     postgresql-client \
     python3 \
     make \
-    g++
+    g++ \
+    wget \
+    curl
 
 # Set working directory
 WORKDIR /app
@@ -16,7 +18,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
-# Install all dependencies (needed for Prisma CLI)
+# Install dependencies
 RUN npm install --frozen-lockfile
 
 # Generate Prisma client with dummy DATABASE_URL for build
@@ -24,11 +26,15 @@ ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 RUN npx prisma generate
 ENV DATABASE_URL=""
 
-# Remove dev dependencies
-RUN npm prune --production
+# Keep Prisma CLI for migrations in production
+# Don't prune dev dependencies - Prisma CLI needed for migrations
 
 # Copy application files
 COPY . .
+
+# Copy startup script and make executable
+COPY startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
 
 # Create logs directory
 RUN mkdir -p logs
@@ -36,9 +42,9 @@ RUN mkdir -p logs
 # Expose ports
 EXPOSE 3000 3443
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+# Health check - longer start period for migrations
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=5 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start application with migrations (with retry logic)
-CMD ["sh", "-c", "npx prisma migrate resolve --applied add_ip_tracking || true && npx prisma migrate deploy && npm start"]
+# Start application using startup script
+CMD ["/app/startup.sh"]
