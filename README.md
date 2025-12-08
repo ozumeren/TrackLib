@@ -21,37 +21,51 @@ Full-stack iGaming analytics platform with event tracking, segmentation, and fra
 
 ## 🔧 Deployment (Coolify)
 
-### 1. Create New Resource
-- **Type**: Docker Compose
-- **Repository**: https://github.com/ozumeren/TrackLib
-- **Branch**: main
-- **Compose File**: docker-compose.coolify.yml
+### Quick Start
 
-### 2. Environment Variables
+**📖 Detaylı deployment guide için:** [COOLIFY-DEPLOYMENT.md](./COOLIFY-DEPLOYMENT.md)
 
-```env
-# Database (auto-created by compose)
-POSTGRES_USER=strastix_user
-POSTGRES_PASSWORD=<secure-password>
-POSTGRES_DB=strastix_db
+### Deployment Özeti
 
-# Backend
-JWT_SECRET=<32-char-secret>
-BACKEND_URL=https://api.strastix.com
-TELEGRAM_BOT_TOKEN=<optional>
-```
+1. **Coolify'da Harici Servisler Oluştur:**
+   - PostgreSQL Database Service
+   - Redis Cache Service
 
-### 3. Domains
-- Backend: `api.strastix.com`
-- Frontend: `dashboard.strastix.com` or `strastix.com`
+2. **Proje Oluştur:**
+   - Type: Docker Compose
+   - Repository: Your Git URL
+   - Branch: main
+   - Base Directory: `TrackLib`
+   - Compose File: `docker-compose.yml`
 
-### 4. Deploy
-Click **Deploy** - Coolify will:
-- ✅ Start PostgreSQL + Redis
-- ✅ Build & run backend (port 3000)
-- ✅ Build & run frontend (port 80)
-- ✅ Run Prisma migrations
-- ✅ Setup SSL with Let's Encrypt
+3. **Environment Variables Ayarla:**
+   ```env
+   # Harici Database & Redis (Coolify servisleri)
+   DATABASE_URL=postgresql://user:pass@postgres-service:5432/db
+   REDIS_URL=redis://:password@redis-service:6379
+   REDIS_HOST=redis-service
+   REDIS_PORT=6379
+   REDIS_PASSWORD=your_password
+
+   # Application
+   JWT_SECRET=<32-char-secret>
+   BACKEND_URL=https://api.strastix.com
+
+   # Domains
+   BACKEND_DOMAIN=api.strastix.com
+   FRONTEND_DOMAIN=app.strastix.com
+   TRACKER_DOMAIN=tracker.strastix.com
+   ```
+
+4. **Deploy & Monitor:**
+   - Coolify otomatik olarak build edip deploy eder
+   - SSL sertifikaları otomatik oluşturulur
+   - Health check'ler aktif olur
+
+### Deployment Dosyaları
+- `docker-compose.yml` - Ana deployment configuration (harici DB/Redis kullanır)
+- `docker-compose.coolify.yml` - Eski versiyon (embedded DB/Redis - kullanılmıyor)
+- `.env.example` - Environment variables template
 
 ## 🏃 Local Development
 
@@ -70,12 +84,15 @@ npm run dev
 
 ## 📡 Services
 
-- **PostgreSQL**: Database (internal port 5432)
-- **Redis**: Caching & rate limiting (internal port 6379)
-- **Backend**: API server (port 3000)
-- **Frontend**: Dashboard UI (port 80)
+| Service | Port | Type | Description |
+|---------|------|------|-------------|
+| **PostgreSQL** | 5432 | External | Coolify Database Service (harici) |
+| **Redis** | 6379 | External | Coolify Cache Service (harici) |
+| **Backend** | 3000 | Container | Node.js API Server |
+| **Frontend** | 3001 | Container | React Dashboard (Nginx) |
+| **Tracker** | 8082 | Container | Test Casino (Nginx) |
 
-All services communicate via `strastix-network` internal Docker network.
+**Not:** PostgreSQL ve Redis, `docker-compose.yml` içinde tanımlı değil. Coolify'da ayrı servisler olarak oluşturulmalı.
 
 ## 🔐 Features
 
