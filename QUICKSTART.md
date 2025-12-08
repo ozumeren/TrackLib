@@ -33,13 +33,16 @@ Git Repository:
 Aşağıdaki tüm değişkenleri kopyalayıp yapıştırın:
 
 ```bash
-# Database Credentials (değiştirin!)
+# Database Credentials
+# ⚠️ POSTGRES_PASSWORD mutlaka değiştirin!
 POSTGRES_USER=strastix_user
-POSTGRES_PASSWORD=YOUR_STRONG_PASSWORD_HERE
+POSTGRES_PASSWORD=YOUR_STRONG_PASSWORD_HERE_min16chars
 POSTGRES_DB=strastix_db
 
-# JWT Secret (32+ karakter, değiştirin!)
-JWT_SECRET=YOUR_32_CHAR_MINIMUM_SECRET_HERE
+# JWT Secret (32+ karakter)
+# ⚠️ Mutlaka değiştirin! Aşağıdaki komutu çalıştırın:
+# openssl rand -hex 32
+JWT_SECRET=YOUR_32_CHAR_MINIMUM_SECRET_HERE_CHANGE_THIS
 
 # Backend URL (kendi domain'iniz)
 BACKEND_URL=https://api.yourdomain.com
@@ -51,6 +54,9 @@ TRACKER_DOMAIN=tracker.yourdomain.com
 
 # Optional: Telegram Bot
 TELEGRAM_BOT_TOKEN=
+
+# ℹ️ Not: DATABASE_URL otomatik oluşturulur:
+# postgresql://strastix_user:YOUR_PASSWORD@postgres:5432/strastix_db
 ```
 
 **JWT_SECRET oluştur:**
