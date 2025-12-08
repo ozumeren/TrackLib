@@ -1,0 +1,199 @@
+# 🚀 Coolify Quick Start Guide
+
+**5 dakikada deploy edin!**
+
+## ✅ Ön Gereksinim
+
+- Coolify instance'ınız hazır
+- Git repository'niz Coolify'dan erişilebilir
+- 3 domain hazır (veya subdomain)
+
+---
+
+## 📋 Adım 1: Coolify'da Proje Oluştur
+
+```
+Coolify Dashboard → + New Resource → Docker Compose
+
+Git Repository:
+├─ URL: [Your Git URL]
+├─ Branch: main
+├─ Base Directory: TrackLib
+└─ Compose File: docker-compose.yml
+
+✅ Save
+```
+
+---
+
+## 🔐 Adım 2: Environment Variables Ekle
+
+**Coolify → Your Project → Environment Variables → Bulk Add**
+
+Aşağıdaki tüm değişkenleri kopyalayıp yapıştırın:
+
+```bash
+# Database Credentials (değiştirin!)
+POSTGRES_USER=strastix_user
+POSTGRES_PASSWORD=YOUR_STRONG_PASSWORD_HERE
+POSTGRES_DB=strastix_db
+
+# JWT Secret (32+ karakter, değiştirin!)
+JWT_SECRET=YOUR_32_CHAR_MINIMUM_SECRET_HERE
+
+# Backend URL (kendi domain'iniz)
+BACKEND_URL=https://api.yourdomain.com
+
+# Domains (kendi domain'leriniz)
+BACKEND_DOMAIN=api.yourdomain.com
+FRONTEND_DOMAIN=app.yourdomain.com
+TRACKER_DOMAIN=tracker.yourdomain.com
+
+# Optional: Telegram Bot
+TELEGRAM_BOT_TOKEN=
+```
+
+**JWT_SECRET oluştur:**
+```bash
+# Terminal'de:
+openssl rand -hex 32
+```
+
+---
+
+## 🌐 Adım 3: DNS Ayarları
+
+DNS provider'ınızda (Cloudflare, GoDaddy, etc.):
+
+```
+Type: A
+Host: api.yourdomain.com
+Value: [COOLIFY_SERVER_IP]
+
+Type: A
+Host: app.yourdomain.com
+Value: [COOLIFY_SERVER_IP]
+
+Type: A
+Host: tracker.yourdomain.com
+Value: [COOLIFY_SERVER_IP]
+```
+
+**Propagation kontrolü:**
+```bash
+dig api.yourdomain.com
+# Coolify IP'sini görmeli
+```
+
+---
+
+## 🎯 Adım 4: Deploy!
+
+```
+Coolify → Your Project → Deploy butonuna tıkla
+```
+
+**Logları izle:**
+- ✅ PostgreSQL starting...
+- ✅ Redis starting...
+- ✅ Backend: "Waiting for database..."
+- ✅ Backend: "Migrations completed successfully!"
+- ✅ Backend: "Server started on port 3000"
+
+**Süre:** ~3-5 dakika
+
+---
+
+## ✅ Adım 5: Test Et
+
+**Backend Health:**
+```bash
+curl https://api.yourdomain.com/health
+# Expected: {"status":"ok",...}
+```
+
+**Frontend:**
+```bash
+curl https://app.yourdomain.com
+# Expected: HTML response
+```
+
+**Tracker:**
+```bash
+curl https://tracker.yourdomain.com
+# Expected: HTML response
+```
+
+---
+
+## 🎉 Başarılı!
+
+Şimdi şunlara erişebilirsiniz:
+- 📊 Dashboard: `https://app.yourdomain.com`
+- 🔌 API: `https://api.yourdomain.com`
+- 🧪 Tracker Test: `https://tracker.yourdomain.com`
+
+---
+
+## 🔧 Sorun mu Yaşıyorsunuz?
+
+### Backend unhealthy hatası:
+
+**1. Container logs kontrol:**
+```
+Coolify → backend service → Logs
+```
+
+**2. Environment variables kontrol:**
+```
+Coolify → Environment Variables
+✅ POSTGRES_PASSWORD set edilmiş mi?
+✅ JWT_SECRET set edilmiş mi?
+```
+
+**3. Database migration:**
+```bash
+# Backend container'a gir (Coolify terminal):
+cd /app
+npx prisma migrate deploy
+```
+
+### DNS hatası:
+
+```bash
+# Propagation kontrolü:
+dig api.yourdomain.com
+
+# Coolify IP'sini görmiyorsa, 5-10 dakika bekle
+```
+
+### SSL hatası:
+
+```
+Coolify → Domains → Force SSL Renewal
+```
+
+---
+
+## 📚 Daha Fazla Bilgi
+
+- **Detaylı deployment:** [COOLIFY-DEPLOYMENT.md](./COOLIFY-DEPLOYMENT.md)
+- **Checklist:** [COOLIFY-CHECKLIST.md](./COOLIFY-CHECKLIST.md)
+- **README:** [README.md](./README.md)
+
+---
+
+## 🔄 Güncelleme Yapmak
+
+```bash
+# Code değişikliği sonrası:
+git push origin main
+
+# Coolify otomatik redeploy yapacak
+# veya manuel:
+# Coolify → Your Project → Redeploy
+```
+
+---
+
+**💡 İpucu:** İlk deployment'ta SSL sertifikası oluşturulacak, 1-2 dakika sürebilir.

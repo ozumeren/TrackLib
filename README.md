@@ -27,44 +27,29 @@ Full-stack iGaming analytics platform with event tracking, segmentation, and fra
 
 ### Deployment Özeti
 
-1. **Coolify'da Harici Servisler Oluştur:**
-   - PostgreSQL Database Service
-   - Redis Cache Service
+**PostgreSQL ve Redis docker-compose.yml içinde embedded olarak geliyor!**
 
-2. **Proje Oluştur:**
+1. **Coolify'da Proje Oluştur:**
    - Type: Docker Compose
    - Repository: Your Git URL
-   - Branch: main
    - Base Directory: `TrackLib`
-   - Compose File: `docker-compose.yml`
 
-3. **Environment Variables Ayarla:**
+2. **Environment Variables Ayarla (sadece 3 tane!):**
    ```env
-   # Harici Database & Redis (Coolify servisleri)
-   DATABASE_URL=postgresql://user:pass@postgres-service:5432/db
-   REDIS_URL=redis://:password@redis-service:6379
-   REDIS_HOST=redis-service
-   REDIS_PORT=6379
-   REDIS_PASSWORD=your_password
-
-   # Application
-   JWT_SECRET=<32-char-secret>
-   BACKEND_URL=https://api.strastix.com
-
-   # Domains
-   BACKEND_DOMAIN=api.strastix.com
-   FRONTEND_DOMAIN=app.strastix.com
-   TRACKER_DOMAIN=tracker.strastix.com
+   POSTGRES_PASSWORD=your_strong_password
+   JWT_SECRET=your_32_char_secret
+   BACKEND_URL=https://api.yourdomain.com
    ```
 
-4. **Deploy & Monitor:**
-   - Coolify otomatik olarak build edip deploy eder
-   - SSL sertifikaları otomatik oluşturulur
-   - Health check'ler aktif olur
+3. **Deploy!**
+   - PostgreSQL, Redis, Backend, Frontend otomatik başlar
+   - SSL sertifikaları otomatik oluşur
 
 ### Deployment Dosyaları
-- `docker-compose.yml` - Ana deployment configuration (harici DB/Redis kullanır)
-- `docker-compose.coolify.yml` - Eski versiyon (embedded DB/Redis - kullanılmıyor)
+- 🚀 `QUICKSTART.md` - 5 dakikada deploy (başlayın buradan!)
+- `docker-compose.yml` - Ana deployment (PostgreSQL + Redis embedded)
+- `COOLIFY-DEPLOYMENT.md` - Detaylı guide
+- `COOLIFY-CHECKLIST.md` - Adım adım checklist
 - `.env.example` - Environment variables template
 
 ## 🏃 Local Development
@@ -86,13 +71,13 @@ npm run dev
 
 | Service | Port | Type | Description |
 |---------|------|------|-------------|
-| **PostgreSQL** | 5432 | External | Coolify Database Service (harici) |
-| **Redis** | 6379 | External | Coolify Cache Service (harici) |
+| **PostgreSQL** | 5432 | Embedded | Database (docker-compose içinde) |
+| **Redis** | 6379 | Embedded | Cache (docker-compose içinde) |
 | **Backend** | 3000 | Container | Node.js API Server |
 | **Frontend** | 3001 | Container | React Dashboard (Nginx) |
 | **Tracker** | 8082 | Container | Test Casino (Nginx) |
 
-**Not:** PostgreSQL ve Redis, `docker-compose.yml` içinde tanımlı değil. Coolify'da ayrı servisler olarak oluşturulmalı.
+**Not:** Tüm servisler tek `docker-compose.yml` içinde ve aynı network'te çalışır.
 
 ## 🔐 Features
 

@@ -47,4 +47,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=5 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start application using startup script
-CMD ["/app/startup.sh"]
+# If script fails, use fallback
+CMD ["sh", "-c", "/app/startup.sh || (echo 'Startup script failed, using fallback...' && sleep 10 && npx prisma migrate deploy && npm start)"]

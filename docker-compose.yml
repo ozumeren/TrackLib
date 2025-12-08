@@ -1,9 +1,46 @@
 version: '3.8'
 
 # Coolify Deployment Configuration
-# Uses External PostgreSQL and Redis services from Coolify
+# Embedded PostgreSQL and Redis for guaranteed connectivity
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-strastix_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeMe123Strong!}
+      POSTGRES_DB: ${POSTGRES_DB:-strastix_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-strastix_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
   # Backend API
   backend:
     build:
@@ -21,14 +58,13 @@ services:
       PORT: 3000
       HTTPS_PORT: 3443
 
-      # External PostgreSQL (Coolify service)
-      DATABASE_URL: ${DATABASE_URL}
+      # Database (internal service)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-strastix_user}:${POSTGRES_PASSWORD:-changeMe123Strong!}@postgres:5432/${POSTGRES_DB:-strastix_db}
 
-      # External Redis (Coolify service)
-      REDIS_URL: ${REDIS_URL}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Redis (internal service)
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
       # Application secrets
       JWT_SECRET: ${JWT_SECRET}
@@ -41,6 +77,11 @@ services:
       - "3443"
     volumes:
       - backend_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
@@ -48,6 +89,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+    networks:
+      - app-network
 
   # Frontend Dashboard
   frontend:
@@ -74,6 +117,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    networks:
+      - app-network
 
   # Tracker Test Environment (Optional - for testing)
   tracker:
@@ -95,7 +140,17 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
   backend_logs:
     driver: local
