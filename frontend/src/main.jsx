@@ -12,6 +12,7 @@ import '@mantine/notifications/styles.css'; // 2. YENİ: Bildirim stillerini imp
 
 // Axios global baseURL ayarı
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'https://api.strastix.com';
+console.log('🔌 API URL:', axios.defaults.baseURL);
 
 // Axios interceptor - her istekte token ekle
 axios.interceptors.request.use(
