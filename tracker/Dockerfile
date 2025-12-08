@@ -8,29 +8,27 @@ RUN apk add --no-cache curl
 COPY test.html /usr/share/nginx/html/index.html
 COPY tracker.js /usr/share/nginx/html/tracker.js
 
-# Create nginx config for SPA routing
+# Create nginx config
 RUN cat > /etc/nginx/conf.d/default.conf <<'EOF'
 server {
-    listen 8082;
+    listen 80;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
 
+    # Enable CORS for all files
+    add_header Access-Control-Allow-Origin * always;
+    add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS' always;
+    add_header Access-Control-Allow-Headers 'Content-Type, Authorization' always;
+
     location / {
         try_files $uri $uri/ /index.html;
-    }
-
-    # Enable CORS for tracker script
-    location /tracker.js {
-        add_header Access-Control-Allow-Origin *;
-        add_header Access-Control-Allow-Methods 'GET, OPTIONS';
-        add_header Access-Control-Allow-Headers 'Content-Type';
     }
 }
 EOF
 
 # Expose port
-EXPOSE 8082
+EXPOSE 80
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
