@@ -134,7 +134,7 @@ services:
       - "traefik.http.routers.tracker.tls.certresolver=letsencrypt"
       - "traefik.http.services.tracker.loadbalancer.server.port=80"
       - "traefik.http.services.tracker.loadbalancer.server.scheme=http"
-    ports:
+    expose:
       - "80"
     restart: unless-stopped
     healthcheck:
