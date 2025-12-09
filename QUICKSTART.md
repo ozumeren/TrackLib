@@ -44,13 +44,10 @@ POSTGRES_DB=strastix_db
 # openssl rand -hex 32
 JWT_SECRET=YOUR_32_CHAR_MINIMUM_SECRET_HERE_CHANGE_THIS
 
-# Backend URL (kendi domain'iniz)
-BACKEND_URL=https://api.yourdomain.com
-
-# Domains (kendi domain'leriniz)
-BACKEND_DOMAIN=api.yourdomain.com
-FRONTEND_DOMAIN=app.yourdomain.com
-TRACKER_DOMAIN=tracker.yourdomain.com
+# ℹ️ Domains are hardcoded in docker-compose.yml:
+# - test.strastix.com    (Test Casino)
+# - api.strastix.com     (Backend API)
+# - strastix.com         (Frontend Panel)
 
 # Optional: Telegram Bot
 TELEGRAM_BOT_TOKEN=
@@ -73,22 +70,24 @@ DNS provider'ınızda (Cloudflare, GoDaddy, etc.):
 
 ```
 Type: A
-Host: api.yourdomain.com
+Host: strastix.com (veya @)
 Value: [COOLIFY_SERVER_IP]
 
 Type: A
-Host: app.yourdomain.com
+Host: api.strastix.com (veya api)
 Value: [COOLIFY_SERVER_IP]
 
 Type: A
-Host: tracker.yourdomain.com
+Host: test.strastix.com (veya test)
 Value: [COOLIFY_SERVER_IP]
 ```
 
 **Propagation kontrolü:**
 ```bash
-dig api.yourdomain.com
-# Coolify IP'sini görmeli
+dig strastix.com
+dig api.strastix.com
+dig test.strastix.com
+# Hepsi Coolify IP'sini göstermeli
 ```
 
 ---
@@ -114,20 +113,20 @@ Coolify → Your Project → Deploy butonuna tıkla
 
 **Backend Health:**
 ```bash
-curl https://api.yourdomain.com/health
+curl https://api.strastix.com/health
 # Expected: {"status":"ok",...}
 ```
 
-**Frontend:**
+**Frontend Panel:**
 ```bash
-curl https://app.yourdomain.com
-# Expected: HTML response
+curl https://strastix.com
+# Expected: HTML response (React Dashboard)
 ```
 
-**Tracker:**
+**Test Casino:**
 ```bash
-curl https://tracker.yourdomain.com
-# Expected: HTML response
+curl https://test.strastix.com
+# Expected: HTML response (Rona API Simulator)
 ```
 
 ---
@@ -135,9 +134,9 @@ curl https://tracker.yourdomain.com
 ## 🎉 Başarılı!
 
 Şimdi şunlara erişebilirsiniz:
-- 📊 Dashboard: `https://app.yourdomain.com`
-- 🔌 API: `https://api.yourdomain.com`
-- 🧪 Tracker Test: `https://tracker.yourdomain.com`
+- 📊 Frontend Panel: `https://strastix.com`
+- 🔌 Backend API: `https://api.strastix.com`
+- 🧪 Test Casino: `https://test.strastix.com`
 
 ---
 
