@@ -369,15 +369,123 @@ Use buttons above to simulate Rona API calls.
         </div>
     </div>
 
+    <!-- 🆕 Mock API Interceptor - MUST load BEFORE tracker script -->
+    <script>
+        // Mock fetch interceptor - Gerçek API yok ama tracker intercept edebilsin
+        const realFetch = window.fetch;
+
+        // Global variables - accessible from all scripts
+        window.currentBalance = 1000.00;
+        window.userId = 12345;
+
+        const mockAPIServer = {
+            '/api/player/auth/login': (options) => ({
+                success: true,
+                data: {
+                    user: {
+                        id: window.userId,
+                        username: 'testuser123',
+                        email: 'testuser123@rona.com'
+                    },
+                    token: 'mock_jwt_' + Date.now()
+                }
+            }),
+            '/api/player/wallet/index': () => ({
+                success: true,
+                data: [
+                    { id: 1, code: 'TRY', balance: window.currentBalance, currency: { currency: 'TRY' }, active_bonus_id: null },
+                    { id: 2, code: 'BTC', balance: 0.00123, currency: { currency: 'BTC' }, active_bonus_id: null },
+                    { id: 3, code: 'USDT', balance: 50.00, currency: { currency: 'USDT' }, active_bonus_id: null }
+                ]
+            }),
+            '/api/player/transactions/bank-info': (options) => {
+                const body = options.body ? JSON.parse(options.body) : {};
+                return {
+                    success: true,
+                    data: {
+                        transaction_id: Date.now(),
+                        amount: body.amount,
+                        currency: body.currency || 'TRY',
+                        payment_method: body.method || 'papara',
+                        status: 'pending'
+                    }
+                };
+            },
+            '/api/player/bonus-request-contents/claim/': () => ({
+                success: Math.random() > 0.3,
+                message: 'Bonus claim processed',
+                data: { amount: 25, currency: 'TRY' }
+            }),
+            '/api/player/payment/methods-all': () => ({
+                success: true,
+                data: [
+                    { id: 1, name: 'Papara', code: 'papara' },
+                    { id: 2, name: 'Havale/EFT', code: 'bank_transfer' },
+                    { id: 3, name: 'QR Kod', code: 'qr' },
+                    { id: 4, name: 'VevoPay', code: 'vevopay' }
+                ]
+            }),
+            '/gameService': (options) => {
+                const body = options.body ? JSON.parse(options.body) : {};
+                return {
+                    success: true,
+                    balance: window.currentBalance,
+                    currency: 'TRY',
+                    bet: body.bet,
+                    round_id: Date.now()
+                };
+            }
+        };
+
+        // Save original fetch before tracker overrides it
+        const _originalFetch = window.fetch;
+
+        // Our fetch wrapper
+        window.fetch = function(url, options = {}) {
+            const urlStr = url.toString();
+
+            // Check if we have a mock for this URL
+            for (const [mockUrl, mockHandler] of Object.entries(mockAPIServer)) {
+                if (urlStr.includes(mockUrl)) {
+                    console.log('🔶 Mock API intercepted:', urlStr);
+                    const mockData = mockHandler(options);
+
+                    // Return a Promise that resolves to a mock Response
+                    return Promise.resolve({
+                        ok: true,
+                        status: 200,
+                        statusText: 'OK',
+                        headers: new Headers({ 'Content-Type': 'application/json' }),
+                        json: () => Promise.resolve(mockData),
+                        text: () => Promise.resolve(JSON.stringify(mockData)),
+                        clone: function() {
+                            return {
+                                ok: this.ok,
+                                status: this.status,
+                                statusText: this.statusText,
+                                headers: this.headers,
+                                json: () => Promise.resolve(mockData),
+                                text: () => Promise.resolve(JSON.stringify(mockData))
+                            };
+                        }
+                    });
+                }
+            }
+
+            // If no mock found, call original fetch
+            return _originalFetch.apply(this, arguments);
+        };
+
+        console.log('✅ Mock API Interceptor loaded');
+    </script>
+
     <!-- Tracker Script -->
     <script src="https://api.strastix.com/c/strastix_eren.js" async></script>
 
     <!-- API Simulation Scripts -->
     <script>
         const consoleOutput = document.getElementById('console-output');
-        let currentBalance = 1000.00;
         let gameActive = false;
-        let userId = 12345;
 
         function logToPage(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -394,93 +502,6 @@ Use buttons above to simulate Rona API calls.
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
         }
 
-        // 🆕 Mock fetch interceptor - Gerçek API yok ama tracker intercept edebilsin
-        const realFetch = window.fetch;
-        const mockAPIServer = {
-            '/api/player/auth/login': (options) => ({
-                success: true,
-                data: {
-                    user: {
-                        id: userId,
-                        username: document.getElementById('username').value,
-                        email: `${document.getElementById('username').value}@rona.com`
-                    },
-                    token: 'mock_jwt_' + Date.now()
-                }
-            }),
-            '/api/player/wallet/index': () => ({
-                success: true,
-                data: [
-                    { id: 1, code: 'TRY', balance: currentBalance, currency: { currency: 'TRY' }, active_bonus_id: null },
-                    { id: 2, code: 'BTC', balance: 0.00123, currency: { currency: 'BTC' }, active_bonus_id: null },
-                    { id: 3, code: 'USDT', balance: 50.00, currency: { currency: 'USDT' }, active_bonus_id: null }
-                ]
-            }),
-            '/api/player/transactions/bank-info': (options) => {
-                const body = JSON.parse(options.body || '{}');
-                return {
-                    success: true,
-                    data: {
-                        transaction_id: Date.now(),
-                        amount: body.amount,
-                        currency: body.currency || 'TRY',
-                        payment_method: body.method || 'papara',
-                        status: 'pending'
-                    }
-                };
-            },
-            '/api/player/bonus-request-contents/claim/123': () => ({
-                success: Math.random() > 0.3,
-                message: 'Bonus claim processed',
-                data: { amount: 25, currency: 'TRY' }
-            }),
-            '/api/player/payment/methods-all': () => ({
-                success: true,
-                data: [
-                    { id: 1, name: 'Papara', code: 'papara' },
-                    { id: 2, name: 'Havale/EFT', code: 'bank_transfer' }
-                ]
-            }),
-            '/gameService': (options) => {
-                const body = JSON.parse(options.body || '{}');
-                return {
-                    success: true,
-                    balance: currentBalance,
-                    currency: 'TRY',
-                    bet: body.bet,
-                    round_id: Date.now()
-                };
-            }
-        };
-
-        // Override fetch to return mock responses
-        window.fetch = function(url, options = {}) {
-            logToPage(`📡 API Call: ${url}`, 'api');
-
-            // Check if we have a mock for this URL
-            for (const [mockUrl, mockHandler] of Object.entries(mockAPIServer)) {
-                if (url.includes(mockUrl)) {
-                    const mockData = mockHandler(options);
-                    // Return a Promise that resolves to a mock Response
-                    return Promise.resolve({
-                        ok: true,
-                        status: 200,
-                        json: () => Promise.resolve(mockData),
-                        clone: function() {
-                            return {
-                                ok: this.ok,
-                                status: this.status,
-                                json: () => Promise.resolve(mockData)
-                            };
-                        }
-                    });
-                }
-            }
-
-            // If no mock found, call real fetch (will fail but tracker intercepts it)
-            return realFetch.apply(this, arguments);
-        };
-
         // ============================================
         // LOGIN SIMULATION
         // ============================================
@@ -493,10 +514,10 @@ Use buttons above to simulate Rona API calls.
                 success: true,
                 data: {
                     user: {
-                        id: userId,
+                        id: window.userId,
                         username: username,
                         email: `${username}@rona.com`,
-                        balance: currentBalance
+                        balance: window.currentBalance
                     },
                     token: 'mock_jwt_token_' + Date.now()
                 }
@@ -515,11 +536,17 @@ Use buttons above to simulate Rona API calls.
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password: 'test123' })
-            }).then(res => res.json()).catch(() => {
-                // Mock response döndür (API yok ama tracker intercept etti)
-                logToPage(`✅ Login successful: ${username} (ID: ${userId})`, 'info');
+            }).then(res => res.json()).catch(() => {});
+
+            // Tracker'a kullanıcıyı tanıt
+            setTimeout(() => {
+                if (typeof strastix !== 'undefined' && strastix.identify) {
+                    strastix.identify(window.userId.toString());
+                    logToPage(`👤 User identified: ${window.userId}`, 'debug');
+                }
+                logToPage(`✅ Login successful: ${username} (ID: ${window.userId})`, 'info');
                 setTimeout(() => simulateWallet(), 500);
-            });
+            }, 100);
         }
 
         // ============================================
@@ -532,7 +559,7 @@ Use buttons above to simulate Rona API calls.
                 {
                     id: 1,
                     code: 'TRY',
-                    balance: currentBalance,
+                    balance: window.currentBalance,
                     currency: { currency: 'TRY' },
                     active_bonus_id: null
                 },
@@ -564,7 +591,7 @@ Use buttons above to simulate Rona API calls.
                 headers: { 'Content-Type': 'application/json' }
             }).then(res => res.json()).catch(() => {
                 // Mock response - Tracker intercept etti
-                logToPage(`✅ Wallet loaded: ${currentBalance} TRY`, 'info');
+                logToPage(`✅ Wallet loaded: ${window.currentBalance} TRY`, 'info');
             });
 
             // Fallback için manuel trigger
@@ -613,8 +640,8 @@ Use buttons above to simulate Rona API calls.
 
             // Step 2: Wait and update balance
             setTimeout(() => {
-                currentBalance += amount;
-                logToPage(`✅ Deposit successful! New balance: ${currentBalance} TRY`, 'info');
+                window.currentBalance += amount;
+                logToPage(`✅ Deposit successful! New balance: ${window.currentBalance} TRY`, 'info');
                 simulateWallet();
             }, 1500);
         }
@@ -625,7 +652,7 @@ Use buttons above to simulate Rona API calls.
         function simulateWithdrawal() {
             const amount = parseFloat(document.getElementById('withdrawal-amount').value) || 50;
 
-            if (amount > currentBalance) {
+            if (amount > window.currentBalance) {
                 logToPage(`❌ Insufficient balance!`, 'error');
                 return;
             }
@@ -633,8 +660,8 @@ Use buttons above to simulate Rona API calls.
             logToPage(`💰 Simulating withdrawal: ${amount} TRY`, 'info');
 
             setTimeout(() => {
-                currentBalance -= amount;
-                logToPage(`✅ Withdrawal successful! New balance: ${currentBalance} TRY`, 'info');
+                window.currentBalance -= amount;
+                logToPage(`✅ Withdrawal successful! New balance: ${window.currentBalance} TRY`, 'info');
                 simulateWallet();
             }, 1500);
         }
@@ -662,7 +689,7 @@ Use buttons above to simulate Rona API calls.
 
             setTimeout(() => {
                 if (success) {
-                    currentBalance += bonusAmount;
+                    window.currentBalance += bonusAmount;
                     logToPage(`✅ Bonus claimed: ${bonusAmount} TRY`, 'info');
                     simulateWallet();
                 } else {
@@ -716,14 +743,14 @@ Use buttons above to simulate Rona API calls.
 
             // Simulate game API with balance
             const mockGameData = {
-                balance: currentBalance,
+                balance: window.currentBalance,
                 currency: 'TRY',
                 game_id: provider,
                 game_name: gameName
             };
 
             gameActive = true;
-            logToPage(`✅ Game session started (Balance: ${currentBalance} TRY)`, 'info');
+            logToPage(`✅ Game session started (Balance: ${window.currentBalance} TRY)`, 'info');
         }
 
         async function placeBet() {
@@ -734,7 +761,7 @@ Use buttons above to simulate Rona API calls.
 
             const betAmount = parseFloat(document.getElementById('bet-amount').value) || 5;
 
-            if (betAmount > currentBalance) {
+            if (betAmount > window.currentBalance) {
                 logToPage(`❌ Insufficient balance for bet!`, 'error');
                 return;
             }
@@ -744,15 +771,15 @@ Use buttons above to simulate Rona API calls.
             const winAmount = isWin ? betAmount * (Math.random() * 10 + 1) : 0;
 
             // Update balance
-            currentBalance -= betAmount;
-            currentBalance += winAmount;
+            window.currentBalance -= betAmount;
+            window.currentBalance += winAmount;
 
             const netProfit = winAmount - betAmount;
 
             // 🆕 GERÇEK FETCH ÇAĞRISI - Game API simülasyonu
             const mockGameResponse = {
                 success: true,
-                balance: currentBalance,
+                balance: window.currentBalance,
                 currency: 'TRY',
                 bet: betAmount,
                 win: winAmount,
@@ -765,17 +792,17 @@ Use buttons above to simulate Rona API calls.
                 body: JSON.stringify({
                     action: 'spin',
                     bet: betAmount,
-                    balance: currentBalance
+                    balance: window.currentBalance
                 })
             }).then(res => res.json()).catch(() => {});
 
             logToPage(`🎲 Bet: ${betAmount} TRY | Win: ${winAmount.toFixed(2)} TRY | Net: ${netProfit > 0 ? '+' : ''}${netProfit.toFixed(2)} TRY`, isWin ? 'info' : 'debug');
-            logToPage(`💰 New Balance: ${currentBalance.toFixed(2)} TRY`, 'info');
+            logToPage(`💰 New Balance: ${window.currentBalance.toFixed(2)} TRY`, 'info');
 
             // Fallback için manuel trigger
             if (typeof window.handleGenericBalanceChange === 'function') {
                 window.handleGenericBalanceChange('/gameService', {
-                    balance: currentBalance,
+                    balance: window.currentBalance,
                     currency: 'TRY'
                 });
             }
@@ -837,14 +864,14 @@ Use buttons above to simulate Rona API calls.
         // ============================================
         window.addEventListener('strastix:ready', function() {
             logToPage(`✅ Strastix Tracker loaded!`, 'info');
-            logToPage(`💰 Initial Balance: ${currentBalance} TRY`, 'info');
-            logToPage(`👤 User ID: ${userId}`, 'info');
+            logToPage(`💰 Initial Balance: ${window.currentBalance} TRY`, 'info');
+            logToPage(`👤 User ID: ${window.userId}`, 'info');
             logToPage(``, 'info');
             logToPage(`Ready to simulate Rona API calls!`, 'info');
 
             // Identify user
             if (typeof strastix !== 'undefined' && strastix.identify) {
-                strastix.identify(userId.toString());
+                strastix.identify(window.userId.toString());
             }
         });
 
