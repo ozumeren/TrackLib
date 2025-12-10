@@ -91,6 +91,7 @@ services:
       start_period: 120s
     networks:
       - app-network
+      - coolify
 
   # Frontend Dashboard
   frontend:
@@ -120,6 +121,7 @@ services:
       start_period: 10s
     networks:
       - app-network
+      - coolify
 
   # Test Casino
   tracker:
@@ -145,10 +147,14 @@ services:
       start_period: 10s
     networks:
       - app-network
+      - coolify
 
 networks:
   app-network:
     driver: bridge
+  coolify:
+    external: true
+    name: coolify
 
 volumes:
   postgres_data:
