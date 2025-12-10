@@ -1,5 +1,5 @@
-import { 
-  AppShell, Group, Button, Stack, Menu, Text, Divider, 
+import {
+  AppShell, Group, Button, Stack, Menu, Text, Divider,
   ThemeIcon, Badge, UnstyledButton, Box, Avatar
 } from '@mantine/core';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
@@ -7,17 +7,54 @@ import { useAuth } from '../AuthContext';
 import {
   IconReportMoney, IconChevronDown, IconDashboard, IconChartPie,
   IconTargetArrow, IconSettings, IconUser, IconLogout, IconUserShield,
-  IconChartBar, IconShieldCheck
+  IconChartBar, IconShieldCheck, IconActivity, IconClock
 } from '@tabler/icons-react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 function AppNavbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [stats, setStats] = useState({ eventCount: 0, lastEventTime: null });
+
+  // Fetch user stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await axios.get('/api/analytics/overview');
+        if (response.data) {
+          setStats({
+            eventCount: response.data.totalEvents || 0,
+            lastEventTime: response.data.lastEventTime || null
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    };
+
+    fetchStats();
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const formatLastEvent = (timestamp) => {
+    if (!timestamp) return 'Henüz event yok';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now - date) / 60000);
+
+    if (diffMinutes < 1) return 'Az önce';
+    if (diffMinutes < 60) return `${diffMinutes} dakika önce`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} saat önce`;
+    return `${Math.floor(diffMinutes / 1440)} gün önce`;
   };
 
   const mainLinks = [
@@ -305,7 +342,24 @@ function AppNavbar() {
                   Rol: {user?.role === 'OWNER' ? 'Yönetici' : user?.role}
                 </Text>
               </Menu.Item>
-              
+
+              <Menu.Divider />
+
+              <Menu.Label>Kullanım İstatistikleri</Menu.Label>
+              <Menu.Item icon={<IconActivity size={16} />} disabled>
+                <Group position="apart">
+                  <Text size="xs" color="dimmed">Toplam Event</Text>
+                  <Badge size="sm" variant="light" color="blue">
+                    {stats.eventCount.toLocaleString('tr-TR')}
+                  </Badge>
+                </Group>
+              </Menu.Item>
+              <Menu.Item icon={<IconClock size={16} />} disabled>
+                <Text size="xs" color="dimmed">
+                  Son Event: {formatLastEvent(stats.lastEventTime)}
+                </Text>
+              </Menu.Item>
+
               <Menu.Divider />
               
               <Menu.Item 
