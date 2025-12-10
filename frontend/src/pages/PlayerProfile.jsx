@@ -120,14 +120,24 @@ function PlayerProfile() {
           </div>
         </Group>
         
-        <Badge
-          size="xl"
-          variant="gradient"
-          gradient={{ from: getLtvColor(financial.ltv), to: 'cyan' }}
-          leftSection={<IconTrendingUp size={16} />}
-        >
-          LTV: ₺{financial.ltv.toLocaleString('tr-TR')}
-        </Badge>
+        <Group spacing="md">
+          <Badge
+            size="xl"
+            variant="light"
+            color="blue"
+            leftSection={<IconWallet size={16} />}
+          >
+            Bakiye: ₺{(financial.currentBalance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Badge>
+          <Badge
+            size="xl"
+            variant="gradient"
+            gradient={{ from: getLtvColor(financial.ltv), to: 'cyan' }}
+            leftSection={<IconTrendingUp size={16} />}
+          >
+            LTV: ₺{financial.ltv.toLocaleString('tr-TR')}
+          </Badge>
+        </Group>
       </Group>
 
       {/* Özet Kartlar */}

@@ -122,6 +122,16 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
         // ===== LTV HESAPLAMA =====
         const ltv = totalDeposit - totalWithdrawal;
 
+        // ===== MEVCUT BAKİYE =====
+        // Son wallet_updated veya balance güncelleme eventini bul
+        const balanceEvents = events.filter(e =>
+            e.eventName === 'wallet_updated' ||
+            e.eventName === 'balance_updated' ||
+            e.parameters?.balance !== undefined
+        );
+        const lastBalanceEvent = balanceEvents.length > 0 ? balanceEvents[0] : null;
+        const currentBalance = lastBalanceEvent?.parameters?.balance || 0;
+
         // ===== AKTİVİTE İSTATİSTİKLERİ =====
         const loginCount = events.filter(e => e.eventName === 'login_successful').length;
         const registrationEvent = events.find(e => e.eventName === 'registration_completed');
@@ -211,6 +221,7 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
             // Finansal özet
             financial: {
                 ltv,
+                currentBalance,
                 totalDeposit,
                 totalWithdrawal,
                 totalBonuses,
