@@ -19,18 +19,24 @@ function validate(schema, options = {}) {
 
     return (req, res, next) => {
         const toValidate = {};
+        const schemaToUse = {};
 
-        // Collect data to validate
-        if (schema.body) toValidate.body = req.body;
-        if (schema.query) toValidate.query = req.query;
-        if (schema.params) toValidate.params = req.params;
+        // Collect data to validate and corresponding schemas
+        if (schema.body) {
+            toValidate.body = req.body;
+            schemaToUse.body = schema.body;
+        }
+        if (schema.query) {
+            toValidate.query = req.query;
+            schemaToUse.query = schema.query;
+        }
+        if (schema.params) {
+            toValidate.params = req.params;
+            schemaToUse.params = schema.params;
+        }
 
         // Build combined schema
-        const combinedSchema = Joi.object(toValidate).keys({
-            body: schema.body || Joi.any(),
-            query: schema.query || Joi.any(),
-            params: schema.params || Joi.any()
-        });
+        const combinedSchema = Joi.object(schemaToUse);
 
         // Validate
         const { error, value } = combinedSchema.validate(toValidate, defaultOptions);
