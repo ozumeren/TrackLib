@@ -127,10 +127,15 @@ router.get('/:playerId', protectWithJWT, async (req, res) => {
         const balanceEvents = events.filter(e =>
             e.eventName === 'wallet_updated' ||
             e.eventName === 'balance_updated' ||
-            e.parameters?.balance !== undefined
+            e.parameters?.balance !== undefined ||
+            e.parameters?.balance_current !== undefined ||
+            e.parameters?.try_balance !== undefined
         );
         const lastBalanceEvent = balanceEvents.length > 0 ? balanceEvents[0] : null;
-        const currentBalance = lastBalanceEvent?.parameters?.balance || 0;
+        const currentBalance = lastBalanceEvent?.parameters?.balance_current ||
+                               lastBalanceEvent?.parameters?.try_balance ||
+                               lastBalanceEvent?.parameters?.balance ||
+                               0;
 
         // ===== AKTİVİTE İSTATİSTİKLERİ =====
         const loginCount = events.filter(e => e.eventName === 'login_successful').length;
