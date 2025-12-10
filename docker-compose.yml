@@ -59,7 +59,7 @@ services:
       HTTPS_PORT: 3443
 
       # Database (internal service)
-      DATABASE_URL: postgresql://${POSTGRES_USER:-strastix_user}:${POSTGRES_PASSWORD:-changeMe123Strong!}@postgres:5432/${POSTGRES_DB:-strastix_db}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-strastix_user}:${POSTGRES_PASSWORD:-changeMe123Strong%21}@postgres:5432/${POSTGRES_DB:-strastix_db}
 
       # Redis (internal service)
       REDIS_URL: redis://redis:6379
