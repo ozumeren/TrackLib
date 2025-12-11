@@ -6,6 +6,25 @@ const { protectWithJWT } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// List all users (Admin/Owner only) - this route is protected in index.js
+router.get('/', protectWithJWT, async (req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            where: { customerId: req.user.customerId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+            }
+        });
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
 // Giriş yapmış kullanıcının kendi bilgilerini getirme
 router.get('/me', protectWithJWT, async (req, res) => {
     res.json({

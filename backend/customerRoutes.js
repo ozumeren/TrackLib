@@ -6,7 +6,56 @@ const { protectWithJWT, isOwner } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Mevcut müşteri bilgilerini getirme
+// List all customers (Admin only)
+router.get('/', protectWithJWT, async (req, res) => {
+    try {
+        const customers = await prisma.customer.findMany({
+            select: {
+                id: true,
+                name: true,
+                scriptId: true,
+                createdAt: true,
+                _count: {
+                    select: {
+                        users: true,
+                        events: true
+                    }
+                }
+            }
+        });
+        res.json(customers);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch customers' });
+    }
+});
+
+// Get current customer details
+router.get('/current', protectWithJWT, async (req, res) => {
+    try {
+        const customer = await prisma.customer.findUnique({
+            where: { id: req.user.customerId },
+            select: {
+                id: true,
+                name: true,
+                apiKey: true,
+                scriptId: true,
+                telegramBotToken: true,
+                metaPixelId: true,
+                metaAccessToken: true,
+                googleAdsId: true,
+                googleApiSecret: true,
+            }
+        });
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+        res.json(customer);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch customer' });
+    }
+});
+
+// Mevcut müşteri bilgilerini getirme (deprecated - use /current)
 router.get('/me', protectWithJWT, async (req, res) => {
     try {
         const customer = await prisma.customer.findUnique({
