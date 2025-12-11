@@ -15,15 +15,15 @@ Full-stack iGaming analytics platform with event tracking, segmentation, and fra
 .
 ├── backend/          # API server
 ├── frontend/         # Dashboard UI
-├── tracker/          # Client tracking scripts
-└── docker-compose.coolify.yml
+├── tracker/          # Test casino demo page
+└── docker-compose.yml
 ```
 
 ## 🔧 Deployment (Coolify)
 
 ### Quick Start
 
-**📖 Detaylı deployment guide için:** [COOLIFY-DEPLOYMENT.md](./COOLIFY-DEPLOYMENT.md)
+**📖 Detaylı deployment guide için:** [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ### Deployment Özeti
 
@@ -34,22 +34,19 @@ Full-stack iGaming analytics platform with event tracking, segmentation, and fra
    - Repository: Your Git URL
    - Base Directory: `TrackLib`
 
-2. **Environment Variables Ayarla (sadece 3 tane!):**
+2. **Environment Variables Ayarla (sadece 2 tane gerekli!):**
    ```env
    POSTGRES_PASSWORD=your_strong_password
    JWT_SECRET=your_32_char_secret
-   BACKEND_URL=https://api.yourdomain.com
    ```
 
 3. **Deploy!**
-   - PostgreSQL, Redis, Backend, Frontend otomatik başlar
+   - PostgreSQL, Redis, Backend, Frontend, Test Casino otomatik başlar
    - SSL sertifikaları otomatik oluşur
 
 ### Deployment Dosyaları
-- 🚀 `QUICKSTART.md` - 5 dakikada deploy (başlayın buradan!)
-- `docker-compose.yml` - Ana deployment (PostgreSQL + Redis embedded)
-- `COOLIFY-DEPLOYMENT.md` - Detaylı guide
-- `COOLIFY-CHECKLIST.md` - Adım adım checklist
+- `docker-compose.yml` - Production deployment (PostgreSQL + Redis embedded)
+- `DEPLOYMENT.md` - Detaylı deployment guide
 - `.env.example` - Environment variables template
 
 ## 🏃 Local Development
@@ -75,7 +72,7 @@ npm run dev
 | **Redis** | 6379 | Embedded | Cache (docker-compose içinde) |
 | **Backend** | 3000 | Container | Node.js API Server |
 | **Frontend** | 3001 | Container | React Dashboard (Nginx) |
-| **Tracker** | 8082 | Container | Test Casino (Nginx) |
+| **Test Casino** | 80 | Container | Demo Casino Page (Nginx) |
 
 **Not:** Tüm servisler tek `docker-compose.yml` içinde ve aynı network'te çalışır.
 

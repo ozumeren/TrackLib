@@ -1,33 +1,45 @@
 version: '3.8'
 
-# Coolify Deployment Configuration
-# Embedded PostgreSQL and Redis for guaranteed connectivity
+# ============================================
+# Coolify Production Deployment
+# ============================================
+# Strastix System: Backend API + Frontend Dashboard + Test Casino Demo
+# Automatic SSL/TLS via Coolify's Traefik
 
 services:
+  # ============================================
   # PostgreSQL Database
+  # ============================================
   postgres:
     image: postgres:15-alpine
+    container_name: strastix-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-strastix_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeMe123Strong!}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-strastix_db}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-strastix_user} -d ${POSTGRES_DB:-strastix_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - app-network
 
+  # ============================================
   # Redis Cache
+  # ============================================
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    container_name: strastix-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     expose:
@@ -37,41 +49,55 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
     restart: unless-stopped
     networks:
       - app-network
 
+  # ============================================
   # Backend API
+  # ============================================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: strastix-backend
     labels:
+      # Coolify/Traefik routing
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.strastix.com`)"
+      - "traefik.http.routers.backend.rule=Host(`${BACKEND_DOMAIN:-api.strastix.com}`)"
       - "traefik.http.routers.backend.entrypoints=https"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
     environment:
+      # Node.js
       NODE_ENV: production
       PORT: 3000
       HTTPS_PORT: 3443
 
-      # Database (internal service)
-      DATABASE_URL: postgresql://${POSTGRES_USER:-strastix_user}:${POSTGRES_PASSWORD:-changeMe123Strong%21}@postgres:5432/${POSTGRES_DB:-strastix_db}
+      # Database (internal connection)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-strastix_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-strastix_db}
 
-      # Redis (internal service)
+      # Redis (internal connection)
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
-      # Application secrets
+      # Security
       JWT_SECRET: ${JWT_SECRET}
-      BACKEND_URL: https://api.strastix.com
+
+      # Public URLs
+      BACKEND_URL: https://${BACKEND_DOMAIN:-api.strastix.com}
+      FRONTEND_URL: https://${FRONTEND_DOMAIN:-strastix.com}
 
       # Optional integrations
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      META_PIXEL_ID: ${META_PIXEL_ID:-}
+      META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:-}
+      GOOGLE_ADS_ID: ${GOOGLE_ADS_ID:-}
+      GOOGLE_API_SECRET: ${GOOGLE_API_SECRET:-}
+
     expose:
       - "3000"
       - "3443"
@@ -82,27 +108,31 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
       interval: 30s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 3
       start_period: 120s
+    restart: unless-stopped
     networks:
       - app-network
       - coolify
 
+  # ============================================
   # Frontend Dashboard
+  # ============================================
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://api.strastix.com
+        VITE_API_URL: https://${BACKEND_DOMAIN:-api.strastix.com}
+    container_name: strastix-frontend
     labels:
+      # Coolify/Traefik routing
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`strastix.com`)"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-strastix.com}`)"
       - "traefik.http.routers.frontend.entrypoints=https"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
@@ -112,54 +142,72 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3001 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
     networks:
       - app-network
       - coolify
 
-  # Test Casino
-  tracker:
+  # ============================================
+  # Test Casino Demo Page
+  # ============================================
+  test-casino:
     build:
       context: ./tracker
       dockerfile: Dockerfile
+    container_name: strastix-test-casino
     labels:
+      # Coolify/Traefik routing
       - "traefik.enable=true"
-      - "traefik.http.routers.tracker.rule=Host(`test.strastix.com`)"
-      - "traefik.http.routers.tracker.entrypoints=https"
-      - "traefik.http.routers.tracker.tls=true"
-      - "traefik.http.routers.tracker.tls.certresolver=letsencrypt"
-      - "traefik.http.services.tracker.loadbalancer.server.port=80"
-      - "traefik.http.services.tracker.loadbalancer.server.scheme=http"
+      - "traefik.http.routers.test-casino.rule=Host(`${TEST_CASINO_DOMAIN:-test.strastix.com}`)"
+      - "traefik.http.routers.test-casino.entrypoints=https"
+      - "traefik.http.routers.test-casino.tls=true"
+      - "traefik.http.routers.test-casino.tls.certresolver=letsencrypt"
+      - "traefik.http.services.test-casino.loadbalancer.server.port=80"
     expose:
       - "80"
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 5s
+    restart: unless-stopped
     networks:
       - app-network
       - coolify
 
+# ============================================
+# Networks
+# ============================================
 networks:
+  # Internal network for service-to-service communication
   app-network:
     driver: bridge
+    name: strastix-network
+
+  # Coolify's external network for Traefik routing
   coolify:
     external: true
     name: coolify
 
+# ============================================
+# Volumes
+# ============================================
 volumes:
   postgres_data:
     driver: local
+    name: strastix-postgres-data
+
   redis_data:
     driver: local
+    name: strastix-redis-data
+
   backend_logs:
     driver: local
+    name: strastix-backend-logs
