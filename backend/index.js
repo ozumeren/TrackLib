@@ -540,6 +540,32 @@ authRoutes.post('/login', validateBody(schemas.loginSchema), async (req, res) =>
     }
 });
 
+// Get current authenticated user
+authRoutes.get('/me', protectWithJWT, async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                customerId: true,
+                createdAt: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json(user);
+    } catch (error) {
+        console.error('Get current user error:', error);
+        res.status(500).json({ error: 'Failed to fetch user' });
+    }
+});
+
 app.use('/api/auth', authLimiter, authRoutes);
 
 // ============================================
