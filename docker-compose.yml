@@ -13,6 +13,8 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: strastix-postgres
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-strastix_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -62,6 +64,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: strastix-backend
+    env_file:
+      - .env
     labels:
       # Coolify/Traefik routing
       - "traefik.enable=true"
