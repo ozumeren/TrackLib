@@ -39,7 +39,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: strastix-redis
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --protected-mode no
     volumes:
       - redis_data:/data
     expose:
@@ -83,6 +83,7 @@ services:
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
 
       # Security
       JWT_SECRET: ${JWT_SECRET}

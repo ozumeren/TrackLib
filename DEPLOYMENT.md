@@ -185,6 +185,19 @@ Check logs in Coolify for each service:
    npx prisma migrate status
    ```
 
+### PostgreSQL Authentication Failed
+
+**Problem**: `P1000: Authentication failed against database server`
+
+**Solution**: This usually happens when `POSTGRES_PASSWORD` contains special characters.
+
+**Fix**:
+1. Use only these characters in password: `A-Z`, `a-z`, `0-9`, `_` (underscore)
+2. Avoid special characters: `@ # ! % & * ( ) = + [ ] { } | \ / ? < > , . ; : ' " \``
+3. Example good password: `MyStr0ng_P4ssw0rd_2024`
+4. In Coolify, update `POSTGRES_PASSWORD` environment variable
+5. Redeploy
+
 ### Database Migration Errors
 
 **Problem**: Migration fails on first deployment
@@ -198,6 +211,24 @@ If migrations still fail, manually resolve:
 ```bash
 docker exec -it strastix-backend sh
 npx prisma migrate deploy
+```
+
+### Redis Authentication Error
+
+**Problem**: `NOAUTH Authentication required` or `ReplyError: NOAUTH`
+
+**Solution**: This is already fixed in the latest docker-compose.yml.
+
+**Verify**:
+1. Make sure you're using the latest code from Git
+2. Redis should have `--protected-mode no` in command
+3. Backend environment should have `REDIS_PASSWORD=""`
+
+If still occurring:
+```bash
+# Check Redis is running without password
+docker exec strastix-redis redis-cli ping
+# Should return: PONG
 ```
 
 ### Redis Connection Issues
