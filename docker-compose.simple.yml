@@ -1,0 +1,119 @@
+version: '3.8'
+
+# ============================================
+# Coolify Simple Deployment
+# ============================================
+# PostgreSQL ve Redis: Coolify Managed Services
+# Backend + Frontend + Test Casino: Bu compose dosyası
+
+services:
+  # ============================================
+  # Backend API
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.simple
+    container_name: strastix-backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${BACKEND_DOMAIN:-api.strastix.com}`)"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HTTPS_PORT: 3443
+
+      # External Database (Coolify Managed)
+      DATABASE_URL: ${DATABASE_URL}
+
+      # External Redis (Coolify Managed)
+      REDIS_URL: ${REDIS_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Public URLs
+      BACKEND_URL: https://${BACKEND_DOMAIN:-api.strastix.com}
+      FRONTEND_URL: https://${FRONTEND_DOMAIN:-strastix.com}
+
+      # Optional integrations
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      META_PIXEL_ID: ${META_PIXEL_ID:-}
+      META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:-}
+      GOOGLE_ADS_ID: ${GOOGLE_ADS_ID:-}
+      GOOGLE_API_SECRET: ${GOOGLE_API_SECRET:-}
+    expose:
+      - "3000"
+      - "3443"
+    volumes:
+      - backend_logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - coolify
+
+  # ============================================
+  # Frontend Dashboard
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://${BACKEND_DOMAIN:-api.strastix.com}
+    container_name: strastix-frontend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-strastix.com}`)"
+      - "traefik.http.routers.frontend.entrypoints=https"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3001"
+    expose:
+      - "3001"
+    restart: unless-stopped
+    networks:
+      - coolify
+
+  # ============================================
+  # Test Casino Demo Page
+  # ============================================
+  test-casino:
+    build:
+      context: ./tracker
+      dockerfile: Dockerfile
+    container_name: strastix-test-casino
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.test-casino.rule=Host(`${TEST_CASINO_DOMAIN:-test.strastix.com}`)"
+      - "traefik.http.routers.test-casino.entrypoints=https"
+      - "traefik.http.routers.test-casino.tls=true"
+      - "traefik.http.routers.test-casino.tls.certresolver=letsencrypt"
+      - "traefik.http.services.test-casino.loadbalancer.server.port=80"
+    expose:
+      - "80"
+    restart: unless-stopped
+    networks:
+      - coolify
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  coolify:
+    external: true
+    name: coolify
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  backend_logs:
+    driver: local
+    name: strastix-backend-logs
