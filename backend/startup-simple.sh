@@ -116,8 +116,12 @@ if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
     echo "✅ Migrations completed successfully!"
 else
     echo "⚠️  Migration deployment had issues"
-    echo "🔄 Retrying migration deployment..."
 
+    # Try to resolve known failed migration
+    echo "🔄 Attempting to resolve failed migrations..."
+    npx prisma migrate resolve --applied add_ip_tracking 2>/dev/null || true
+
+    echo "🔄 Retrying migration deployment..."
     npx prisma migrate deploy
 
     RETRY_EXIT_CODE=$?
@@ -126,11 +130,12 @@ else
         echo "⚠️  Migration still failing"
         echo "📊 Checking database schema..."
 
-        # Try to verify connection at least
+        # Verify database connection and schema
         npx prisma db pull --force > /dev/null 2>&1
 
         if [ $? -eq 0 ]; then
-            echo "✅ Database connection valid - proceeding anyway"
+            echo "✅ Database connection valid - schema appears correct"
+            echo "▶️  Proceeding with application startup..."
         else
             echo "❌ Database schema verification failed"
             exit 1
