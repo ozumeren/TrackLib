@@ -7,6 +7,35 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 /**
+ * GET /api/player-profile
+ * List all players with basic profile info
+ */
+router.get('/', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+
+    try {
+        const players = await prisma.event.findMany({
+            where: {
+                customerId,
+                playerId: { not: null }
+            },
+            distinct: ['playerId'],
+            select: {
+                playerId: true,
+                createdAt: true
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100
+        });
+
+        res.json(players);
+    } catch (error) {
+        console.error('Failed to list players:', error);
+        res.status(500).json({ error: 'Failed to list players' });
+    }
+});
+
+/**
  * GET /api/player-profile/:playerId
  * Oyuncunun detaylı profilini ve tüm metriklerini döndürür
  */

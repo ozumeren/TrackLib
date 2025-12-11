@@ -5,6 +5,41 @@ const { protectWithJWT } = require('./authMiddleware');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Overview endpoint - comprehensive analytics
+router.get('/overview', protectWithJWT, async (req, res) => {
+    const customerId = req.user.customerId;
+    const { days = 7 } = req.query;
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    try {
+        const [totalEvents, uniquePlayers, totalSessions] = await Promise.all([
+            prisma.event.count({ where: { customerId, createdAt: { gte: startDate } } }),
+            prisma.event.findMany({
+                where: { customerId, createdAt: { gte: startDate }, playerId: { not: null } },
+                distinct: ['playerId'],
+                select: { playerId: true }
+            }),
+            prisma.event.findMany({
+                where: { customerId, createdAt: { gte: startDate } },
+                distinct: ['sessionId'],
+                select: { sessionId: true }
+            })
+        ]);
+
+        res.json({
+            period: `Last ${days} days`,
+            totalEvents,
+            uniquePlayers: uniquePlayers.length,
+            totalSessions: totalSessions.length,
+            startDate,
+            endDate: new Date()
+        });
+    } catch (error) {
+        console.error("Overview analytics error:", error);
+        res.status(500).json({ error: 'Failed to fetch overview analytics' });
+    }
+});
+
 router.get('/summary', protectWithJWT, async (req, res) => {
     const customerId = req.user.customerId;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

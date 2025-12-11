@@ -6,6 +6,45 @@ const { protectWithJWT, isAdmin } = require('./authMiddleware');
 
 const prisma = new PrismaClient();
 
+// Admin stats endpoint
+router.get('/stats', protectWithJWT, isAdmin, async (req, res) => {
+  try {
+    const [totalCustomers, totalUsers, totalEvents] = await Promise.all([
+      prisma.customer.count(),
+      prisma.user.count(),
+      prisma.event.count()
+    ]);
+
+    res.json({
+      totalCustomers,
+      totalUsers,
+      totalEvents,
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({ error: 'Stats could not be fetched' });
+  }
+});
+
+// Admin health check
+router.get('/health', protectWithJWT, isAdmin, async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'healthy',
+      database: 'connected',
+      timestamp: new Date()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
+
 // Tüm müşterileri listele
 router.get('/customers', protectWithJWT, isAdmin, async (req, res) => {
   try {
