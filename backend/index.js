@@ -249,12 +249,17 @@ app.get('/scripts/ebetlab.js', scriptServingLimiter, async (req, res) => {
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
 
         // Sabit config - Ebetlab için
+        // 🔧 VPS'de setup-static-customers.js çalıştırılana kadar geçerli bir API key kullan
+        const ebetlabApiKey = process.env.EBETLAB_API_KEY || 'trk_ebetlab_static';
+
         const config = {
             scriptId: 'ebetlab',
-            apiKey: process.env.EBETLAB_API_KEY || 'trk_ebetlab_static',
+            apiKey: ebetlabApiKey,
             backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: {}
         };
+
+        console.log(`📝 Ebetlab script serving with API key: ${ebetlabApiKey.substring(0, 10)}...`);
 
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
 
@@ -289,12 +294,17 @@ app.get('/scripts/truva.js', scriptServingLimiter, async (req, res) => {
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
 
         // Sabit config - Truva için
+        // 🔧 VPS'de setup-static-customers.js çalıştırılana kadar geçerli bir API key kullan
+        const truvaApiKey = process.env.TRUVA_API_KEY || 'trk_truva_static';
+
         const config = {
             scriptId: 'truva',
-            apiKey: process.env.TRUVA_API_KEY || 'trk_truva_static',
+            apiKey: truvaApiKey,
             backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: {}
         };
+
+        console.log(`📝 Truva script serving with API key: ${truvaApiKey.substring(0, 10)}...`);
 
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
 
