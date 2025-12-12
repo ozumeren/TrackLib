@@ -316,12 +316,23 @@ app.get('/scripts/truva.js', scriptServingLimiter, async (req, res) => {
     }
 });
 
-// YENİ: Script ID bazlı route
+// 🆕 /c/ ALIAS for static scripts (backward compatibility)
+app.get('/c/ebetlab.js', scriptServingLimiter, async (req, res) => {
+    req.url = '/scripts/ebetlab.js';
+    return app._router.handle(req, res);
+});
+
+app.get('/c/truva.js', scriptServingLimiter, async (req, res) => {
+    req.url = '/scripts/truva.js';
+    return app._router.handle(req, res);
+});
+
+// YENİ: Script ID bazlı route (dinamik customer-based)
 
 app.get('/scripts/:scriptId.js', scriptServingLimiter, async (req, res) => {
     try {
         const { scriptId } = req.params;
-        
+
         // Script ID formatını kontrol et (güvenlik)
         if (!/^[a-zA-Z0-9_-]+$/.test(scriptId)) {
             return res.status(400)
