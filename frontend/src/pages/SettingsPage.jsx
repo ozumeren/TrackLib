@@ -5,12 +5,12 @@ import { useAuth } from '../AuthContext';
 import {
   Title, Card, Stack, Text, Button, TextInput, Group,
   Paper, ThemeIcon, Alert, Badge, CopyButton, ActionIcon,
-  Tooltip, Code, Divider, SimpleGrid, Accordion, Box, Tabs
+  Tooltip, Code, Divider, SimpleGrid, Accordion, Box, Tabs, Select
 } from '@mantine/core';
 import {
   IconSettings, IconKey, IconCode, IconShield,
   IconCheck, IconCopy, IconInfoCircle, IconAlertTriangle,
-  IconBrandTelegram, IconBrandFacebook, IconBrandGoogle
+  IconBrandTelegram, IconBrandFacebook, IconBrandGoogle, IconScript
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 
@@ -19,17 +19,20 @@ function SettingsPage() {
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [domains, setDomains] = useState('');
+  const [trackerType, setTrackerType] = useState('default');
   const [saving, setSaving] = useState(false);
+  const [savingTracker, setSavingTracker] = useState(false);
   const API_BASE_URL = axios.defaults.baseURL;
 
   useEffect(() => {
     const fetchCustomer = async () => {
       if (!token) return;
       try {
-        const response = await axios.get('/api/customers/me', {
+        const response = await axios.get('/api/customers/settings', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCustomer(response.data);
+        setTrackerType(response.data.trackerType || 'default');
 
         const domainsResponse = await axios.get('/api/customers/domains', {
           headers: { Authorization: `Bearer ${token}` },
@@ -73,6 +76,40 @@ function SettingsPage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveTrackerType = async () => {
+    setSavingTracker(true);
+    try {
+      await axios.put(
+        '/api/customers/settings',
+        { trackerType },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      notifications.show({
+        title: 'Başarılı!',
+        message: 'Tracker tipi güncellendi. Değişikliğin etkili olması için sayfayı yenileyin.',
+        color: 'teal',
+        icon: <IconCheck size={16} />,
+        autoClose: 5000,
+      });
+
+      // Refresh customer data
+      const response = await axios.get('/api/customers/settings', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomer(response.data);
+    } catch (error) {
+      notifications.show({
+        title: 'Hata!',
+        message: error.response?.data?.error || 'Tracker tipi güncellenemedi.',
+        color: 'red',
+        icon: <IconAlertTriangle size={16} />,
+      });
+    } finally {
+      setSavingTracker(false);
     }
   };
 
@@ -284,6 +321,101 @@ function SettingsPage() {
                     </Accordion.Panel>
                   </Accordion.Item>
                 </Accordion>
+              </Card>
+            )}
+
+            {/* Tracker Type Selection */}
+            {customer.scriptId && (
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Group position="apart" mb="md">
+                  <Group spacing="sm">
+                    <ThemeIcon
+                      size="lg"
+                      radius="md"
+                      variant="light"
+                      color="violet"
+                    >
+                      <IconScript size={20} />
+                    </ThemeIcon>
+                    <div>
+                      <Text size="md" weight={600}>
+                        Tracker Tipi
+                      </Text>
+                      <Text size="xs" color="dimmed">
+                        Casino altyapınıza uygun tracker'ı seçin
+                      </Text>
+                    </div>
+                  </Group>
+                  <Badge
+                    size="lg"
+                    variant="dot"
+                    color={trackerType === 'ebetlab' ? 'violet' : trackerType === 'pronet' ? 'blue' : 'gray'}
+                  >
+                    {trackerType === 'ebetlab' ? 'RONA' : trackerType === 'pronet' ? 'TRUVA' : 'DEFAULT'}
+                  </Badge>
+                </Group>
+
+                <Select
+                  label="Tracker Infrastructure"
+                  description="Sitenizin kullandığı casino altyapısına göre tracker tipi seçin"
+                  placeholder="Tracker tipi seçin"
+                  value={trackerType}
+                  onChange={setTrackerType}
+                  data={[
+                    { value: 'default', label: '🔷 Default - Generic Tracker (Universal)' },
+                    { value: 'ebetlab', label: '🎰 EbetLab - RONA Infrastructure' },
+                    { value: 'pronet', label: '🏢 Pronet - TRUVA Infrastructure' }
+                  ]}
+                  mb="md"
+                />
+
+                <Alert
+                  icon={<IconInfoCircle size={16} />}
+                  color="violet"
+                  variant="light"
+                  mb="md"
+                >
+                  <Stack spacing={4}>
+                    <Text size="sm" weight={500}>
+                      📌 Tracker Tipleri:
+                    </Text>
+                    <Text size="xs">
+                      • <strong>Default:</strong> Tüm siteler için genel tracker
+                    </Text>
+                    <Text size="xs">
+                      • <strong>EbetLab (RONA):</strong> Rona altyapısı (API interception)
+                    </Text>
+                    <Text size="xs">
+                      • <strong>Pronet (TRUVA):</strong> Truva altyapısı (DOM-based tracking)
+                    </Text>
+                  </Stack>
+                </Alert>
+
+                <Group position="right">
+                  <Button
+                    onClick={handleSaveTrackerType}
+                    loading={savingTracker}
+                    leftSection={<IconCheck size={18} />}
+                    color="violet"
+                    disabled={trackerType === customer.trackerType}
+                  >
+                    Kaydet
+                  </Button>
+                </Group>
+
+                {trackerType !== customer.trackerType && (
+                  <Alert
+                    icon={<IconAlertTriangle size={16} />}
+                    color="orange"
+                    variant="light"
+                    mt="md"
+                  >
+                    <Text size="xs">
+                      ⚠️ Değişiklik kaydedildikten sonra etkili olması için sitenizdeki
+                      tracker script'i yeniden yüklenmelidir (sayfa yenileme).
+                    </Text>
+                  </Alert>
+                )}
               </Card>
             )}
           </Stack>

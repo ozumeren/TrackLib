@@ -125,9 +125,11 @@ router.get('/settings', protectWithJWT, async (req, res) => {
         const customer = await prisma.customer.findUnique({
             where: { id: req.user.customerId },
             // DEĞİŞİKLİK: Yeni reklam platformu alanlarını da seç
-            select: { 
-                name: true, 
-                apiKey: true, 
+            select: {
+                name: true,
+                apiKey: true,
+                scriptId: true,
+                trackerType: true,
                 telegramBotToken: true,
                 metaPixelId: true,
                 metaAccessToken: true,
@@ -147,7 +149,8 @@ router.get('/settings', protectWithJWT, async (req, res) => {
 // Müşteri ayarlarını güncelleme
 router.put('/settings', protectWithJWT, isOwner, async (req, res) => {
     // DEĞİŞİKLİK: body'den tüm yeni alanları al
-    const { 
+    const {
+        trackerType,
         telegramBotToken,
         metaPixelId,
         metaAccessToken,
@@ -155,11 +158,20 @@ router.put('/settings', protectWithJWT, isOwner, async (req, res) => {
         googleApiSecret,
     } = req.body;
 
+    // Tracker type validation
+    const validTrackerTypes = ['default', 'pronet', 'ebetlab'];
+    if (trackerType && !validTrackerTypes.includes(trackerType)) {
+        return res.status(400).json({
+            error: `Invalid tracker type. Must be one of: ${validTrackerTypes.join(', ')}`
+        });
+    }
+
     try {
         await prisma.customer.update({
             where: { id: req.user.customerId },
             // DEĞİŞİKLİK: Gelen tüm verilerle güncelle
-            data: { 
+            data: {
+                trackerType,
                 telegramBotToken,
                 metaPixelId,
                 metaAccessToken,
