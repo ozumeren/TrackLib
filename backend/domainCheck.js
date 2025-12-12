@@ -64,11 +64,11 @@ async function validateScriptOrigin(req, res, next) {
 }
 
 /**
- * Event gönderimlerini doğrular
+ * Event gönderimlerini doğrular (Script ID bazlı)
  */
 async function validateEventOrigin(req, res, next) {
     try {
-        const apiKey = req.body.api_key;
+        const scriptId = req.body.script_id;
         const eventUrl = req.body.url; // Event'in gönderildiği sayfa URL'i
 
         if (!eventUrl) {
@@ -77,22 +77,22 @@ async function validateEventOrigin(req, res, next) {
 
         const eventDomain = new URL(eventUrl).hostname;
 
-        const customer = await prisma.customer.findUnique({
-            where: { apiKey },
-            select: { allowedDomains: true, name: true }
-        });
+        // .env'den allowed domains listesini al
+        const allowedDomainsEnv = scriptId === 'ebetlab'
+            ? process.env.EBETLAB_ALLOWED_DOMAINS
+            : process.env.TRUVA_ALLOWED_DOMAINS;
 
-        if (!customer) {
-            return res.status(403).json({ error: 'Invalid API key' });
-        }
-
-        // Domain kısıtlaması yoksa geçir
-        if (!customer.allowedDomains || customer.allowedDomains.length === 0) {
+        // .env'de tanımlı değilse herkese izin ver (development)
+        if (!allowedDomainsEnv || allowedDomainsEnv === '*') {
+            console.log(`⚠️  WARNING: ${scriptId} has no domain restrictions`);
             return next();
         }
 
+        // Virgülle ayrılmış listeyi array'e çevir
+        const allowedDomains = allowedDomainsEnv.split(',').map(d => d.trim());
+
         // Domain kontrolü
-        const isAllowed = customer.allowedDomains.some(allowed => {
+        const isAllowed = allowedDomains.some(allowed => {
             if (allowed.startsWith('*.')) {
                 const baseDomain = allowed.substring(2);
                 return eventDomain.endsWith(baseDomain);
@@ -101,13 +101,15 @@ async function validateEventOrigin(req, res, next) {
         });
 
         if (!isAllowed) {
-            console.log(`🚫 EVENT BLOCKED: ${eventDomain} for ${customer.name}`);
-            return res.status(403).json({ 
+            console.log(`🚫 EVENT BLOCKED: ${eventDomain} for ${scriptId}`);
+            return res.status(403).json({
                 error: 'Domain not authorized',
-                domain: eventDomain 
+                domain: eventDomain,
+                allowedDomains: allowedDomains
             });
         }
 
+        console.log(`✅ EVENT ALLOWED: ${eventDomain} for ${scriptId}`);
         next();
 
     } catch (error) {

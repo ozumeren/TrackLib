@@ -64,20 +64,15 @@ enum ActionType {
 model Customer {
   id                String   @id @default(cuid())
   name              String
-  apiKey            String   @unique
-  scriptId          String   @unique
+  scriptId          String   @unique // "ebetlab" veya "truva"
 
   // 🆕 Tracker Type Selection
   trackerType       String   @default("default") // "pronet" (Truva), "ebetlab" (Rona), "default"
 
-  // Domain güvenliği için
+  // Domain güvenliği için (artık .env'den gelecek)
   allowedDomains    String[]
 
   telegramBotToken  String?
-  metaPixelId       String?
-  metaAccessToken   String?
-  googleAdsId       String?
-  googleApiSecret   String?
   domConfig         Json?
 
   users             User[]
@@ -112,13 +107,12 @@ model User {
 model Event {
   id         Int      @id @default(autoincrement())
   createdAt  DateTime @default(now())
-  apiKey     String
   sessionId  String
   playerId   String?
   eventName  String
   url        String
   parameters Json?
-  ipAddress  String?  // ← YENİ ALAN
+  ipAddress  String?
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
@@ -128,9 +122,9 @@ model Event {
   @@index([customerId, playerId, eventName])
   @@index([customerId, eventName, createdAt])
   @@index([sessionId])
-  @@index([ipAddress])  // ← YENİ INDEX
-  @@index([customerId, ipAddress])  // ← YENİ INDEX
-  @@index([customerId, playerId, ipAddress])  // ← YENİ INDEX
+  @@index([ipAddress])
+  @@index([customerId, ipAddress])
+  @@index([customerId, playerId, ipAddress])
 }
 
 model Player {

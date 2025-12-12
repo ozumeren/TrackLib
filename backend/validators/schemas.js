@@ -82,12 +82,13 @@ const loginSchema = Joi.object({
 // ============================================
 
 const eventSchema = Joi.object({
-    api_key: Joi.string()
-        .pattern(/^trk_[a-f0-9]{32}$/)
+    script_id: Joi.string()
+        .trim()
+        .valid('ebetlab', 'truva')
         .required()
         .messages({
-            'string.pattern.base': 'Invalid API key format',
-            'any.required': 'API key is required'
+            'any.only': 'Script ID must be either "ebetlab" or "truva"',
+            'any.required': 'Script ID is required'
         }),
 
     session_id: Joi.string()

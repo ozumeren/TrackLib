@@ -229,7 +229,7 @@
   // ============================================
   async function sendEvent(eventName, params, retryCount = 0) {
     const payload = {
-      api_key: config.apiKey,
+      script_id: config.scriptId,
       session_id: sessionId,
       player_id: playerId,
       event_name: eventName,

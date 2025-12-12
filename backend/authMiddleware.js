@@ -40,32 +40,35 @@ const isAdmin = (req, res, next) => {
 };
 
 
-async function protectWithApiKey(req, res, next) {
+// Basitleştirilmiş: Script ID ile customer belirleme
+async function protectByScriptId(req, res, next) {
     try {
-        const apiKey = req.body.api_key || req.query.api_key || req.headers['x-api-key'];
+        const scriptId = req.body.script_id || req.query.script_id || req.headers['x-script-id'];
 
-        if (!apiKey) {
-            // HATA 1: API Key hiç yoksa, yanıt gönder ve bitir.
-            return res.status(401).json({ error: 'API anahtarı gerekli.' });
+        if (!scriptId) {
+            return res.status(400).json({ error: 'Script ID gerekli.' });
         }
 
-        const customer = await prisma.customer.findUnique({ where: { apiKey } });
+        // Script ID sadece 'ebetlab' veya 'truva' olabilir
+        if (scriptId !== 'ebetlab' && scriptId !== 'truva') {
+            return res.status(400).json({ error: 'Geçersiz Script ID. Sadece "ebetlab" veya "truva" kullanılabilir.' });
+        }
+
+        const customer = await prisma.customer.findUnique({ where: { scriptId } });
 
         if (!customer) {
-            // HATA 2: API Key geçersizse, yanıt gönder ve bitir.
-            return res.status(403).json({ error: 'Geçersiz API anahtarı.' });
+            return res.status(404).json({ error: `${scriptId} için customer kaydı bulunamadı.` });
         }
 
-        // BAŞARILI: Müşteri bulundu. Bilgiyi 'req' objesine ekle ve bir sonraki adıma geç.
+        // Customer'ı req'e ekle
         req.customer = customer;
-        next(); // <<< EN ÖNEMLİ KISIM
+        next();
 
     } catch (error) {
-        console.error('API Key Middleware Hatası:', error);
-        // HATA 3: Beklenmedik bir hata olursa, yanıt gönder ve bitir.
+        console.error('Script ID Middleware Hatası:', error);
         return res.status(500).json({ error: 'Sunucu hatası.' });
     }
 }
 
-module.exports = { protectWithJWT, isOwner, isAdmin, protectWithApiKey }; // isAdmin'i export et
+module.exports = { protectWithJWT, isOwner, isAdmin, protectByScriptId };
 

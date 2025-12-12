@@ -84,7 +84,7 @@ app.use(express.static('public'));
 // ============================================
 // AUTHENTICATION MIDDLEWARE
 // ============================================
-const { protectWithJWT, protectWithApiKey, isOwner, isAdmin } = require('./authMiddleware');
+const { protectWithJWT, protectByScriptId, isOwner, isAdmin } = require('./authMiddleware');
 
 // Domain validation middleware (opsiyonel - dosyayı oluşturmanız gerekiyor)
 let validateScriptOrigin, validateEventOrigin;
@@ -248,18 +248,14 @@ app.get('/scripts/ebetlab.js', scriptServingLimiter, async (req, res) => {
 
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
 
-        // Sabit config - Ebetlab için
-        // 🔧 VPS'de setup-static-customers.js çalıştırılana kadar geçerli bir API key kullan
-        const ebetlabApiKey = process.env.EBETLAB_API_KEY || 'trk_ebetlab_static';
-
+        // Sabit config - Ebetlab için (API key yok, sadece scriptId)
         const config = {
             scriptId: 'ebetlab',
-            apiKey: ebetlabApiKey,
             backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: {}
         };
 
-        console.log(`📝 Ebetlab script serving with API key: ${ebetlabApiKey.substring(0, 10)}...`);
+        console.log(`📝 Ebetlab script serving for scriptId: ebetlab`);
 
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
 
@@ -293,18 +289,14 @@ app.get('/scripts/truva.js', scriptServingLimiter, async (req, res) => {
 
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
 
-        // Sabit config - Truva için
-        // 🔧 VPS'de setup-static-customers.js çalıştırılana kadar geçerli bir API key kullan
-        const truvaApiKey = process.env.TRUVA_API_KEY || 'trk_truva_static';
-
+        // Sabit config - Truva için (API key yok, sadece scriptId)
         const config = {
             scriptId: 'truva',
-            apiKey: truvaApiKey,
             backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: {}
         };
 
-        console.log(`📝 Truva script serving with API key: ${truvaApiKey.substring(0, 10)}...`);
+        console.log(`📝 Truva script serving for scriptId: truva`);
 
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
 
@@ -831,7 +823,7 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🎯 Script Endpoint: ${BACKEND_URL}/c/strastix_deneme.js\n`);
 });
 
-app.post('/api/e', eventTrackingLimiter, validateEventOrigin, protectWithApiKey, validateBody(schemas.eventSchema), async (req, res) => {
+app.post('/api/e', eventTrackingLimiter, validateEventOrigin, protectByScriptId, validateBody(schemas.eventSchema), async (req, res) => {
     const eventData = req.body;
     const customer = req.customer;
 
@@ -855,8 +847,8 @@ app.post('/api/e', eventTrackingLimiter, validateEventOrigin, protectWithApiKey,
     console.log('🌐 Captured IP:', ipAddress);
 
     try {
-        // Rate limiting check
-        const rateLimitKey = `rate:${customer.apiKey}:${eventData.session_id}`;
+        // Rate limiting check (IP + scriptId bazlı)
+        const rateLimitKey = `rate:${customer.scriptId}:${ipAddress}:${eventData.session_id}`;
         const requestCount = await redis.incr(rateLimitKey);
 
         if (requestCount === 1) {
@@ -864,7 +856,7 @@ app.post('/api/e', eventTrackingLimiter, validateEventOrigin, protectWithApiKey,
         }
 
         if (requestCount > 100) {
-            console.log(`⚠️  Rate limit exceeded: ${customer.name}`);
+            console.log(`⚠️  Rate limit exceeded: ${customer.scriptId} from IP ${ipAddress}`);
             return res.status(429).json({ error: 'Rate limit exceeded' });
         }
 
@@ -888,7 +880,6 @@ app.post('/api/e', eventTrackingLimiter, validateEventOrigin, protectWithApiKey,
         // Save event
         await prisma.event.create({
             data: {
-                apiKey: eventData.api_key,
                 sessionId: eventData.session_id,
                 playerId: eventData.player_id || null,
                 eventName: eventData.event_name,
