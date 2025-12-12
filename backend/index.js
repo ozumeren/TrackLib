@@ -235,6 +235,87 @@ async function createPredefinedData(customerId) {
 // SCRIPT SERVING ROUTES
 // ============================================
 
+// 🆕 SABIT URL'Lİ SCRIPTLER - EBETLAB VE TRUVA İÇİN
+app.get('/scripts/ebetlab.js', scriptServingLimiter, async (req, res) => {
+    try {
+        const templatePath = path.join(__dirname, 'public', 'tracker-ebetlab.js');
+
+        if (!fs.existsSync(templatePath)) {
+            return res.status(500)
+                .type('application/javascript; charset=utf-8')
+                .send('console.error("TrackLib: Ebetlab tracker template not found");');
+        }
+
+        let scriptContent = fs.readFileSync(templatePath, 'utf8');
+
+        // Sabit config - Ebetlab için
+        const config = {
+            scriptId: 'ebetlab',
+            apiKey: process.env.EBETLAB_API_KEY || 'trk_ebetlab_static',
+            backendUrl: `${BACKEND_URL}/api/e`,
+            domConfig: {}
+        };
+
+        scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
+
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        res.removeHeader('X-Content-Type-Options');
+
+        res.send(scriptContent);
+
+        console.log(`✅ Ebetlab script served from ${req.get('origin') || 'direct'}`);
+
+    } catch (error) {
+        console.error("Ebetlab script error:", error);
+        res.status(500)
+            .type('application/javascript; charset=utf-8')
+            .send('console.error("TrackLib: Ebetlab script generation failed");');
+    }
+});
+
+app.get('/scripts/truva.js', scriptServingLimiter, async (req, res) => {
+    try {
+        const templatePath = path.join(__dirname, 'public', 'tracker-pronet.js');
+
+        if (!fs.existsSync(templatePath)) {
+            return res.status(500)
+                .type('application/javascript; charset=utf-8')
+                .send('console.error("TrackLib: Truva tracker template not found");');
+        }
+
+        let scriptContent = fs.readFileSync(templatePath, 'utf8');
+
+        // Sabit config - Truva için
+        const config = {
+            scriptId: 'truva',
+            apiKey: process.env.TRUVA_API_KEY || 'trk_truva_static',
+            backendUrl: `${BACKEND_URL}/api/e`,
+            domConfig: {}
+        };
+
+        scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
+
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        res.removeHeader('X-Content-Type-Options');
+
+        res.send(scriptContent);
+
+        console.log(`✅ Truva script served from ${req.get('origin') || 'direct'}`);
+
+    } catch (error) {
+        console.error("Truva script error:", error);
+        res.status(500)
+            .type('application/javascript; charset=utf-8')
+            .send('console.error("TrackLib: Truva script generation failed");');
+    }
+});
+
 // YENİ: Script ID bazlı route
 
 app.get('/scripts/:scriptId.js', scriptServingLimiter, async (req, res) => {
