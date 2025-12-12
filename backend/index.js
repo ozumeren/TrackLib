@@ -345,28 +345,42 @@ app.get('/c/:scriptId.js', scriptServingLimiter, async (req, res) => {
                 .send(`console.error("TrackLib: Template file not found: ${templateFileName}");`);
         }
 
+        // 🆕 Generate ETag based on scriptId + trackerType + updatedAt
+        // This ensures cache invalidates when tracker type changes
+        const etagSource = `${scriptId}-${trackerType}-${customer.updatedAt?.getTime() || Date.now()}`;
+        const etag = crypto.createHash('md5').update(etagSource).digest('hex');
+
+        // Check if client has cached version
+        const clientEtag = req.get('If-None-Match');
+        if (clientEtag === etag) {
+            console.log(`✅ Script cached (304): ${scriptId} - ${trackerType}`);
+            return res.status(304).end();
+        }
+
         let scriptContent = fs.readFileSync(templatePath, 'utf8');
 
         console.log(`📝 Using tracker: ${templateFileName} (type: ${trackerType}) for ${customer.name}`);
-        
+
         const config = {
             scriptId: scriptId,
             apiKey: customer.apiKey,
             backendUrl: `${BACKEND_URL}/api/e`,
             domConfig: customer.domConfig || {}
         };
-        
+
         scriptContent = scriptContent.replace('__CONFIG__', JSON.stringify(config));
-        
+
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        // 🆕 Use ETag for cache validation instead of max-age
+        res.setHeader('Cache-Control', 'public, must-revalidate, max-age=300');
+        res.setHeader('ETag', etag);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET');
         res.removeHeader('X-Content-Type-Options');
-        
+
         res.send(scriptContent);
-        
-        console.log(`✅ Script served: ${scriptId} from ${req.get('origin') || 'direct'}`);
+
+        console.log(`✅ Script served: ${scriptId} (${trackerType}) - ETag: ${etag.substring(0, 8)}...`);
         
     } catch (error) {
         console.error("Script generation error:", error);
