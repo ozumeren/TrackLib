@@ -563,7 +563,7 @@ Use buttons above to simulate Rona API calls.
         // ============================================
         // GAME SESSION SIMULATION
         // ============================================
-        function startGameSession() {
+        async function startGameSession() {
             const provider = document.getElementById('game-provider').value;
             const gameName = document.getElementById('game-provider').selectedOptions[0].text;
 
@@ -574,19 +574,40 @@ Use buttons above to simulate Rona API calls.
 
             logToPage(`🎮 Starting game: ${gameName}`, 'info');
 
-            // Simulate game API with balance
-            const mockGameData = {
-                balance: currentBalance,
-                currency: 'TRY',
-                game_id: provider,
-                game_name: gameName
-            };
+            // 🆕 GERÇEK FETCH ÇAĞRISI - Game session başlatmak için gerekli!
+            // Tracker intercept edebilsin diye mutlaka bir API çağrısı yapmalıyız
+            try {
+                const response = await fetch('/gameService', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'game_start',
+                        game_id: provider,
+                        game_name: gameName,
+                        balance: currentBalance,
+                        currency: 'TRY'
+                    })
+                });
 
-            gameActive = true;
-            logToPage(`✅ Game session started (Balance: ${currentBalance} TRY)`, 'info');
+                console.log('🎮 Game start API called:', '/gameService', {
+                    provider,
+                    gameName,
+                    balance: currentBalance
+                });
+
+                const data = await response.json();
+                console.log('✅ Game start response:', data);
+
+                gameActive = true;
+                logToPage(`✅ Game session started (Balance: ${currentBalance} TRY)`, 'info');
+                logToPage(`📡 API called: /gameService`, 'debug');
+            } catch (err) {
+                console.error('❌ Game start error:', err);
+                logToPage(`❌ Failed to start game session`, 'error');
+            }
         }
 
-        function placeBet() {
+        async function placeBet() {
             if (!gameActive) {
                 logToPage(`⚠️  Start a game session first!`, 'warn');
                 return;
@@ -609,16 +630,26 @@ Use buttons above to simulate Rona API calls.
 
             const netProfit = winAmount - betAmount;
 
+            // 🆕 GERÇEK FETCH ÇAĞRISI - Game API simülasyonu
+            fetch('/gameService', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'spin',
+                    bet: betAmount,
+                    balance: currentBalance,
+                    win: winAmount,
+                    round_id: Date.now()
+                })
+            }).then(res => {
+                console.log('✅ Game API response received');
+                return res.json();
+            }).catch(err => {
+                console.error('❌ Game API error:', err);
+            });
+
             logToPage(`🎲 Bet: ${betAmount} TRY | Win: ${winAmount.toFixed(2)} TRY | Net: ${netProfit > 0 ? '+' : ''}${netProfit.toFixed(2)} TRY`, isWin ? 'info' : 'debug');
             logToPage(`💰 New Balance: ${currentBalance.toFixed(2)} TRY`, 'info');
-
-            // Simulate generic balance change detection
-            if (typeof window.handleGenericBalanceChange === 'function') {
-                window.handleGenericBalanceChange('/gameService', {
-                    balance: currentBalance,
-                    currency: 'TRY'
-                });
-            }
         }
 
         function endGameSession() {

@@ -969,18 +969,30 @@
   function extractGameNameFromURL(url) {
     if (!url) return 'unknown';
 
-    // Try to extract from query params
-    const urlObj = new URL(url);
-    const gameName = urlObj.searchParams.get('game') ||
-                     urlObj.searchParams.get('gameName') ||
-                     urlObj.searchParams.get('name');
+    try {
+      // Handle both absolute and relative URLs
+      const urlObj = new URL(url, window.location.href);
+      const gameName = urlObj.searchParams.get('game') ||
+                       urlObj.searchParams.get('gameName') ||
+                       urlObj.searchParams.get('name');
 
-    if (gameName) return gameName;
+      if (gameName) return gameName;
 
-    // Try to extract from path
-    const pathParts = urlObj.pathname.split('/').filter(p => p);
-    if (pathParts.length > 0) {
-      return pathParts[pathParts.length - 1];
+      // Try to extract from path
+      const pathParts = urlObj.pathname.split('/').filter(p => p);
+      if (pathParts.length > 0) {
+        return pathParts[pathParts.length - 1];
+      }
+    } catch (error) {
+      console.warn('Strastix RONA: Failed to parse game URL:', url, error);
+
+      // Fallback: Extract from string
+      if (typeof url === 'string') {
+        const parts = url.split('/').filter(p => p && !p.includes('?'));
+        if (parts.length > 0) {
+          return parts[parts.length - 1].split('?')[0];
+        }
+      }
     }
 
     return 'unknown';
